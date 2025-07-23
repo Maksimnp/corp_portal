@@ -3,33 +3,53 @@ from typing import Optional, Dict
 from jose import jwt, JWTError
 import os
 from dotenv import load_dotenv
-import ldap
+import logging
+
+# Настройка логирования
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
+# Проверка переменных окружения
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 
 if not SECRET_KEY:
+    logger.error("SECRET_KEY not found in environment variables")
     raise ValueError("SECRET_KEY not found in environment variables")
+if not ALGORITHM:
+    logger.error("ALGORITHM not found in environment variables, using default HS256")
+if ACCESS_TOKEN_EXPIRE_MINUTES <= 0:
+    logger.error("ACCESS_TOKEN_EXPIRE_MINUTES must be positive, using default 30")
+    ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_access_token(data: Dict[str, str], expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    try:
+        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+        logger.debug(f"Created JWT token for user: {to_encode.get('sub')}")
+        return encoded_jwt
+    except Exception as e:
+        logger.error(f"Failed to create JWT token: {e}")
+        raise
 
-def verify_token(token: str):
+def verify_token(token: str) -> Optional[Dict[str, str]]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        full_name: str = payload.get("full_name", "Не указано")  # Добавляем ФИО из токена
-        if username is None:
-            print("Token verification failed: No username in token")
+        username = payload.get("sub")
+        if not username:
+            logger.warning("Token verification failed: No username in token")
             return None
-        return {"username": username, "full_name": full_name}
+        result = {
+            "username": username,
+            "full_name": payload.get("full_name", "Не указано"),
+            "role": payload.get("role", None) 
+        }
+        logger.debug(f"Token verified for user: {username}")
+        return result
     except JWTError as e:
-        print(f"Token verification error: {e}")
+        logger.warning(f"Token verification error: {e}")
         return None
