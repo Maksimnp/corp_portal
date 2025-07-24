@@ -1,47 +1,36 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+// src/pages/AuthContext.tsx
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 interface AuthContextType {
-  isAuthenticated: boolean | null;
-  isAdmin: boolean | null;
+  isAuthenticated: boolean;
+  isAdmin: boolean;
+  loading: boolean;
   login: (token: string, role: string) => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: JSX.Element }> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const verifyToken = async () => {
-      const token = localStorage.getItem('token');
-      const role = localStorage.getItem('role');
-      if (!token) {
-        setIsAuthenticated(false);
-        setIsAdmin(false);
-        return;
-      }
-      try {
-        const response = await fetch('http://192.1.66.117:8000/auth/verify', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await response.json();
-        setIsAuthenticated(response.ok);
-        setIsAdmin(response.ok && data.role === 'admin');
-      } catch (error) {
-        setIsAuthenticated(false);
-        setIsAdmin(false);
-      }
-    };
-    verifyToken();
+    const token = localStorage.getItem('token');
+    const role = localStorage.getItem('role');
+    if (token && role) {
+      setIsAuthenticated(true);
+      setIsAdmin(role === '1' || role === 'admin'); // Предполагая, что '1' или 'admin' обозначает администратора
+    }
+    setLoading(false);
   }, []);
 
   const login = (token: string, role: string) => {
     localStorage.setItem('token', token);
     localStorage.setItem('role', role);
     setIsAuthenticated(true);
-    setIsAdmin(role === 'admin');
+    setIsAdmin(role === '1' || role === 'admin');
   };
 
   const logout = () => {
@@ -52,7 +41,7 @@ export const AuthProvider: React.FC<{ children: JSX.Element }> = ({ children }) 
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, isAdmin, login, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, isAdmin, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

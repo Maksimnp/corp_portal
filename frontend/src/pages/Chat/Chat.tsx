@@ -1,376 +1,391 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { jwtDecode } from 'jwt-decode';
 
-interface Contact {
-  id: string;
+interface User {
   username: string;
+  full_name: string;
+  avatar_url?: string;
+  status: 'online' | 'away' | 'offline';
+}
+
+interface Channel {
+  id: string;
+  name: string;
+  type: 'public' | 'private';
+  image_url?: string;
+}
+
+interface Message {
+  id: string;
+  sender: string;
+  sender_full_name: string;
+  content: string;
+  file_url?: string;
+  timestamp: string;
 }
 
 export const Chat: React.FC = () => {
-  const [messages, setMessages] = useState<string[]>([]);
-  const [message, setMessage] = useState('');
-  const [channel, setChannel] = useState('general');
-  const [channels, setChannels] = useState<string[]>(['general']);
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem('theme') === 'dark';
+  });
+  const [contacts, setContacts] = useState<User[]>([]);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [showNotification, setShowNotification] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
-  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [newChannelImage, setNewChannelImage] = useState<File | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const maxReconnectAttempts = 5;
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const isConnectingRef = useRef(false);
-
   const token = localStorage.getItem('token');
 
-  const isTokenExpired = (token: string) => {
-    try {
-      const decoded: { exp: number } = jwtDecode(token);
-      return decoded.exp * 1000 < Date.now();
-    } catch (e) {
-      console.error('❌ Invalid token format:', e);
-      return true;
-    }
-  };
+  const themeClass = darkMode ? 'dark bg-gray-900 text-white' : 'bg-gray-50 text-gray-900';
 
-  const connectWebSocket = () => {
-    if (!token) {
-      console.error('🔐 No token found, redirecting to login');
-      setMessages(prev => [...prev, 'Токен отсутствует, перенаправление на страницу входа']);
-      navigate('/login');
-      return;
-    }
+  // Save theme preference
+  useEffect(() => {
+    localStorage.setItem('theme', darkMode ? 'dark' : 'light');
+    document.documentElement.classList.toggle('dark', darkMode);
+  }, [darkMode]);
 
-    if (isTokenExpired(token)) {
-      console.error('🔐 Token expired, redirecting to login');
-      localStorage.removeItem('token');
-      setMessages(prev => [...prev, 'Токен истек, перенаправление на страницу входа']);
-      navigate('/login');
-      return;
-    }
+  // WebSocket
+  useEffect(() => {
+    if (!selectedUser && !selectedChannel) return;
 
-    if (reconnectAttempts >= maxReconnectAttempts) {
-      console.error('🔄 Max reconnect attempts reached');
-      setMessages(prev => [...prev, 'Превышено количество попыток подключения']);
-      navigate('/login');
-      return;
-    }
+    const identifier = selectedUser?.username || selectedChannel?.id;
+    const ws = new WebSocket(`ws://192.1.66.117:8000/chat/ws/${identifier}?token=${token}`);
 
-    if (isConnectingRef.current) {
-      console.log('🔌 Already connecting, skipping...');
-      return;
-    }
-
-    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
-      console.log('🔌 Closing previous WebSocket connection');
-      wsRef.current.close(1000, 'Closing for reconnect');
-      wsRef.current = null;
-    }
-
-    isConnectingRef.current = true;
-    const wsUrl = `ws://192.1.66.117:8000/chat/ws/${channel}?token=${token}`;
-    console.log(`🌐 Connecting to WebSocket: ${wsUrl}`);
-    const websocket = new WebSocket(wsUrl);
-    wsRef.current = websocket;
-
-    websocket.onopen = () => {
-      console.log('✅ Connected to WebSocket');
-      setMessages(prev => [...prev, 'Подключено к серверу']);
-      setReconnectAttempts(0);
-      isConnectingRef.current = false;
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        setMessages(prev => [...prev, data]);
+        setShowNotification(true);
+        setTimeout(() => setShowNotification(false), 3000);
+      } catch (e) {
+        console.error('Ошибка парсинга сообщения:', e);
       }
     };
 
-    websocket.onmessage = (event) => {
-      console.log(`📩 Received message: ${event.data}`);
-      setMessages(prev => [...prev, event.data]);
-    };
+    return () => ws.close();
+  }, [selectedUser, selectedChannel, token]);
 
-    websocket.onerror = (event) => {
-      console.error('❌ WebSocket error:', event);
-      setMessages(prev => [...prev, 'Ошибка подключения к WebSocket']);
-      isConnectingRef.current = false;
-    };
+  // Auto-scroll
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
-    websocket.onclose = (event) => {
-      console.log(`🔌 WebSocket closed: code=${event.code}, reason=${event.reason}`);
-      setMessages(prev => [...prev, `Отключено: ${event.reason || 'Неизвестная причина'}`]);
-      wsRef.current = null;
-      isConnectingRef.current = false;
-      if (event.code === 1008) {
-        console.error('🔐 Invalid or expired token, redirecting to login');
-        localStorage.removeItem('token');
-        navigate('/login');
-      } else if (!reconnectTimeoutRef.current) {
-        console.log(`🔄 Attempting to reconnect (${reconnectAttempts + 1}/${maxReconnectAttempts})`);
-        setReconnectAttempts(prev => prev + 1);
-        reconnectTimeoutRef.current = setTimeout(connectWebSocket, 5000);
-      }
-    };
-  };
-
-  const fetchChannels = async () => {
-    console.log('🌐 Fetching channels');
+  // Load contacts
+  const loadContacts = async () => {
     try {
-      const res = await fetch('http://192.1.66.117:8000/chat/channels', {
+      const response = await fetch('http://192.1.66.117:8000/chat/search_contacts', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.status === 401) {
-        console.error('🔐 Unauthorized, redirecting to login');
-        localStorage.removeItem('token');
-        navigate('/login');
-        throw new Error('Unauthorized');
-      }
-      const data = await res.json();
-      console.log(`📋 Channels loaded: ${JSON.stringify(data.channels)}`);
-      if (Array.isArray(data.channels) && data.channels.length > 0) {
-        setChannels(data.channels);
-        if (!data.channels.includes(channel)) {
-          setChannel(data.channels[0]);
-        }
-      } else {
-        console.warn('⚠️ No channels available, using default');
-        setChannels(['general']);
-        setChannel('general');
-      }
+      const data = await response.json();
+      if (data.status === 'success') setContacts(data.data);
     } catch (err) {
-      console.error('⚠️ Failed to load channels:', err);
-      setMessages(prev => [...prev, 'Не удалось загрузить каналы']);
-      setChannels(['general']);
-      setChannel('general');
+      console.error('Ошибка загрузки контактов:', err);
     }
   };
 
-  const fetchContacts = async () => {
-    console.log('🌐 Fetching contacts');
+  // Load channels
+  const loadChannels = async () => {
     try {
-      const res = await fetch('http://192.1.66.117:8000/contacts', {
+      const response = await fetch('http://192.1.66.117:8000/chat/channels', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.status === 401) {
-        console.error('🔐 Unauthorized, redirecting to login');
-        localStorage.removeItem('token');
-        navigate('/login');
-        throw new Error('Unauthorized');
-      }
-      const data = await res.json();
-      console.log(`📋 Contacts loaded: ${JSON.stringify(data.contacts)}`);
-      setContacts(data.contacts || []);
+      const data = await response.json();
+      if (data.status === 'success') setChannels(data.data);
     } catch (err) {
-      console.error('⚠️ Failed to load contacts:', err);
-      setMessages(prev => [...prev, 'Не удалось загрузить контакты']);
+      console.error('Ошибка загрузки каналов:', err);
     }
   };
 
-  const createChannel = async () => {
-    if (!newChannelName.trim()) {
-      setMessages(prev => [...prev, 'Имя канала не может быть пустым']);
-      return;
-    }
-    try {
-      const res = await fetch('http://192.1.66.117:8000/chat/channels', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ name: newChannelName }),
-      });
-      if (res.status === 401) {
-        console.error('🔐 Unauthorized, redirecting to login');
-        localStorage.removeItem('token');
-        navigate('/login');
-        throw new Error('Unauthorized');
-      }
-      if (res.ok) {
-        console.log(`✅ Channel ${newChannelName} created`);
-        setMessages(prev => [...prev, `Канал ${newChannelName} создан`]);
-        setNewChannelName('');
-        await fetchChannels();
-      } else {
-        const error = await res.json();
-        setMessages(prev => [...prev, `Ошибка создания канала: ${error.message || 'Неизвестная ошибка'}`]);
-      }
-    } catch (err) {
-      console.error('⚠️ Failed to create channel:', err);
-      setMessages(prev => [...prev, 'Не удалось создать канал']);
-    }
-  };
+  // Load messages
+  const loadMessages = async () => {
+    if (!selectedUser && !selectedChannel) return;
 
-  const createPrivateChat = async (contactId: string) => {
+    const url = selectedUser
+      ? `http://192.1.66.117:8000/chat/messages?user=${selectedUser.username}`
+      : `http://192.1.66.117:8000/chat/messages?channel=${selectedChannel?.id}`;
+
     try {
-      const res = await fetch('http://192.1.66.117:8000/chat/private', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ contact_id: contactId }),
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.status === 401) {
-        console.error('🔐 Unauthorized, redirecting to login');
-        localStorage.removeItem('token');
-        navigate('/login');
-        throw new Error('Unauthorized');
-      }
-      if (res.ok) {
-        const data = await res.json();
-        console.log(`✅ Private chat created with ${contactId}`);
-        setMessages(prev => [...prev, `Личный чат с ${contactId} создан`]);
-        setChannel(data.channel);
-        await fetchChannels();
-      } else {
-        const error = await res.json();
-        setMessages(prev => [...prev, `Ошибка создания личного чата: ${error.message || 'Неизвестная ошибка'}`]);
-      }
+      const data = await response.json();
+      if (data.status === 'success') setMessages(data.data);
     } catch (err) {
-      console.error('⚠️ Failed to create private chat:', err);
-      setMessages(prev => [...prev, 'Не удалось создать личный чат']);
+      console.error('Ошибка загрузки сообщений:', err);
     }
   };
 
   useEffect(() => {
-    if (!token) {
-      console.error('🔐 No token found, redirecting to login');
-      setMessages(prev => [...prev, 'Токен отсутствует, перенаправление на страницу входа']);
-      navigate('/login');
-      return;
-    }
+    loadContacts();
+    loadChannels();
+  }, []);
 
-    connectWebSocket();
-    fetchChannels();
-    fetchContacts();
+  useEffect(() => {
+    loadMessages();
+  }, [selectedUser, selectedChannel]);
 
-    return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-      if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
-        console.log('🔌 Closing WebSocket on cleanup');
-        wsRef.current.close(1000, 'Component unmount');
-        wsRef.current = null;
-      }
-      isConnectingRef.current = false;
-    };
-  }, [token, navigate, channel]);
+  // Send message
+  const sendMessage = async () => {
+    if (!newMessage.trim() && !file) return;
 
-  const sendMessage = () => {
-    if (wsRef.current && message.trim() && wsRef.current.readyState === WebSocket.OPEN) {
-      console.log(`📤 Sending message: ${message}`);
-      wsRef.current.send(message);
-      setMessage('');
-    } else {
-      console.error('❌ Cannot send message: WebSocket not connected');
-      setMessages(prev => [...prev, 'Не удалось отправить сообщение: соединение не активно']);
-      if (!isConnectingRef.current && reconnectAttempts < maxReconnectAttempts) {
-        connectWebSocket();
-      }
-    }
+    const formData = new FormData();
+    if (newMessage.trim()) formData.append('content', newMessage);
+    if (file) formData.append('file', file);
+
+    const url = selectedUser
+      ? `http://192.1.66.117:8000/chat/send?user=${selectedUser.username}`
+      : `http://192.1.66.117:8000/chat/send?channel=${selectedChannel?.id}`;
+
+    await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+
+    setNewMessage('');
+    setFile(null);
   };
 
-  const changeChannel = (newChannel: string) => {
-    if (newChannel !== channel) {
-      setChannel(newChannel);
-      setMessages([]); // Очищаем сообщения при смене канала
-      connectWebSocket();
-    }
-  };
+  // Create channel
+  const createChannel = async () => {
+    if (!newChannelName.trim()) return;
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    if (wsRef.current) {
-      wsRef.current.close(1000, 'User logout');
-      wsRef.current = null;
+    const formData = new FormData();
+    formData.append('name', newChannelName);
+    if (newChannelImage) formData.append('image', newChannelImage);
+
+    try {
+      const response = await fetch('http://192.1.66.117:8000/chat/create_channel', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const data = await response.json();
+      if (data.status === 'success') {
+        setIsModalOpen(false);
+        setNewChannelName('');
+        setNewChannelImage(null);
+        loadChannels();
+      }
+    } catch (err) {
+      console.error('Ошибка создания канала:', err);
     }
-    navigate('/login');
   };
 
   return (
-    <div className="flex h-screen bg-gray-100 font-sans w-screen">
-      <div className="w-1/6 bg-white shadow-lg p-6 overflow-y-auto">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">Чат</h2>
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-gray-700 mb-3">Создать канал</h3>
-          <div className="flex space-x-2">
+    <div className={`min-h-screen transition-colors duration-300 ${themeClass}`}>
+      {/* Notification */}
+      {showNotification && (
+        <div className="fixed top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-bounce">
+          Новое сообщение!
+        </div>
+      )}
+
+      {/* Channel creation modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className={`p-6 rounded-2xl ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} w-96`}>
+            <h2 className="text-lg font-semibold mb-4">Создать канал</h2>
             <input
               type="text"
               value={newChannelName}
               onChange={(e) => setNewChannelName(e.target.value)}
-              placeholder="Введите имя канала"
-              className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Название канала"
+              className={`w-full p-3 mb-4 rounded-xl border focus:outline-none focus:ring-2 ${
+                darkMode ? 'bg-gray-700 border-gray-600 focus:ring-blue-500 text-white' : 'bg-gray-100 border-gray-300 focus:ring-blue-500'
+              }`}
             />
-            <button
-              onClick={createChannel}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200"
-            >
-              Создать
-            </button>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setNewChannelImage(e.target.files?.[0] || null)}
+              className="mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className={`px-4 py-2 rounded-xl ${darkMode ? 'bg-gray-600 hover:bg-gray-500' : 'bg-gray-200 hover:bg-gray-300'}`}
+              >
+                Отмена
+              </button>
+              <button
+                onClick={createChannel}
+                disabled={!newChannelName.trim()}
+                className="px-4 py-2 bg specifici-blue-600 hover:bg-blue-700 disabled:bg-gray-300 rounded-xl text-white"
+              >
+                Создать
+              </button>
+            </div>
           </div>
         </div>
-        <h3 className="text-lg font-semibold text-gray-700 mb-3">Каналы</h3>
-        <ul className="mb-6">
-          {channels.map(ch => (
-            <li
-              key={ch}
-              onClick={() => changeChannel(ch)}
-              className={`cursor-pointer p-2 rounded-lg ${channel === ch ? 'bg-blue-100 text-blue-800' : 'hover:bg-gray-100'} transition duration-200`}
-            >
-              #{ch}
-            </li>
-          ))}
-        </ul>
-        <h3 className="text-lg font-semibold text-gray-700 mb-3">Контакты</h3>
-        <ul>
-          {contacts.map(contact => (
-            <li
-              key={contact.id}
-              onClick={() => createPrivateChat(contact.id)}
-              className="cursor-pointer p-2 rounded-lg hover:bg-gray-100 transition duration-200"
-            >
-              {contact.username}
-            </li>
-          ))}
-        </ul>
-        <div className="mt-6">
-          <button
-            onClick={logout}
-            className="bg-red-600 text-white w-full py-2 rounded-lg hover:bg-red-700 transition duration-200"
-          >
-            Выйти
-          </button>
-        </div>
-      </div>
+      )}
 
-      <div className="w-5/6 flex flex-col p-6">
-        <div className="bg-white shadow-lg p-4 rounded-lg flex-1 overflow-y-auto">
-          <h3 className="text-lg font-semibold text-gray-700 mb-4">Канал: #{channel}</h3>
-          <div className="space-y-2">
-            {messages.map((msg, idx) => (
-              <div key={idx} className="text-sm text-gray-800 p-2 bg-gray-50 rounded-lg">
-                {msg}
+      <div className="max-w-7xl mx-auto flex h-screen gap-6 p-6">
+        {/* Left panel */}
+        <div className="w-72 flex-shrink-0">
+          <div className={`bg-white/10 backdrop-blur-md rounded-3xl shadow-2xl p-5 h-full border ${darkMode ? 'border-gray-700' : 'border-white/30'}`}>
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => navigate(-1)}
+                  className={`p-2 rounded-full ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}`}
+                >
+                  ←
+                </button>
+                <h2 className="text-xl font-bold">Чат</h2>
               </div>
-            ))}
+              <button
+                onClick={() => setDarkMode(prev => !prev)}
+                className={`text-sm px-3 py-1 rounded-full ${darkMode ? 'bg-gray-700 text-yellow-300' : 'bg-gray-200 text-gray-800'}`}
+              >
+                {darkMode ? '☀️' : '🌙'}
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="Поиск контакта..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`w-full p-3 rounded-2xl border focus:outline-none focus:ring-2 ${
+                  darkMode ? 'bg-gray-800 border-gray-600 focus:ring-blue-500 text-white' : 'bg-white border-gray-300 focus:ring-blue-500'
+                }`}
+              />
+            </div>
+
+            {/* Contacts */}
+            <div className="mb-6">
+              <h3 className={`text-sm font-semibold uppercase tracking-wide mb-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Личные</h3>
+              <ul className="space-y-1">
+                {contacts.map(c => (
+                  <li key={c.username}>
+                    <button
+                      onClick={() => { setSelectedUser(c); setSelectedChannel(null); }}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-sm flex items-center gap-3 hover:bg-blue-50 transition ${
+                        selectedUser?.username === c.username ? 'bg-blue-100 text-blue-800 font-medium' : darkMode ? 'text-gray-300' : 'text-gray-700'
+                      }`}
+                    >
+                      <div className="relative">
+                        <img src={c.avatar_url || "https://via.placeholder.com/32"} alt="avatar" className="w-8 h-8 rounded-full object-cover" />
+                        <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 ${c.status === 'online' ? 'bg-green-500' : c.status === 'away' ? 'bg-yellow-500' : 'bg-gray-500'} ${darkMode ? 'border-gray-900' : 'border-white'}`}></span>
+                      </div>
+                      {c.full_name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Channels */}
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <h3 className={`text-sm font-semibold uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Каналы</h3>
+                <button onClick={() => setIsModalOpen(true)} className="text-blue-500 hover:text-blue-400">+ Создать</button>
+              </div>
+              <ul className="space-y-1">
+                {channels.map(ch => (
+                  <li key={ch.id}>
+                    <button
+                      onClick={() => { setSelectedChannel(ch); setSelectedUser(null); }}
+                      className={`w-full text-left px-3 py-2 rounded-xl text-sm flex items-center gap-3 hover:bg-blue-50 transition ${
+                        selectedChannel?.id === ch.id ? 'bg-blue-100 text-blue-800 font-medium' : darkMode ? 'text-gray-300' : 'text-gray-700'
+                      }`}
+                    >
+                      {ch.image_url ? (
+                        <img src={ch.image_url} alt="channel" className="w-8 h-8 rounded-full object-cover" />
+                      ) : (
+                        <span className="text-blue-600">#</span>
+                      )}
+                      {ch.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
-        <div className="mt-4 flex space-x-2">
-          <input
-            type="text"
-            value={message}
-            onChange={e => setMessage(e.target.value)}
-            placeholder="Введите сообщение..."
-            className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            onKeyPress={e => e.key === 'Enter' && sendMessage()}
-          />
-          <button
-            onClick={sendMessage}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200"
-          >
-            Отправить
-          </button>
+
+        {/* Chat */}
+        <div className={`flex-1 bg-white/10 backdrop-blur-md rounded-3xl shadow-2xl border ${darkMode ? 'border-gray-700' : 'border-white/30'} flex flex-col overflow-hidden`}>
+          {(!selectedUser && !selectedChannel) ? (
+            <div className="flex-1 flex items-center justify-center text-gray-500">
+              Выберите чат
+            </div>
+          ) : (
+            <>
+              {/* Header */}
+              <div className={`p-5 border-b ${darkMode ? 'border-gray-700 bg-gray-800/50' : 'border-white/30 bg-white/50'}`}>
+                <h2 className="text-lg font-semibold">
+                  {selectedUser ? selectedUser.full_name : `#${selectedChannel?.name}`}
+                </h2>
+              </div>
+
+              {/* Messages */}
+              <div className="flex-1 p-5 overflow-y-auto space-y-4">
+                {messages.length === 0 ? (
+                  <p className="text-center text-gray-500 mt-10">Нет сообщений</p>
+                ) : (
+                  messages.map((msg, idx) => (
+                    <div key={idx} className="flex gap-3 animate-fade-in">
+                      <img src="https://via.placeholder.com/32" alt="avatar" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <span className="font-medium">{msg.sender_full_name}</span>
+                          <span>{new Date(msg.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                        <p className={`mt-1 bg-white/70 rounded-2xl px-4 py-2 inline-block max-w-xs break-words ${darkMode ? 'bg-gray-800 text-white' : 'text-gray-800'}`}>
+                          {msg.content}
+                        </p>
+                        {msg.file_url && (
+                          <a href={`http://192.1.66.117:8000${msg.file_url}`} target="_blank" rel="noopener noreferrer" className="block mt-2 text-blue-600 hover:underline text-sm">
+                            📎 {msg.file_url.split('/').pop()}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Input */}
+              <div className={`p-5 bg-white/50 border-t ${darkMode ? 'border-gray-700' : 'border-white/30'}`}>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="Введите сообщение..."
+                    className={`flex-1 p-3 rounded-2xl focus:outline-none focus:ring-2 transition ${darkMode ? 'bg-gray-800 border-gray-600 text-white focus:ring-blue-500' : 'bg-white border border-white/50 focus:ring-blue-500'}`}
+                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                  />
+                  <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} className="hidden" id="file-upload" />
+                  <label htmlFor="file-upload" className="cursor-pointer">
+                    <div className="w-10 h-10 bg-blue-100 hover:bg-blue-200 rounded-2xl flex items-center justify-center text-blue-600">
+                      📎
+                    </div>
+                  </label>
+                  <button
+                    onClick={sendMessage}
+                    disabled={!newMessage.trim() && !file}
+                    className="w-10 h-10 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 rounded-2xl flex items-center justify-center text-white transition"
+                  >
+                    ✉️
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

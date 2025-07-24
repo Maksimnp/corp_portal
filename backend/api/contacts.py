@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from fastapi.security import OAuth2PasswordBearer
-from db.database import get_db
+from db.database import get_db_connection
 from sqlalchemy.orm import Session
 
 router = APIRouter()
@@ -17,6 +17,6 @@ class Contact(BaseModel):
     email: str
 
 @router.get("/contacts")
-async def search_contacts(query: str = "", token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+async def search_contacts(query: str = "", token: str = Depends(oauth2_scheme), db: Session = Depends(get_db_connection)):
     # Реализация динамического поиска контактов
     pass

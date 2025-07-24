@@ -1,6 +1,7 @@
+// src/App.tsx
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Login } from './pages/Login';
+import Login from './pages/Login'; 
 import { Dashboard } from './pages/Dashboard/Dashboard';
 import { Chat } from './pages/Chat/Chat';
 import { Contacts } from './pages/Contacts/Contacts';
@@ -9,19 +10,15 @@ import { RequestList } from './pages/Request/RequestList';
 import { AuthProvider, useAuth } from './pages/AuthContext';
 
 const PrivateRoute: React.FC<{ children: JSX.Element }> = ({ children }) => {
-  const { isAuthenticated } = useAuth();
-  if (isAuthenticated === null) {
-    return <div>Загрузка...</div>;
-  }
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) return <div>Загрузка...</div>;
+  return isAuthenticated ? children : <Navigate to="/login" replace />;
 };
 
 const AdminRoute: React.FC<{ children: JSX.Element }> = ({ children }) => {
-  const { isAdmin } = useAuth();
-  if (isAdmin === null) {
-    return <div>Загрузка...</div>;
-  }
-  return isAdmin ? children : <div>Доступ запрещён</div>;
+  const { isAdmin, loading } = useAuth();
+  if (loading) return <div>Загрузка...</div>;
+  return isAdmin ? children : <Navigate to="/dashboard" replace />;
 };
 
 const App: React.FC = () => {

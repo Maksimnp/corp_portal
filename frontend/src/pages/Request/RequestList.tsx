@@ -61,11 +61,13 @@ export const RequestList: React.FC = () => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('token');
+      console.log(`Bearer ${token}`);
       const response = await fetch('http://192.1.66.117:8000/request_list/get_requests', {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
       });
 
       if (!response.ok) {

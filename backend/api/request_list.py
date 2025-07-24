@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from fastapi.security import OAuth2PasswordBearer
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 import asyncpg
 import os
 from dotenv import load_dotenv
 import logging
-from services.auth import verify_token
+from services.jwt_utils import verify_token
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -44,7 +44,7 @@ async def get_db_connection():
         return None
 
 @router.get("/get_requests")
-async def get_requests(token: Dict[str, str] = Depends(verify_token)):
+async def get_requests(token:Dict[str, str] = Depends(verify_token)):
     """
     Получает список запросов. Админы видят все запросы, пользователи — только свои.
 
@@ -58,11 +58,11 @@ async def get_requests(token: Dict[str, str] = Depends(verify_token)):
         logger.warning("Unauthorized access attempt")
         raise HTTPException(status_code=401, detail="Требуется авторизация")
 
-    username = token.get("username")
+    username = token["username"]
     user_role = token.get("role")
-    if not username or not user_role:
-        logger.warning(f"Invalid token data: username={username}, role={user_role}")
-        raise HTTPException(status_code=401, detail="Недействительный токен")
+    if not user_role:
+        logger.warning(f"No role found in token for user: {username}")
+        raise HTTPException(status_code=401, detail="Роль пользователя не указана")
 
     conn = await get_db_connection()
     if not conn:
@@ -73,13 +73,11 @@ async def get_requests(token: Dict[str, str] = Depends(verify_token)):
         if user_role == "admin":
             requests = await conn.fetch("SELECT * FROM requests")
         else:
-            requests = await conn.fetch("SELECT * FROM requests WHERE sender_fullname = $1", username)
+            requests = await conn.fetch("SELECT * FROM requests WHERE sender_fullname = %s", username)
 
-        if not requests:
-            logger.debug(f"No requests found for user: {username}, role: {user_role}")
-            return {"status": "success", "data": []}
-
+        columns = requests[0].keys() if requests else []
         requests_list = [dict(req) for req in requests]
+
         return {"status": "success", "data": requests_list}
 
     except asyncpg.PostgresError as e:
@@ -109,11 +107,11 @@ async def sort_requests(
         logger.warning("Unauthorized access attempt")
         raise HTTPException(status_code=401, detail="Требуется авторизация")
 
-    username = token.get("username")
+    username = token["username"]
     user_role = token.get("role")
-    if not username or not user_role:
-        logger.warning(f"Invalid token data: username={username}, role={user_role}")
-        raise HTTPException(status_code=401, detail="Недействительный токен")
+    if not user_role:
+        logger.warning(f"No role found in token for user: {username}")
+        raise HTTPException(status_code=401, detail="Роль пользователя не указана")
 
     valid_fields = ["date", "status", "fio", "fioAdmin", "processing_depart"]
     if field not in valid_fields:
@@ -137,22 +135,22 @@ async def sort_requests(
             params.append(username)
 
         order_direction = "DESC" if order == "desc" else "ASC"
-        field_mapping = {
-            "date": "send_date",
-            "status": "CASE status WHEN 'не просмотрено' THEN 0 WHEN 'в обработке' THEN 1 WHEN 'завершено' THEN 2 ELSE 999 END",
-            "fio": "sender_fullname",
-            "fioAdmin": "owner_fullname",
-            "processing_depart": "CASE processing_depart WHEN 'ТЭРиОВТ' THEN 0 WHEN 'АСУ' THEN 1 ELSE 999 END"
-        }
-        query = f"{base_query} ORDER BY {field_mapping[field]} {order_direction}"
+        if field == "date":
+            query = f"{base_query} ORDER BY send_date {order_direction}"
+        elif field == "status":
+            query = f"{base_query} ORDER BY CASE status WHEN 'не просмотрено' THEN 0 WHEN 'в обработке' THEN 1 WHEN 'завершено' THEN 2 ELSE 999 END {order_direction}"
+        elif field == "fio":
+            query = f"{base_query} ORDER BY sender_fullname {order_direction}"
+        elif field == "fioAdmin":
+            query = f"{base_query} ORDER BY owner_fullname {order_direction}"
+        elif field == "processing_depart":
+            query = f"{base_query} ORDER BY CASE processing_depart WHEN 'ТЭРиОВТ' THEN 0 WHEN 'АСУ' THEN 1 ELSE 999 END {order_direction}"
 
         requests = await conn.fetch(query, *params)
-        if not requests:
-            logger.debug(f"No requests found for user: {username}, role: {user_role}")
-            return {"status": "success", "data": [], "order": order}
+        columns = requests[0].keys() if requests else []
+        sorted_requests = [dict(req) for req in requests]
 
-        requests_list = [dict(req) for req in requests]
-        return {"status": "success", "data": requests_list, "order": order}
+        return {"status": "success", "data": sorted_requests, "order": order}
 
     except asyncpg.PostgresError as e:
         logger.error(f"Error sorting requests: {e}")
@@ -179,11 +177,11 @@ async def search_request_id(
         logger.warning("Unauthorized access attempt")
         raise HTTPException(status_code=401, detail="Требуется авторизация")
 
-    username = token.get("username")
+    username = token["username"]
     user_role = token.get("role")
-    if not username or not user_role:
-        logger.warning(f"Invalid token data: username={username}, role={user_role}")
-        raise HTTPException(status_code=401, detail="Недействительный токен")
+    if not user_role:
+        logger.warning(f"No role found in token for user: {username}")
+        raise HTTPException(status_code=401, detail="Роль пользователя не указана")
 
     conn = await get_db_connection()
     if not conn:
@@ -207,11 +205,9 @@ async def search_request_id(
         params.extend([f"%{query}%"] * len(fields))
 
         requests = await conn.fetch(query_str, *params)
-        if not requests:
-            logger.debug(f"No requests found for search query: {query}, user: {username}")
-            return {"status": "success", "list_requests": []}
-
+        columns = requests[0].keys() if requests else []
         requests_list = [dict(req) for req in requests]
+
         return {"status": "success", "list_requests": requests_list}
 
     except asyncpg.PostgresError as e:

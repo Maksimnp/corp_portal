@@ -2,7 +2,7 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from services.chat_service import chat_service
-from api.auth import verify_token
+from services.jwt_utils import verify_token
 import logging
 
 router = APIRouter()

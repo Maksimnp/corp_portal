@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from fastapi.security import OAuth2PasswordBearer
-from db.database import get_db
+from db.database import get_db_connection
 from sqlalchemy.orm import Session
 
 router = APIRouter()

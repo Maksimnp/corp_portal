@@ -1,51 +1,100 @@
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import OAuth2PasswordBearer
-from pydantic import BaseModel
-from services.auth import create_access_token, verify_token
-from services.ad_auth import authenticate_user, get_user_role
+from fastapi import APIRouter, HTTPException, Request, Body
+from pydantic import BaseModel, validator
+from typing import Optional
+import logging
+
+# Настройка логирования
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-class LoginRequest(BaseModel):
+# Импорт утилит
+from services.jwt_utils import create_access_token
+from services.ad_auth import authenticate_user, get_user_role
+
+class LoginData(BaseModel):
     username: str
     password: str
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+    @validator('username', 'password')
+    def not_empty(cls, v):
+        if not v or v.strip() == "":
+            raise ValueError('Поле не может быть пустым')
+        return v
 
 @router.post("/login")
-async def login(login_data: LoginRequest):
-    user = authenticate_user(login_data.username, login_data.password)
-    if not user:
-        raise HTTPException(status_code=401, detail="Неверные учетные данные")
+async def login(request: Request, login_data: LoginData = Body(...)):
+    """
+    Аутентификация через AD.
+    Принимает только JSON в формате:
+    {
+        "username": "string",
+        "password": "string"
+    }
+    """
+    # Логирование тела запроса для отладки
+    try:
+        body = await request.json()
+        logger.info(f"Received request body: {body}")
+    except Exception as e:
+        logger.warning(f"Failed to parse request body: {e}")
+        body = None
 
-    role = get_user_role(user["username"])
+    if not login_data:
+        logger.warning("No login data provided")
+        raise HTTPException(
+            status_code=422,
+            detail="Требуются username и password в теле запроса"
+        )
+
+    username = login_data.username
+    password = login_data.password
+
+    logger.info(f"Login attempt for user: {username}")
+
+    # Аутентификация через AD
+    try:
+        user_info = authenticate_user(username, password)
+        if not user_info:
+            logger.warning(f"AD authentication failed for username: {username}")
+            raise HTTPException(
+                status_code=401,
+                detail="Неверный логин или пароль"
+            )
+    except Exception as e:
+        logger.error(f"AD authentication error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Ошибка аутентификации через AD. Проверьте логи."
+        )
+
+    # Получаем роль
+    try:
+        role = get_user_role(username)
+    except Exception as e:
+        logger.error(f"Error getting user role for {username}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Ошибка получения роли пользователя. Проверьте логи."
+        )
+
+    # Проверка наличия full_name
+    full_name = user_info.get("full_name", username)
+    logger.info(f"User {username} authenticated successfully with role: {role}")
+
+    # Создаём токен
     access_token = create_access_token(
         data={
-            "sub": user["username"],
-            "full_name": user.get("full_name", "Не указано"),
-            "role": role
+            "sub": username,
+            "role": role,
+            "full_name": full_name
         }
     )
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
         "role": role,
-        "full_name": user.get("full_name", "Не указано")
-    }
-
-@router.get("/verify")
-async def verify(token: str = Depends(oauth2_scheme)):
-    payload = verify_token(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="Недействительный токен")
-
-    username = payload.get("username")
-    if not username:
-        raise HTTPException(status_code=401, detail="Недействительный токен: отсутствует username")
-
-    return {
-        "status": "success",
-        "username": username,
-        "role": payload.get("role", get_user_role(username)),  # Запасной вызов get_user_role
-        "full_name": payload.get("full_name", "Не указано")
+        "full_name": full_name
     }
