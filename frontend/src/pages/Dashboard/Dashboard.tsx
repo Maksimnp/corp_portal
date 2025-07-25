@@ -113,7 +113,7 @@ export const Dashboard: React.FC = () => {
               onClick={() => {
                 localStorage.removeItem('token');
                 localStorage.removeItem('role');
-                window.location.href = '/login';
+                window.location.href = '/';
               }}
               className="mt-3 text-sm text-red-600 hover:text-red-800 underline"
             >

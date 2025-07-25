@@ -1,3 +1,4 @@
+// src/pages/Login.tsx
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext'; // Импорт useAuth
@@ -17,7 +18,7 @@ const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setLoading] = useState(false); // Явное определение
+  const [isLoading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth(); // Использование контекста
 
@@ -28,7 +29,7 @@ const Login: React.FC = () => {
       return;
     }
     setError(null);
-    setLoading(true); // Установка состояния загрузки
+    setLoading(true);
 
     let attempt = 0;
     const maxAttempts = 3;
@@ -58,7 +59,7 @@ const Login: React.FC = () => {
               role: localStorage.getItem('role'),
               username: localStorage.getItem('username'),
             });
-            navigate('/dashboard');
+            navigate('/dashboard'); // Перенаправление на Dashboard после успешной авторизации
             return;
           }
 
@@ -98,9 +99,9 @@ const Login: React.FC = () => {
         }
       }
     } finally {
-      setLoading(false); // Установка состояния загрузки в finally
+      setLoading(false);
     }
-  }, [username, password, isLoading, setLoading, navigate, login]); // Добавлены setLoading и login в зависимости
+  }, [username, password, isLoading, navigate, login]);
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !isLoading) {
@@ -144,7 +145,7 @@ const Login: React.FC = () => {
           <button
             onClick={handleLogin}
             disabled={isLoading}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg transition duration-200 flex items-center justify-center"
+            className="w-full py-3 bg-red-500 hover:bg-red-600 disabled:bg-red-400 text-white font-medium rounded-lg transition duration-200 flex items-center justify-center"
           >
             {isLoading ? (
               <>

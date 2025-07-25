@@ -3,13 +3,17 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import HTTPException
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import uvicorn
 import logging
 import logging.handlers
 from dotenv import load_dotenv
 import os
 from typing import List
+
 load_dotenv()
+
 # Импорт роутеров
 from api.auth import router as auth_router
 from api.chat import router as chat_router
@@ -84,7 +88,7 @@ app = FastAPI(
 
 # Настройка CORS
 def get_cors_origins() -> List[str]:
-    origins_str = os.getenv("CORS_ORIGINS", "http://192.1.66.117:3000,http://localhost:3000")
+    origins_str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://192.1.66.117:3000")
     origins = [origin.strip() for origin in origins_str.split(",") if origin.strip()]
     if not origins:
         logger.warning("CORS_ORIGINS пуст, используется значение по умолчанию")
@@ -93,11 +97,15 @@ def get_cors_origins() -> List[str]:
 
 app.add_middleware(
     CORSMiddleware,
-     allow_origins=["*"],
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["Authorization", "Content-Type", "Accept"],
+    allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+# Подключение статических файлов из templates/static
+app.mount("/static", StaticFiles(directory="templates/static"), name="static")
 
 # Мидлвар для логирования запросов
 @app.middleware("http")
@@ -131,27 +139,24 @@ app.include_router(request_list_router, prefix="/request_list", tags=["requests"
 async def health_check():
     return {"status": "healthy", "timestamp": __import__("datetime").datetime.utcnow()}
 
+# Главная страница (редирект на dashboard для React)
 @app.get("/", include_in_schema=False)
 async def root():
-    return {"message": "Добро пожаловать в Employee Portal API", "docs": "/docs"}
+    return {"message": "Добро пожаловать в Employee Portal", "redirect": "/dashboard"}
 
 # Запуск сервера
 if __name__ == "__main__":
     try:
-        # Проверка переменных окружения
         check_env_vars()
-
         logger.info("Запуск сервера FastAPI...")
-
         uvicorn.run(
             "main:app",
             host="0.0.0.0",
             port=8000,
-            reload=False,  # в продакшене выключить
-            log_level="info",  # соответствует logging.config
+            reload=False,
+            log_level="info",
             workers=1,
-            # WebSocket настройки
-            ws_max_size=10 * 1024 * 1024,  # 10 MB
+            ws_max_size=10 * 1024 * 1024,
             ws_ping_interval=20,
             ws_ping_timeout=60,
         )

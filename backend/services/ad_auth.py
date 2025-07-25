@@ -1,106 +1,130 @@
+# services/ldap_service.py
 import ldap
-from typing import Optional, Dict
-from dotenv import load_dotenv
+from typing import Optional, Dict, List
 import os
+from dotenv import load_dotenv
 import logging
 
-# Настройка логирования
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 # Настройки AD
-LDAP_SERVER = os.getenv("LDAP_SERVER", "ldap://192.1.3.6:389")
-LDAP_DOMAIN = os.getenv("LDAP_DOMAIN", "mhp.net")
-BASE_DN = os.getenv("BASE_DN", "DC=mhp,DC=net")
-ADMIN_USERS = os.getenv("ADMIN_USERS", "mnp,k.dyatel").split(",")
+LDAP_SERVER = os.getenv("LDAP_SERVER")
+BASE_DN = os.getenv("BASE_DN")
+ADMIN_USERS = os.getenv("ADMIN_USERS", "").split(",")
+
+def get_ldap_connection():
+    """Создание подключения к LDAP"""
+    conn = ldap.initialize(LDAP_SERVER)
+    conn.set_option(ldap.OPT_REFERRALS, 0)
+    conn.set_option(ldap.OPT_NETWORK_TIMEOUT, 10.0)
+    conn.protocol_version = ldap.VERSION3
+    return conn
 
 def authenticate_user(username: str, password: str) -> Optional[Dict[str, str]]:
+    """Аутентификация пользователя в AD"""
     if not username or not password:
-        logger.warning("Пустые учётные данные")
         return None
 
     conn = None
     try:
-        clean_username = username.split('\\')[-1].split('@')[0]
+        conn = get_ldap_connection()
+        conn.simple_bind_s(f"{username}@{BASE_DN.split(',')[0].split('=')[1]}.{BASE_DN.split(',')[1].split('=')[1]}", password)
         
-        # Инициализация подключения
-        conn = ldap.initialize(LDAP_SERVER)
-        conn.set_option(ldap.OPT_REFERRALS, 0)
-        conn.set_option(ldap.OPT_NETWORK_TIMEOUT, 10.0)
-        conn.set_option(ldap.OPT_TIMEOUT, 10.0)
-        conn.protocol_version = ldap.VERSION3
-
-        # Привязка с userPrincipalName
-        user_principal_name = f"{clean_username}@{LDAP_DOMAIN}"
-        logger.info(f"Попытка привязки с userPrincipalName: {user_principal_name}")
-        conn.simple_bind_s(user_principal_name, password)
-
-        # Поиск информации о пользователе по всему домену
-        search_filter = f"(sAMAccountName={clean_username})"
-        search_base = BASE_DN  # Используем только BASE_DN с SCOPE_SUBTREE
-        logger.info(f"Поиск пользователя в: {search_base}")
+        search_filter = f"(sAMAccountName={username})"
+        result = conn.search_s(BASE_DN, ldap.SCOPE_SUBTREE, search_filter, 
+                              ["displayName", "givenName", "sn", "mail", "department"])
         
-        result = conn.search_s(
-            search_base,
-            ldap.SCOPE_SUBTREE,
-            search_filter,
-            ["displayName", "givenName", "sn", "mail"]
-        )
-
         if not result:
-            logger.warning(f"Информация о пользователе {clean_username} не найдена в {search_base}")
             return None
 
-        # Извлечение атрибутов с обработкой кодировки
         attrs = result[0][1]
-        try:
-            full_name = (
-                attrs.get("displayName", [""])[0].decode('utf-8-sig') or  # Используем utf-8-sig для кириллицы
-                f"{attrs.get('givenName', [''])[0].decode('utf-8-sig') or ''} {attrs.get('sn', [''])[0].decode('utf-8-sig') or ''}".strip() or
-                clean_username
-            )
-            email = attrs.get("mail", [""])[0].decode('utf-8-sig') if attrs.get("mail") else ""
-        except UnicodeDecodeError as e:
-            logger.error(f"Ошибка декодирования атрибутов для {clean_username}: {e}")
-            full_name = clean_username
-            email = ""
-
-        logger.info(f"Успешная аутентификация: {clean_username} ({full_name})")
+        full_name = (
+            attrs.get("displayName", [b""])[0].decode('utf-8') or
+            f"{attrs.get('givenName', [b''])[0].decode('utf-8')} {attrs.get('sn', [b''])[0].decode('utf-8')}".strip()
+        )
+        
         return {
-            "username": clean_username,
-            "full_name": full_name,
-            "email": email
+            "username": username,
+            "full_name": full_name or username,
+            "email": attrs.get("mail", [b""])[0].decode('utf-8'),
+            "department": attrs.get("department", [b""])[0].decode('utf-8') if attrs.get("department") else ""
         }
-
     except ldap.INVALID_CREDENTIALS:
-        logger.warning(f"Неверные учётные данные для {username}")
-        return None
-    except ldap.NO_SUCH_OBJECT:
-        logger.error(f"Ошибка поиска: неверный BASE_DN (current: {BASE_DN})")
-        return None
-    except ldap.SERVER_DOWN as e:
-        logger.error(f"Сервер LDAP недоступен: {e}")
-        return None
-    except ldap.LDAPError as e:
-        logger.error(f"Ошибка LDAP: {str(e)}", exc_info=True)
         return None
     except Exception as e:
-        logger.error(f"Неожиданная ошибка при аутентификации: {str(e)}", exc_info=True)
+        logger.error(f"LDAP error: {str(e)}")
         return None
     finally:
         if conn:
-            try:
-                conn.unbind()
-            except ldap.LDAPError as e:
-                logger.warning(f"Ошибка при закрытии соединения LDAP: {e}")
+            conn.unbind()
+
+def get_user_details(username: str) -> Optional[Dict[str, str]]:
+    """Получение информации о пользователе из AD"""
+    conn = None
+    try:
+        conn = get_ldap_connection()
+        conn.simple_bind_s()  # Анонимное связывание, если разрешено
+        
+        search_filter = f"(sAMAccountName={username})"
+        result = conn.search_s(BASE_DN, ldap.SCOPE_SUBTREE, search_filter, 
+                              ["displayName", "mail", "department"])
+        
+        if not result:
+            return None
+
+        attrs = result[0][1]
+        return {
+            "username": username,
+            "full_name": attrs.get("displayName", [b""])[0].decode('utf-8'),
+            "email": attrs.get("mail", [b""])[0].decode('utf-8'),
+            "department": attrs.get("department", [b""])[0].decode('utf-8') if attrs.get("department") else ""
+        }
+    except Exception as e:
+        logger.error(f"LDAP error: {str(e)}")
+        return None
+    finally:
+        if conn:
+            conn.unbind()
+
+def search_users(search_term: str = "", max_results: int = 50) -> List[Dict[str, str]]:
+    """Поиск пользователей в AD"""
+    conn = None
+    try:
+        conn = get_ldap_connection()
+        conn.simple_bind_s()  # Анонимное связывание
+        
+        search_filter = f"(|(displayName=*{search_term}*)(sAMAccountName=*{search_term}*)(mail=*{search_term}*))" if search_term else "(objectClass=user)"
+        result = conn.search_s(BASE_DN, ldap.SCOPE_SUBTREE, search_filter, 
+                              ["sAMAccountName", "displayName", "mail", "department"])
+        
+        users = []
+        for dn, entry in result:
+            if not isinstance(entry, dict):
+                continue
+                
+            username = entry.get("sAMAccountName", [b""])[0].decode('utf-8')
+            if not username:
+                continue
+                
+            users.append({
+                "username": username,
+                "full_name": entry.get("displayName", [b""])[0].decode('utf-8'),
+                "email": entry.get("mail", [b""])[0].decode('utf-8'),
+                "department": entry.get("department", [b""])[0].decode('utf-8') if entry.get("department") else ""
+            })
+            
+            if len(users) >= max_results:
+                break
+                
+        return users
+    except Exception as e:
+        logger.error(f"LDAP search error: {str(e)}")
+        return []
+    finally:
+        if conn:
+            conn.unbind()
 
 def get_user_role(username: str) -> str:
-    if not username:
-        logger.warning("Пустое имя пользователя при проверке роли")
-        return "user"
-    
-    clean_username = username.split('\\')[-1].split('@')[0]
-    role = "admin" if clean_username in ADMIN_USERS else "user"
-    logger.info(f"Определена роль '{role}' для пользователя '{clean_username}'")
-    return role
+    """Определение роли пользователя"""
+    return "admin" if username in ADMIN_USERS else "user"

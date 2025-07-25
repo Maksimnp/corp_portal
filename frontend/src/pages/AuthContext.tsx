@@ -5,7 +5,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   loading: boolean;
-  login: (token: string, role: string) => void;
+  login: () => void;
   logout: () => void;
 }
 
@@ -17,27 +17,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Проверка состояния авторизации (например, из localStorage или токена)
     const token = localStorage.getItem('token');
-    const role = localStorage.getItem('role');
-    if (token && role) {
+    if (token) {
       setIsAuthenticated(true);
-      setIsAdmin(role === '1' || role === 'admin'); // Предполагая, что '1' или 'admin' обозначает администратора
+      // Здесь можно добавить проверку роли (isAdmin)
     }
     setLoading(false);
   }, []);
 
-  const login = (token: string, role: string) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('role', role);
+  const login = () => {
     setIsAuthenticated(true);
-    setIsAdmin(role === '1' || role === 'admin');
+    // Пример: установить токен или роль
+    localStorage.setItem('token', 'dummy-token');
+    // setIsAdmin(true); // Установите в зависимости от роли
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
     setIsAuthenticated(false);
     setIsAdmin(false);
+    localStorage.removeItem('token');
   };
 
   return (
@@ -49,8 +48,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

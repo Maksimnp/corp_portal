@@ -1,14 +1,14 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
-from fastapi.security import OAuth2PasswordBearer
-from typing import List, Dict, Any
+from fastapi import APIRouter, Query, HTTPException, Request
+from fastapi.responses import FileResponse
 import asyncpg
 import os
 from dotenv import load_dotenv
 import logging
 from services.jwt_utils import verify_token
+import uuid
+from datetime import datetime
 
 router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -28,6 +28,28 @@ for key, value in DB_CONFIG.items():
         logger.error(f"Missing environment variable for {key}")
         raise ValueError(f"Missing environment variable for {key}")
 
+def allowed_file(filename: str) -> bool:
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def transliterate_fio_to_latin(fullname: str) -> str:
+    translit_dict = {
+        'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
+        'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+        'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+        'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
+        'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+        ' ': '_', '-': '_'
+    }
+    
+    result = ""
+    for char in fullname.lower():
+        if char in translit_dict:
+            result += translit_dict[char]
+        elif char.isalnum():
+            result += char
+    return result
+
 async def get_db_connection():
     """
     Создаёт асинхронное подключение к базе данных.
@@ -44,7 +66,7 @@ async def get_db_connection():
         return None
 
 @router.get("/get_requests")
-async def get_requests(token:Dict[str, str] = Depends(verify_token)):
+async def get_requests(request: Request):
     """
     Получает список запросов. Админы видят все запросы, пользователи — только свои.
 
@@ -54,6 +76,15 @@ async def get_requests(token:Dict[str, str] = Depends(verify_token)):
     Returns:
         Dict: Статус и список запросов.
     """
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Токен не предоставлен")
+
+    token_header = auth_header[7:]
+
+    token = verify_token(token_header)
+
+
     if not token:
         logger.warning("Unauthorized access attempt")
         raise HTTPException(status_code=401, detail="Требуется авторизация")
@@ -68,18 +99,23 @@ async def get_requests(token:Dict[str, str] = Depends(verify_token)):
     if not conn:
         logger.error("Failed to connect to database")
         raise HTTPException(status_code=500, detail="Ошибка подключения к базе данных")
-
     try:
         if user_role == "admin":
+            logger.info("Пользователь - админ, выбираем все запросы")
             requests = await conn.fetch("SELECT * FROM requests")
+            # Добавим лог для админа, чтобы увидеть общее количество
+            total_count = await conn.fetchval("SELECT COUNT(*) FROM requests")
+            logger.info(f"Всего записей в таблице requests: {total_count}")
         else:
-            requests = await conn.fetch("SELECT * FROM requests WHERE sender_fullname = %s", username)
+            logger.info(f"Пользователь - обычный, выбираем запросы по sender_fullname='{username}'")
+            requests = await conn.fetch("SELECT * FROM requests WHERE sender_fullname = $1", username)
+            # Добавим лог для обычного пользователя
+            user_count = await conn.fetchval("SELECT COUNT(*) FROM requests WHERE sender_fullname = $1", username)
+            logger.info(f"Записей от пользователя '{username}': {user_count}")
 
-        columns = requests[0].keys() if requests else []
-        requests_list = [dict(req) for req in requests]
-
-        return {"status": "success", "data": requests_list}
-
+        requests_list = [dict(request) for request in requests]
+        
+        return {"status": "success","data": requests_list}
     except asyncpg.PostgresError as e:
         logger.error(f"Error fetching requests: {e}")
         raise HTTPException(status_code=500, detail=f"Ошибка получения запросов: {str(e)}")
@@ -88,9 +124,10 @@ async def get_requests(token:Dict[str, str] = Depends(verify_token)):
 
 @router.post("/sort_requests")
 async def sort_requests(
+    request: Request,
     field: str = Query(...),
     order: str = Query("asc"),
-    token: Dict[str, str] = Depends(verify_token)
+    
 ):
     """
     Сортирует запросы по указанному полю и порядку.
@@ -103,6 +140,14 @@ async def sort_requests(
     Returns:
         Dict: Статус, отсортированные запросы и порядок сортировки.
     """
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Токен не предоставлен")
+
+    token_header = auth_header[7:]
+
+    token = verify_token(token_header)
+
     if not token:
         logger.warning("Unauthorized access attempt")
         raise HTTPException(status_code=401, detail="Требуется авторизация")
@@ -147,7 +192,6 @@ async def sort_requests(
             query = f"{base_query} ORDER BY CASE processing_depart WHEN 'ТЭРиОВТ' THEN 0 WHEN 'АСУ' THEN 1 ELSE 999 END {order_direction}"
 
         requests = await conn.fetch(query, *params)
-        columns = requests[0].keys() if requests else []
         sorted_requests = [dict(req) for req in requests]
 
         return {"status": "success", "data": sorted_requests, "order": order}
@@ -158,10 +202,10 @@ async def sort_requests(
     finally:
         await conn.close()
 
-@router.post("/search_request_id")
+@router.get("/search_request_id")
 async def search_request_id(
-    query: str = Query(""),
-    token: Dict[str, str] = Depends(verify_token)
+    request: Request,
+    query: str = Query("")
 ):
     """
     Ищет запросы по строке в указанных полях.
@@ -173,6 +217,14 @@ async def search_request_id(
     Returns:
         Dict: Статус и список найденных запросов.
     """
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Токен не предоставлен")
+
+    token_header = auth_header[7:]
+
+    token = verify_token(token_header)
+
     if not token:
         logger.warning("Unauthorized access attempt")
         raise HTTPException(status_code=401, detail="Требуется авторизация")
@@ -215,3 +267,131 @@ async def search_request_id(
         raise HTTPException(status_code=500, detail=f"Ошибка поиска данных: {str(e)}")
     finally:
         await conn.close()
+
+@router.post('/request_repair')
+async def request_repair(
+    request: Request     # ← Получаем файлы из FormData
+):
+    """
+    Создание нового запроса на ремонт
+    
+    Args:
+        comment: Комментарий к запросу
+        service: Тема/услуга запроса
+        depart: Отдел
+        images: Список прикрепленных изображений
+        
+    Returns:
+        Response: Статус операции
+    """
+
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Токен не предоставлен")
+
+    token_header = auth_header[7:]
+
+    token = verify_token(token_header)
+    if not token:
+        logger.warning("Unauthorized access attempt")
+        raise HTTPException(status_code=401, detail="Требуется авторизация")
+    
+    username = token["username"]
+    user_role = token.get("role")
+
+    now_time = datetime.now()
+
+    image_folder = transliterate_fio_to_latin('Дятел Кирилл Дмитриевич') #FIX fullname user
+    images_base_path = f'templates/static/images/{image_folder}'
+
+    try:
+        os.makedirs(images_base_path, exist_ok=True)
+        logger.info(f"Создана папка для изображений: {images_base_path}")
+    except Exception as e:
+        logger.error(f"Ошибка при создании папки для изображений: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка создания папки для изображений")
+    
+    form = await request.form()
+
+    service = form.get("serviceType")
+    comment = form.get("comment") 
+    depart = form.get("department")
+    images = form.getlist("images")
+    logger.info(images)
+    if not comment:
+        logger.warning("Не указан комментарий")
+        raise HTTPException(status_code=400, detail="Комментарий обязателен для заполнения")
+
+    images_path = []
+
+    if images and any(hasattr(img, 'filename') and img.filename for img in images):
+        for image in images:
+            if hasattr(image, 'filename') and image.filename:
+                logger.info(f"Обрабатывается файл: {image.filename}")
+                
+                if not allowed_file(image.filename):
+                    logger.warning(f"Недопустимый тип файла: {image.filename}")
+                    raise HTTPException(status_code=400, detail=f"Недопустимый тип файла: {image.filename}")
+
+                file_extension = image.filename.rsplit(".", 1)[1].lower()
+                unique_name = f'mhpImage{str(uuid.uuid4()).split("-")[0]}.{file_extension}'
+                image_path = os.path.join(images_base_path, unique_name)
+                
+                try:
+                    contents = await image.read()
+                    with open(image_path, "wb") as f:
+                        f.write(contents)
+                    
+                    images_path.append(f'{image_folder}/{unique_name}')                    
+                except Exception as e:
+                    logger.error(f"Ошибка при сохранении файла {image.filename}: {e}", exc_info=True)
+                    raise HTTPException(status_code=500, detail=f"Ошибка сохранения файла {image.filename}")
+            else:
+                logger.warning("Получен элемент, который не является файлом или не имеет имени")
+    else:
+        logger.info("Изображения не прикреплены")
+    
+    request_id = f"mhp{now_time.strftime('%d%m%Y')}-{'-'.join(str(uuid.uuid4()).split('-')[:1])}"
+    conn = await get_db_connection()
+    if not conn:
+        logger.error("Не удалось подключиться к базе данных")
+        raise HTTPException(status_code=500, detail="Ошибка подключения к базе данных")
+    
+    try:
+        await conn.execute( #FIX поднять данные из contacts
+            """
+            INSERT INTO requests (
+                request_id, status, comment, sender_fullname, sender_phone, sender_email,
+                sender_job_title, sender_depart, send_date, owner, owner_fullname,
+                theme, processing_depart, images_path, image_metadata
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            """,
+            request_id, 'не просмотрено', comment, 'Дятел Кирилл Дмитриевич', '+375293294388',
+            'kirill.dyatel.03@mail.ru', 'инженер', 'ТЭиРОВТ', now_time.strftime("%d.%m.%Y"),
+            'none', 'нет', service, depart, 
+            images_path if images_path else None,
+            None #json.dumps(images_metadata) if images_metadata else None
+        )
+        await conn.close()
+
+        return {'status': 'success', 'data': request_id}
+    except asyncpg.PostgresError as e:
+        logger.error(f"Ошибка добавления элемента в БД: {e}")
+        await conn.close()
+        raise HTTPException(status_code=500, detail=f"Ошибка добавления в базу данных: {str(e)}")
+    except Exception as e:
+        logger.error(f"Ошибка при создании запроса: {e}", exc_info=True)
+        await conn.close()
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
+@router.get("/images/{filename}")
+async def get_image(filename: str):
+    """
+    Отдаёт изображение по запросу
+    """
+    image_path = f"templates/static/images/{filename}"
+    
+    if os.path.exists(image_path):
+        return FileResponse(image_path)
+    else:
+        raise HTTPException(status_code=404, detail="Изображение не найдено")

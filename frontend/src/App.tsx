@@ -1,12 +1,13 @@
 // src/App.tsx
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Login from './pages/Login'; 
+import Login from './pages/Login';
 import { Dashboard } from './pages/Dashboard/Dashboard';
 import { Chat } from './pages/Chat/Chat';
-import { Contacts } from './pages/Contacts/Contacts';
+import Contacts from './pages/Contacts/Contacts';
 import { Admin } from './pages/Admin/Admin';
 import { RequestList } from './pages/Request/RequestList';
+import HomePage from './pages/HomePage/HomePage'; // Импортируем HomePage
 import { AuthProvider, useAuth } from './pages/AuthContext';
 
 const PrivateRoute: React.FC<{ children: JSX.Element }> = ({ children }) => {
@@ -26,8 +27,8 @@ const App: React.FC = () => {
     <AuthProvider>
       <Router>
         <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<HomePage />} /> {/* Начальная страница */}
+          <Route path="/login" element={<Login />} /> {/* Страница авторизации */}
           <Route
             path="/dashboard"
             element={

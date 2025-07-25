@@ -2,8 +2,11 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-
-# Используем переменные окружения
+from contextlib import asynccontextmanager
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from typing import AsyncIterator
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker, declarative_base
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -29,3 +32,42 @@ def get_db_connection():
         yield db
     finally:
         db.close()
+
+
+class Database:
+    def __init__(self, db_url: str):
+        self.engine = create_async_engine(db_url)
+        self.async_session = sessionmaker(
+            self.engine,
+            class_=AsyncSession,
+            expire_on_commit=False
+        )
+
+    @asynccontextmanager
+    async def session(self) -> AsyncIterator[AsyncSession]:
+        async with self.async_session() as session:
+            try:
+                yield session
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+
+    async def execute(self, query):
+        async with self.session() as session:
+            result = await session.execute(query)
+            return result
+
+    async def fetch_one(self, query):
+        result = await self.execute(query)
+        return result.fetchone()
+
+    async def fetch_all(self, query):
+        result = await self.execute(query)
+        return result.fetchall()
+
+    @asynccontextmanager
+    async def transaction(self):
+        async with self.session() as session:
+            async with session.begin():
+                yield session
