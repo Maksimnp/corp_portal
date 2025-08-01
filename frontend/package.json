@@ -10,21 +10,29 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.0.0",
     "@tailwindcss/vite": "^4.1.11",
+    "@types/antd": "^1.0.4",
+    "antd": "^5.26.6",
+    "countup.js": "^2.8.0",
     "jwt-decode": "^4.0.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
+    "netstat": "^0.0.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "react-router-dom": "^7.7.0",
-    "tsx": "^4.20.3",
-    "countup.js": "^2.8.0"
+    "socket.io-client": "^4.8.1",
+    "terser": "^5.43.1",
+    "tsx": "^4.20.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
+    "@types/countup.js": "^2.0.7",
     "@types/jwt-decode": "^2.2.1",
     "@types/node": "^24.0.15",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@types/rollup": "^0.51.4",
+    "@types/socket.io-client": "^1.4.36",
     "@vitejs/plugin-react": "^4.7.0",
     "eslint": "^9.30.1",
     "eslint-plugin-react-hooks": "^5.2.0",
@@ -34,7 +42,6 @@
     "tailwindcss": "^3.4.17",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.35.1",
-    "vite": "^7.0.5",
-    "@types/countup.js": "^2.0.7"
+    "vite": "^7.0.5"
   }
 }

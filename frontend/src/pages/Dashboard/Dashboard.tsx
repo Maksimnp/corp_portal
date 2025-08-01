@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { EditOutlined } from '@ant-design/icons';
 
 interface ServiceCardProps {
   title: string;
@@ -31,7 +32,8 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ title, description, to, icon,
 
 export const Dashboard: React.FC = () => {
   const role = localStorage.getItem('role') || 'user';
-  const fullName = localStorage.getItem('username') || 'Пользователь'; // Используем full_name
+  const isAdmin = role === 'admin';
+  const fullName = localStorage.getItem('username') || 'Пользователь';
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -68,11 +70,21 @@ export const Dashboard: React.FC = () => {
             icon={<span>📞</span>}
           />
 
+          {/* Редактирование контактов (только для admin) */}
+          {isAdmin && (
+            <ServiceCard
+              title="Редактирование контактов"
+              description="Управление контактами Active Directory"
+              to="/edit-contacts"
+              icon={<EditOutlined style={{ fontSize: '24px' }} />}
+            />
+          )}
+
           {/* Админ-панель (только для admin) */}
-          {role === 'admin' && (
+          {isAdmin && (
             <ServiceCard
               title="Админ-панель"
-              description="Управление контактами, назначение задач"
+              description="Управление пользователями и настройками системы"
               to="/admin"
               icon={<span>👮‍♂️</span>}
             />
@@ -103,16 +115,17 @@ export const Dashboard: React.FC = () => {
             <p className="text-gray-700">
               Вы вошли как{' '}
               <strong>{fullName}</strong>
-              {role && (
-                <span className={`ml-2 px-2 py-1 text-xs rounded ${role === 'admin' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
-                  {role}
-                </span>
-              )}
+              <span className={`ml-2 px-2 py-1 text-xs rounded ${
+                isAdmin ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+              }`}>
+                {role}
+              </span>
             </p>
             <button
               onClick={() => {
                 localStorage.removeItem('token');
                 localStorage.removeItem('role');
+                localStorage.removeItem('username');
                 window.location.href = '/';
               }}
               className="mt-3 text-sm text-red-600 hover:text-red-800 underline"

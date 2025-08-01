@@ -7,7 +7,7 @@ import logging
 from services.jwt_utils import verify_token
 import uuid
 from datetime import datetime
-
+from api.contacts import search_ad_users
 router = APIRouter()
 
 # Настройка логирования
@@ -22,6 +22,8 @@ DB_CONFIG = {
     "user": os.getenv("DB_USER"),
     "password": os.getenv("DB_PASSWORD"),
 }
+
+USERS_ROVT = [user.strip() for user in os.getenv("USERS_ROVT", "").split(",") if user.strip()]
 
 for key, value in DB_CONFIG.items():
     if not value:
@@ -91,6 +93,7 @@ async def get_requests(request: Request):
 
     username = token["username"]
     user_role = token.get("role")
+    full_name = token.get("full_name")
     if not user_role:
         logger.warning(f"No role found in token for user: {username}")
         raise HTTPException(status_code=401, detail="Роль пользователя не указана")
@@ -107,15 +110,17 @@ async def get_requests(request: Request):
             total_count = await conn.fetchval("SELECT COUNT(*) FROM requests")
             logger.info(f"Всего записей в таблице requests: {total_count}")
         else:
-            logger.info(f"Пользователь - обычный, выбираем запросы по sender_fullname='{username}'")
-            requests = await conn.fetch("SELECT * FROM requests WHERE sender_fullname = $1", username)
+            logger.info(f"Пользователь - обычный, выбираем запросы по sender_fullname='{full_name}'")
+            requests = await conn.fetch("SELECT * FROM requests WHERE sender_fullname = $1", full_name)
             # Добавим лог для обычного пользователя
-            user_count = await conn.fetchval("SELECT COUNT(*) FROM requests WHERE sender_fullname = $1", username)
+            user_count = await conn.fetchval("SELECT COUNT(*) FROM requests WHERE sender_fullname = $1", full_name)
             logger.info(f"Записей от пользователя '{username}': {user_count}")
 
         requests_list = [dict(request) for request in requests]
-        
-        return {"status": "success","data": requests_list}
+         
+        get_requests = await conn.fetch("SELECT * FROM requests WHERE owner_fullname = $1", full_name)
+        get_requests_list = [dict(request) for request in get_requests]
+        return {"status": "success","data": requests_list, "list_requests": get_requests_list}
     except asyncpg.PostgresError as e:
         logger.error(f"Error fetching requests: {e}")
         raise HTTPException(status_code=500, detail=f"Ошибка получения запросов: {str(e)}")
@@ -298,7 +303,11 @@ async def request_repair(
     
     username = token["username"]
     user_role = token.get("role")
+    full_name = token.get("full_name")
 
+    contacts = search_ad_users(search_term=full_name, limit=1)
+    contact = contacts[0]
+    logger.info(f"Данные контакта получены: {contact.email}, {contact.phone_mobile}")
     now_time = datetime.now()
 
     image_folder = transliterate_fio_to_latin('Дятел Кирилл Дмитриевич') #FIX fullname user
@@ -363,14 +372,13 @@ async def request_repair(
             INSERT INTO requests (
                 request_id, status, comment, sender_fullname, sender_phone, sender_email,
                 sender_job_title, sender_depart, send_date, owner, owner_fullname,
-                theme, processing_depart, images_path, image_metadata
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                theme, processing_depart, images_path
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             """,
-            request_id, 'не просмотрено', comment, 'Дятел Кирилл Дмитриевич', '+375293294388',
-            'kirill.dyatel.03@mail.ru', 'инженер', 'ТЭиРОВТ', now_time.strftime("%d.%m.%Y"),
+            request_id, 'не просмотрено', comment, full_name, contact.phone_mobile or 'none',
+            contact.email or 'none', contact.position or 'none', contact.department or 'none', now_time.strftime("%d.%m.%Y"),
             'none', 'нет', service, depart, 
-            images_path if images_path else None,
-            None #json.dumps(images_metadata) if images_metadata else None
+            images_path if images_path else None
         )
         await conn.close()
 
@@ -395,3 +403,164 @@ async def get_image(filename: str):
         return FileResponse(image_path)
     else:
         raise HTTPException(status_code=404, detail="Изображение не найдено")
+    
+@router.get("/admins")
+async def get_admins(request: Request):
+    """
+    Возвращает список администраторов.
+    Доступ: только для пользователей с ролью 'admin'.
+    """
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Токен не предоставлен")
+
+    token_header = auth_header[7:]
+
+    token = verify_token(token_header)
+    if not token:
+        logger.warning("Unauthorized access attempt")
+        raise HTTPException(status_code=401, detail="Требуется авторизация")
+    
+    username = token["username"]
+    user_role = token.get("role")
+
+    if user_role != "admin":
+        logger.warning(
+            f"Доступ запрещён: пользователь {username} "
+            f"пытался получить список админов"
+        )
+        raise HTTPException(status_code=403, detail="Доступ запрещён")
+
+    if not isinstance(USERS_ROVT, list):
+        logger.error("USERS_ROVT должен быть списком")
+        raise HTTPException(status_code=500, detail="Ошибка сервера: некорректные данные")
+
+    logger.info(f"Пользователь {username} получил список админов - {USERS_ROVT}")
+    return {"status": "success", "data": USERS_ROVT}
+
+@router.put("/send_admin")
+async def send_to_admin(
+        request: Request,
+        admin: str = Query(..., description="Логин администратора"),
+        request_id: str = Query(..., description="ID запроса")
+    ):
+    """
+    Изменяет владельца запроса
+    Доступ: только для пользователей с ролью 'admin'.
+    """
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Токен не предоставлен")
+
+    token_header = auth_header[7:]
+
+    token = verify_token(token_header)
+    if not token:
+        logger.warning("Unauthorized access attempt")
+        raise HTTPException(status_code=401, detail="Требуется авторизация")
+    
+    username = token["username"]
+    user_role = token.get("role")
+
+    if user_role != "admin":
+        logger.warning(
+            f"Доступ запрещён: пользователь {username} "
+            f"пытался изменить администратора запроса"
+        )
+        raise HTTPException(status_code=403, detail="Доступ запрещён")
+
+    try:
+        logger.info(f"Получаем ФИО администратора")
+        contacts = search_ad_users(search_term=admin, limit=1)
+        owner = contacts[0]
+    except Exception as e: 
+        logger.error(f"Ошибка получение данных о администраторе: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+    
+    conn = await get_db_connection()
+
+    if not conn:
+        logger.error("Не удалось подключиться к базе данных")
+        raise HTTPException(status_code=500, detail="Ошибка подключения к базе данных")
+
+    try:
+        result = await conn.execute(
+            """
+            UPDATE requests 
+            SET owner = $1, owner_fullname = $2 
+            WHERE request_id = $3
+            """,
+            admin, owner.full_name, request_id
+        )
+
+        await conn.close()
+
+        if "UPDATE 0" in result:
+            logger.warning(f"Запрос с ID {request_id} не найден")
+            raise HTTPException(status_code=404, detail="Запрос не найден")
+
+        logger.info(f"Запрос {request_id} назначен на {owner.full_name}")
+        return {"status": "success"}
+
+    except asyncpg.PostgresError as e:
+        logger.error(f"Ошибка базы данных при назначении владельца: {e}", exc_info=True)
+        await conn.close()
+        raise HTTPException(status_code=500, detail="Ошибка при обновлении данных в базе")
+    except Exception as e:
+        logger.error(f"Неожиданная ошибка при назначении владельца: {e}", exc_info=True)
+        await conn.close()
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+    
+@router.put('/change_status')
+async def change_status_request(
+    request: Request,
+    new_status: str = Query(..., description="Логин администратора"),
+    request_id: str = Query(..., description="ID запроса")
+):
+    """
+    Изменяет статус запроса
+    Доступ: только для пользователей .
+    """
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Токен не предоставлен")
+
+    token_header = auth_header[7:]
+
+    token = verify_token(token_header)
+    if not token:
+        logger.warning("Unauthorized access attempt")
+        raise HTTPException(status_code=401, detail="Требуется авторизация")
+
+    conn = await get_db_connection()
+
+    if not conn:
+        logger.error("Не удалось подключиться к базе данных")
+        raise HTTPException(status_code=500, detail="Ошибка подключения к базе данных")
+
+    try:
+        result = await conn.execute(
+            """
+            UPDATE requests 
+            SET status = $1
+            WHERE request_id = $2
+            """,
+            new_status, request_id
+        )
+
+        await conn.close()
+
+        if "UPDATE 0" in result:
+            logger.warning(f"Запрос с ID {request_id} не найден")
+            raise HTTPException(status_code=404, detail="Запрос не найден")
+
+        return {"status": "success"}
+
+    except asyncpg.PostgresError as e:
+        logger.error(f"Ошибка базы данных при изменении статуса запроса: {e}", exc_info=True)
+        await conn.close()
+        raise HTTPException(status_code=500, detail="Ошибка при изменении статуса запроса")
+    except Exception as e:
+        logger.error(f"Неожиданная ошибка при назначении владельца: {e}", exc_info=True)
+        await conn.close()
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")

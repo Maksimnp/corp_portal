@@ -5,14 +5,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 
 interface LoginResponse {
-  access_token: string;
-  role: number;
-  full_name?: string;
+    access_token: string;
+    role: number;
+    full_name?: string;
 }
 
 interface LoginError {
-  detail?: string;
-  status?: number;
+    detail: string;
 }
 
 const HomePage: React.FC = () => {
@@ -77,8 +76,8 @@ const HomePage: React.FC = () => {
   const handleLogin = async () => {
     if (isLoading) return;
     if (!username.trim() || !password.trim()) {
-      setError('Пожалуйста, заполните логин и пароль.');
-      return;
+        setError('Пожалуйста, заполните логин и пароль.');
+        return;
     }
     setError(null);
     setIsLoading(true);
@@ -88,67 +87,68 @@ const HomePage: React.FC = () => {
     const delayMs = 1000;
 
     try {
-      while (attempt < maxAttempts) {
-        try {
-          const response = await fetch('http://192.1.66.117:8000/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password }),
-          });
+        while (attempt < maxAttempts) {
+            try {
+                const response = await fetch('http://192.1.66.117:8000/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password }),
+                });
 
-          const data = await response.json() as LoginResponse | LoginError;
+                const data = await response.json();
 
-          if (response.ok) {
-            const { access_token, role, full_name = username } = data;
-            login(access_token, String(role));
-            localStorage.setItem('token', access_token);
-            localStorage.setItem('role', String(role));
-            localStorage.setItem('username', full_name);
-            closeModal();
-            navigate('/dashboard');
-            return;
-          }
+                if (response.ok) {
+                    const successData = data as LoginResponse;
+                    const { access_token, role, full_name = username } = successData;
+                    login(access_token, String(role));
+                    localStorage.setItem('token', access_token);
+                    localStorage.setItem('role', String(role));
+                    localStorage.setItem('username', full_name);
+                    closeModal();
+                    navigate('/dashboard');
+                    return;
+                }
 
-          let errorMessage = `Ошибка: ${response.status}`;
-          if (data.detail) {
-            errorMessage = typeof data.detail === 'string' ? data.detail : errorMessage;
-          }
+                let errorMessage = `Ошибка: ${response.status}`;
+                const errorData = data as LoginError;
+                if (errorData.detail) {
+                    errorMessage = errorData.detail;
+                }
 
-          if (response.status === 401) {
-            attempt++;
-            if (attempt < maxAttempts) {
-              await new Promise((resolve) => setTimeout(resolve, delayMs));
-              continue;
+                if (response.status === 401) {
+                    attempt++;
+                    if (attempt < maxAttempts) {
+                        await new Promise((resolve) => setTimeout(resolve, delayMs));
+                        continue;
+                    }
+                    setError('Неверный логин или пароль. Превышено количество попыток.');
+                } else if (response.status === 422) {
+                    setError(`Ошибка валидации: ${errorMessage}`);
+                } else if (response.status === 500) {
+                    setError('Внутренняя ошибка сервера. Обратитесь к администратору.');
+                } else {
+                    setError(errorMessage);
+                }
+                break;
+            } catch (err) {
+                console.error('Ошибка сети:', err);
+                if (attempt < maxAttempts - 1) {
+                    attempt++;
+                    await new Promise((resolve) => setTimeout(resolve, delayMs));
+                    continue;
+                }
+                setError(
+  import.meta.env.MODE === 'development'
+    ? `Ошибка сети: ${err instanceof Error ? err.message : String(err)}`
+    : 'Не удалось подключиться к серверу. Проверьте его доступность.'
+);
+                break;
             }
-            setError('Неверный логин или пароль. Превышено количество попыток.');
-          } else if (response.status === 422) {
-            setError(`Ошибка валидации: ${errorMessage}`);
-          } else if (response.status === 500) {
-            setError('Внутренняя ошибка сервера. Обратитесь к администратору.');
-          } else {
-            setError(errorMessage);
-          }
-          break;
-        } catch (err) {
-          console.error('Ошибка сети:', err);
-          if (attempt < maxAttempts - 1) {
-            attempt++;
-            await new Promise((resolve) => setTimeout(resolve, delayMs));
-            continue;
-          }
-          setError(
-            process.env.NODE_ENV === 'development'
-              ? `Ошибка сети: ${err instanceof Error ? err.message : String(err)}`
-              : 'Не удалось подключиться к серверу. Проверьте его доступность.'
-          );
-          break;
         }
-      }
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
-  };
-
+};
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !isLoading) {
       handleLogin();

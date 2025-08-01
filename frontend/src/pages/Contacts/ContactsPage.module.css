@@ -1,0 +1,19 @@
+/* ContactsPage.module.css */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt;
+  }
+  .no-print {
+    display: none !important;
+  }
+  a {
+    text-decoration: underline !important;
+    color: #0000EE !important;
+  }
+  .contact-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

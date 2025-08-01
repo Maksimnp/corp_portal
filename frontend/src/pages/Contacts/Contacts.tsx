@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-
+import { useNavigate, useSearchParams } from 'react-router-dom';
+//import { apiFetch } from 'utils/api';
+import './ContactsPage.module.css';
 // Интерфейс контакта
-interface Contact {
+export interface Contact {
   id: string;
   full_name: string;
   first_name?: string;
@@ -18,6 +19,7 @@ interface Contact {
 export default function ContactsPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,8 +48,8 @@ export default function ContactsPage() {
         throw new Error('Токен аутентификации не найден. Пожалуйста, войдите снова.');
       }
 
-      const baseUrl = 'http://192.1.66.117:8000/contacts';
-      const url = `${baseUrl}?query=*`;
+      const baseUrl = process.env.VITE_API_URL || 'http://192.1.66.117:8000';
+      const url = `${baseUrl}/contacts?query=*`;
       
       const response = await fetch(url, {
         method: 'GET',
@@ -70,6 +72,7 @@ export default function ContactsPage() {
           localStorage.removeItem('role');
           localStorage.removeItem('username');
           errorMessage = 'Сессия истекла. Пожалуйста, войдите снова.';
+          navigate('/');
         } else if (response.status === 403) {
           errorMessage = 'Доступ запрещен.';
         } else if (response.status === 500) {
@@ -83,12 +86,12 @@ export default function ContactsPage() {
 
       const data: Contact[] = await response.json();
       setContacts(data);
-      if (data.length === 50) {
+      if (data.length === 100) {
         setIsLimited(true);
       }
     } catch (err: any) {
       console.error('[ContactsPage] Ошибка при загрузке контактов:', err);
-      if (err instanceof TypeError && err.message.includes('fetch')) {
+      if (err instanceof TypeError && err.message.includes('apifetch')) {
         setError('Не удалось подключиться к серверу. Проверьте сетевое соединение и доступность сервера.');
       } else {
         setError(err.message || 'Неизвестная ошибка при загрузке контактов.');
@@ -124,7 +127,30 @@ export default function ContactsPage() {
         },
       });
 
-      if (!response.ok) throw new Error(`Ошибка HTTP: ${response.status}`);
+      if (!response.ok) {
+        let errorMessage = `Ошибка HTTP: ${response.status}`;
+        let errorDetail = null;
+        try {
+          const errorData = await response.json();
+          errorDetail = errorData.detail || errorData.message || null;
+        } catch (e) {}
+
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('role');
+          localStorage.removeItem('username');
+          errorMessage = 'Сессия истекла. Пожалуйста, войдите снова.';
+          navigate('/login');
+        } else if (response.status === 403) {
+          errorMessage = 'Доступ запрещен.';
+        } else if (response.status === 500) {
+          errorMessage = 'Внутренняя ошибка сервера. Попробуйте позже.';
+        } else if (errorDetail) {
+          errorMessage = `Ошибка: ${errorDetail}`;
+        }
+
+        throw new Error(errorMessage);
+      }
 
       const data: Contact[] = await response.json();
       setContacts(data);
@@ -151,7 +177,11 @@ export default function ContactsPage() {
 
   useEffect(() => {
     fetchAllContacts();
-  }, []);
+    const urlSearch = searchParams.get('search');
+    if (urlSearch) {
+      setQuery(decodeURIComponent(urlSearch));
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => handleSearch(query), 300);
@@ -196,7 +226,7 @@ export default function ContactsPage() {
             {/* Выбор размера шрифта */}
             <select 
               value={fontSize}
-              onChange={(e) => setFontSize(e.target.value as any)}
+              onChange={(e) => setFontSize(e.target.value as 'small' | 'medium' | 'large' | 'xlarge')}
               className={`p-1 border rounded ${
                 highContrast 
                   ? 'bg-black border-yellow-400 text-yellow-400' 
@@ -231,7 +261,10 @@ export default function ContactsPage() {
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setSearchParams({ search: e.target.value });
+            }}
             className={`block w-full pl-10 pr-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 transition-all ${
               highContrast
                 ? 'bg-black border-yellow-400 text-white focus:ring-yellow-400'
@@ -298,7 +331,7 @@ export default function ContactsPage() {
             {contacts.map((contact) => (
               <div 
                 key={contact.id} 
-                className={`rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden border ${
+                className={`contact-card rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden border ${
                   highContrast 
                     ? 'border-yellow-400 bg-gray-900 hover:border-yellow-300' 
                     : 'border-gray-200 bg-white hover:border-gray-300'
@@ -391,28 +424,6 @@ export default function ContactsPage() {
             </p>
           </div>
         )}
-
-        {/* Стили для печати */}
-        <style jsx>{`
-          @media print {
-            body {
-              background: white !important;
-              color: black !important;
-              font-size: 12pt;
-            }
-            .no-print {
-              display: none !important;
-            }
-            a {
-              text-decoration: underline !important;
-              color: #0000EE !important;
-            }
-            .contact-card {
-              break-inside: avoid;
-              page-break-inside: avoid;
-            }
-          }
-        `}</style>
       </div>
     </div>
   );

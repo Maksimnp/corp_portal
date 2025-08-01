@@ -5,13 +5,14 @@ from fastapi.exceptions import HTTPException
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from api.ad_contacts import router as contacts_router
 import uvicorn
 import logging
 import logging.handlers
 from dotenv import load_dotenv
 import os
 from typing import List
-
+from api.contacts import get_all_groups
 load_dotenv()
 
 # Импорт роутеров
@@ -20,6 +21,7 @@ from api.chat import router as chat_router
 from api.contacts import router as contacts_router
 from api.admin import router as admin_router
 from api.request_list import router as request_list_router
+
 
 # Настройка логирования
 LOGGING_CONFIG = {
@@ -87,12 +89,9 @@ app = FastAPI(
 )
 
 # Настройка CORS
-def get_cors_origins() -> List[str]:
-    origins_str = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://192.1.66.117:3000")
+def get_cors_origins():
+    origins_str = os.getenv("CORS_ORIGINS", "http://192.1.66.117:3000,http://localhost:3000,https://portal.minskhleb.by")
     origins = [origin.strip() for origin in origins_str.split(",") if origin.strip()]
-    if not origins:
-        logger.warning("CORS_ORIGINS пуст, используется значение по умолчанию")
-        origins = ["http://localhost:3000"]
     return origins
 
 app.add_middleware(
@@ -103,7 +102,9 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
-
+@app.get("/contacts/groups")
+async def list_groups():
+    return get_all_groups()
 # Подключение статических файлов из templates/static
 app.mount("/static", StaticFiles(directory="templates/static"), name="static")
 
@@ -133,7 +134,6 @@ app.include_router(chat_router, prefix="/chat", tags=["chat"])
 app.include_router(contacts_router, prefix="/contacts", tags=["contacts"])
 app.include_router(admin_router, prefix="/admin", tags=["admin"])
 app.include_router(request_list_router, prefix="/request_list", tags=["requests"])
-
 # Health check
 @app.get("/health", include_in_schema=False)
 async def health_check():

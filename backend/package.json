@@ -10,12 +10,16 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@ant-design/icons": "^6.0.0",
+    "antd": "^5.26.6",
     "countup.js": "^2.9.0",
     "jwt-decode": "^4.0.0",
-    "react-icons": "^5.5.0"
+    "react-icons": "^5.5.0",
+    "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "@types/countup.js": "^1.9.0",
+    "@types/socket.io-client": "^1.4.36",
     "tailwindcss": "^4.1.11"
   }
 }

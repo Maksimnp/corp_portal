@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 # Настройки AD
 LDAP_SERVER = os.getenv("LDAP_SERVER")
 BASE_DN = os.getenv("BASE_DN")
-ADMIN_USERS = os.getenv("ADMIN_USERS", "").split(",")
+ADMIN_USERS = [user.strip() for user in os.getenv("ADMIN_USERS", "").split(",") if user.strip()]
 
 def get_ldap_connection():
     """Создание подключения к LDAP"""
