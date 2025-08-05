@@ -132,7 +132,7 @@ async def sort_requests(
     request: Request,
     field: str = Query(...),
     order: str = Query("asc"),
-    
+    list_type: str = Query(...)
 ):
     """
     Сортирует запросы по указанному полю и порядку.
@@ -159,6 +159,7 @@ async def sort_requests(
 
     username = token["username"]
     user_role = token.get("role")
+    full_name = token.get("full_name")
     if not user_role:
         logger.warning(f"No role found in token for user: {username}")
         raise HTTPException(status_code=401, detail="Роль пользователя не указана")
@@ -180,13 +181,16 @@ async def sort_requests(
     try:
         base_query = "SELECT * FROM requests"
         params = []
-        if user_role != "admin":
+
+        if (list_type == "my_requests"):
             base_query += " WHERE sender_fullname = $1"
-            params.append(username)
+        elif (list_type == "get_requests"):
+            base_query += " WHERE owner_fullname = $1"
+        params.append(full_name)
 
         order_direction = "DESC" if order == "desc" else "ASC"
         if field == "date":
-            query = f"{base_query} ORDER BY send_date {order_direction}"
+            query = f"{base_query} ORDER BY TO_DATE(send_date, 'DD.MM.YYYY') {order_direction}"
         elif field == "status":
             query = f"{base_query} ORDER BY CASE status WHEN 'не просмотрено' THEN 0 WHEN 'в обработке' THEN 1 WHEN 'завершено' THEN 2 ELSE 999 END {order_direction}"
         elif field == "fio":
@@ -195,10 +199,10 @@ async def sort_requests(
             query = f"{base_query} ORDER BY owner_fullname {order_direction}"
         elif field == "processing_depart":
             query = f"{base_query} ORDER BY CASE processing_depart WHEN 'ТЭРиОВТ' THEN 0 WHEN 'АСУ' THEN 1 ELSE 999 END {order_direction}"
-
+        logger.info(f"Запрос в бд {query}")
         requests = await conn.fetch(query, *params)
         sorted_requests = [dict(req) for req in requests]
-
+        logger.info(f"Запрос в бд {requests} {params}")
         return {"status": "success", "data": sorted_requests, "order": order}
 
     except asyncpg.PostgresError as e:
@@ -490,7 +494,7 @@ async def send_to_admin(
             SET owner = $1, owner_fullname = $2 
             WHERE request_id = $3
             """,
-            admin, owner.full_name, request_id
+            admin, owner.displayName, request_id
         )
 
         await conn.close()
@@ -499,7 +503,7 @@ async def send_to_admin(
             logger.warning(f"Запрос с ID {request_id} не найден")
             raise HTTPException(status_code=404, detail="Запрос не найден")
 
-        logger.info(f"Запрос {request_id} назначен на {owner.full_name}")
+        logger.info(f"Запрос {request_id} назначен на {owner.displayName}")
         return {"status": "success"}
 
     except asyncpg.PostgresError as e:

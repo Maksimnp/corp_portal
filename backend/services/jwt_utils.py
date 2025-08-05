@@ -36,7 +36,7 @@ def verify_token(token: str) -> Optional[Dict[str, str]]:
             "username": username,
             "full_name": payload.get("full_name", username),
             "role": str(payload.get("role", "user")),
-            "isAdmin": str(payload.get("role", "user")).lower() == "admin"  # Добавляем isAdmin
+            "isAdmin": str(payload.get("role", "user")).lower() == "admin"  
         }
         return user_data
     except JWTError as e:
@@ -65,7 +65,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict[str, str
             "username": username,
             "full_name": payload.get("full_name", username),
             "role": str(payload.get("role", "user")),
-            "isAdmin": str(payload.get("role", "user")).lower() == "admin"  # Добавляем isAdmin
+            "isAdmin": str(payload.get("role", "user")).lower() == "admin" 
         }
         
         logger.info(f"Пользователь {username} аутентифицирован через токен")

@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, DateTime
-from database import Base
+from db.database import Base
 import uuid
 
 class Message(Base):

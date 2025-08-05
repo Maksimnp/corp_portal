@@ -1,7 +1,7 @@
 # config.py
 import os
 from dotenv import load_dotenv
-
+from pydantic_settings import BaseSettings
 # Загружаем переменные окружения из .env
 load_dotenv()
 
@@ -27,3 +27,11 @@ BASE_DN = os.getenv("BASE_DN", "DC=mhp,DC=net")
 
 # Список администраторов
 ADMIN_USERS = os.getenv("ADMIN_USERS", "mnp,k.dyatel").split(",")
+class Settings(BaseSettings):
+    DOCUMENTS_DB_USER: str = "portal_admin"
+    DOCUMENTS_DB_PASSWORD: str = "season"
+    DOCUMENTS_DB_HOST: str = "localhost"
+    DB_PORT: str = "5432"
+    DOCUMENTS_DB_DATABASE: str = "documents_db"
+
+settings = Settings()

@@ -2,12 +2,13 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import { Dashboard } from './pages/Dashboard/Dashboard';
-import Chat  from './pages/Chat/Chat';
+import Chat from './pages/Chat/Chat';
 import Contacts from './pages/Contacts/Contacts';
 import { Admin } from './pages/Admin/Admin';
 import { RequestList } from './pages/Request/RequestList';
 import HomePage from './pages/HomePage/HomePage';
 import EditADContacts from './components/EditADContacts';
+import DocumentsPage from './components/DocumentsPage';
 import { AuthProvider, useAuth } from './pages/AuthContext';
 
 const PrivateRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
@@ -46,7 +47,7 @@ const App: React.FC = () => {
                         }
                     />
                     <Route
-                        path="/request_list"
+                        path="/requests_list"
                         element={
                             <PrivateRoute>
                                 <RequestList />
@@ -76,6 +77,14 @@ const App: React.FC = () => {
                         element={
                             <PrivateRoute>
                                 <EditADContacts />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/docs"
+                        element={
+                            <PrivateRoute>
+                                <DocumentsPage />
                             </PrivateRoute>
                         }
                     />

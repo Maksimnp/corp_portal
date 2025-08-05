@@ -6,9 +6,7 @@ import { useAuth } from '../pages/AuthContext';
 
 interface Contact {
   id: string;
-  full_name?: string;
-  first_name?: string;
-  last_name?: string;
+  displayName?: string;
   email?: string;
   phone_internal?: string;
   phone_city?: string;
@@ -20,6 +18,52 @@ interface Contact {
   groups?: string[];
   sam_account_name?: string;
 }
+
+// Улучшенная функция для форматирования номера телефона для отображения
+const formatPhoneNumber = (phone: string | undefined, minLength = 8): string | null => {
+  if (!phone) return null;
+  
+  // Удаляем все нецифровые символы
+  const cleaned = phone.replace(/\D/g, '');
+  
+  // Форматируем только если введено достаточно цифр
+  if (cleaned.length >= minLength) {
+    if (cleaned.startsWith('375') && cleaned.length === 12) {
+      return `+375 (${cleaned.slice(3, 5)}) ${cleaned.slice(5, 8)}-${cleaned.slice(8, 10)}-${cleaned.slice(10, 12)}`;
+    } else if (cleaned.startsWith('80') && cleaned.length === 11) {
+      return `+375 (${cleaned.slice(2, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7, 9)}-${cleaned.slice(9, 11)}`;
+    } else if (cleaned.startsWith('+375') && cleaned.length === 13) {
+      return `+375 (${cleaned.slice(4, 6)}) ${cleaned.slice(6, 9)}-${cleaned.slice(9, 11)}-${cleaned.slice(11, 13)}`;
+    }
+  }
+  
+  return phone;
+};
+
+const formatPhoneNumberForServer = (phone: string | undefined): string | null => {
+  if (!phone) return null;
+  
+  // Удаляем все нецифровые символы
+  const cleaned = phone.replace(/\D/g, '');
+  
+  // Преобразуем разные форматы в +375XXXXXXXXX
+  if (cleaned.startsWith('80') && cleaned.length === 11) {
+    return `+375${cleaned.slice(2)}`;
+  } else if (cleaned.startsWith('375') && cleaned.length === 12) {
+    return `+${cleaned}`;
+  } else if (cleaned.startsWith('+375') && cleaned.length === 13) {
+    return cleaned;
+  } else if (cleaned.length >= 4) { // Минимум 4 цифры для внутренних номеров
+    return cleaned;
+  }
+  
+  return phone;
+};
+
+// Функция для получения инициалов
+const getInitials = (contact: Contact): string => {
+  return contact.displayName?.[0]?.toUpperCase() || '';
+};
 
 const EditADContacts: React.FC = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -41,11 +85,6 @@ const EditADContacts: React.FC = () => {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.1.66.117:8000';
 
   useEffect(() => {
-    console.log('[EditADContacts] token:', token);
-    console.log('[EditADContacts] isAdmin:', isAdmin);
-  }, [token, isAdmin]);
-
-  useEffect(() => {
     if (token) {
       fetchContacts();
       fetchDepartments();
@@ -64,13 +103,13 @@ const EditADContacts: React.FC = () => {
   useEffect(() => {
     const filtered = contacts
       .filter((contact) =>
-        [contact.full_name, contact.first_name, contact.last_name, contact.email]
+        [contact.displayName, contact.email, contact.sam_account_name]
           .filter(Boolean)
           .some((field) => field?.toLowerCase().includes(searchQuery.toLowerCase()))
       )
       .sort((a, b) => {
-        const nameA = a.full_name || `${a.first_name || ''} ${a.last_name || ''}`.trim() || '';
-        const nameB = b.full_name || `${b.first_name || ''} ${b.last_name || ''}`.trim() || '';
+        const nameA = a.displayName || '';
+        const nameB = b.displayName || '';
         return nameA.localeCompare(nameB, 'ru', { sensitivity: 'base' });
       });
     setFilteredContacts(filtered);
@@ -81,6 +120,9 @@ const EditADContacts: React.FC = () => {
     if (type === 'edit' && contact) {
       form.setFieldsValue({
         ...contact,
+        phone_internal: formatPhoneNumber(contact.phone_internal),
+        phone_city: formatPhoneNumber(contact.phone_city),
+        phone_mobile: formatPhoneNumber(contact.phone_mobile),
         groups: contact.groups || [],
       });
     } else if (type === 'create') {
@@ -133,20 +175,14 @@ const EditADContacts: React.FC = () => {
 
       const data: Contact[] = await response.json();
       setContacts(data);
-      setFilteredContacts(
-        data.sort((a, b) => {
-          const nameA = a.full_name || `${a.first_name || ''} ${a.last_name || ''}`.trim() || '';
-          const nameB = b.full_name || `${b.first_name || ''} ${b.last_name || ''}`.trim() || '';
-          return nameA.localeCompare(nameB, 'ru', { sensitivity: 'base' });
-        })
-      );
+      setFilteredContacts(data.sort((a, b) => {
+        const nameA = a.displayName || '';
+        const nameB = b.displayName || '';
+        return nameA.localeCompare(nameB, 'ru', { sensitivity: 'base' });
+      }));
     } catch (err: any) {
       console.error('[EditADContacts] Ошибка при загрузке контактов:', err);
-      if (err instanceof TypeError && err.message.includes('fetch')) {
-        showModal('error', 'Не удалось подключиться к серверу. Проверьте сетевое соединение и доступность сервера.');
-      } else {
-        showModal('error', err.message || 'Неизвестная ошибка при загрузке контактов.');
-      }
+      showModal('error', err.message || 'Неизвестная ошибка при загрузке контактов.');
       setContacts([]);
       setFilteredContacts([]);
     } finally {
@@ -165,9 +201,7 @@ const EditADContacts: React.FC = () => {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[EditADContacts] Departments fetch response:', response.status, errorText);
-        let errorMessage = `Ошибка HTTP: ${response.status} - ${errorText}`;
+        let errorMessage = `Ошибка HTTP: ${response.status}`;
         if (response.status === 401) {
           errorMessage = 'Сессия истекла. Пожалуйста, войдите снова.';
           logout();
@@ -194,42 +228,39 @@ const EditADContacts: React.FC = () => {
     }
   };
 
-const fetchGroups = async () => {
+  const fetchGroups = async () => {
     try {
-        if (!token) {
-            throw new Error('Токен аутентификации не найден.');
+      if (!token) {
+        throw new Error('Токен аутентификации не найден.');
+      }
+      const response = await fetch(`${API_BASE_URL}/contacts/groups`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        let errorMessage = `Ошибка HTTP: ${response.status}`;
+        if (response.status === 401) {
+          errorMessage = 'Сессия истекла. Пожалуйста, войдите снова.';
+          logout();
+          setTimeout(() => navigate('/'), 2000);
+        } else if (response.status === 404) {
+          setGroups([]);
+          return;
+        } else if (response.status === 500) {
+          errorMessage = 'Внутренняя ошибка сервера при загрузке групп.';
         }
-        const response = await fetch(`${API_BASE_URL}/contacts/groups`, {
-            headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('[EditADContacts] Groups fetch response:', response.status, errorText);
-            let errorMessage = `Ошибка HTTP: ${response.status} - ${errorText}`;
-            if (response.status === 401) {
-                errorMessage = 'Сессия истекла. Пожалуйста, войдите снова.';
-                logout();
-                setTimeout(() => navigate('/'), 2000);
-            } else if (response.status === 404) {
-                setGroups([]);
-                return;
-            } else if (response.status === 500) {
-                errorMessage = 'Внутренняя ошибка сервера при загрузке групп.';
-            }
-            throw new Error(errorMessage);
-        }
-        const data = await response.json();
-        if (!Array.isArray(data)) {
-            throw new Error('Получены неверные данные о группах');
-        }
-        console.log('[EditADContacts] Groups fetched:', data);
-        setGroups(data.filter(group => group && typeof group === 'string'));
+        throw new Error(errorMessage);
+      }
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        throw new Error('Получены неверные данные о группах');
+      }
+      setGroups(data.filter(group => group && typeof group === 'string'));
     } catch (err: any) {
-        console.error('[EditADContacts] Ошибка при загрузке групп:', err);
-        showModal('error', err.message || 'Неизвестная ошибка при загрузке групп.');
-        setGroups([]);
+      console.error('[EditADContacts] Ошибка при загрузке групп:', err);
+      showModal('error', err.message || 'Неизвестная ошибка при загрузке групп.');
+      setGroups([]);
     }
-};
+  };
 
   const checkUsernameAvailability = async (username: string) => {
     try {
@@ -247,33 +278,30 @@ const fetchGroups = async () => {
     }
   };
 
-  const validatePassword = (password: string, first_name: string, last_name: string) => {
-  const minLength = 8;
-  const hasUpperCase = /[A-Z]/.test(password);
-  const hasNumber = /[0-9]/.test(password);
-  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-  const hasNoName = !first_name || !last_name || (
-    !password.toLowerCase().includes(first_name.toLowerCase()) &&
-    !password.toLowerCase().includes(last_name.toLowerCase())
-  );
+  const validatePassword = (password: string, displayName: string) => {
+    const minLength = 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+    const hasNoName = !displayName || !password.toLowerCase().includes(displayName.toLowerCase());
 
-  if (password.length < minLength) {
-    return 'Пароль должен содержать не менее 8 символов';
-  }
-  if (!hasUpperCase) {
-    return 'Пароль должен содержать хотя бы одну заглавную букву';
-  }
-  if (!hasNumber) {
-    return 'Пароль должен содержать хотя бы одну цифру';
-  }
-  if (!hasSpecialChar) {
-    return 'Пароль должен содержать хотя бы один специальный символ';
-  }
-  if (!hasNoName) {
-    return 'Пароль не должен содержать имя или фамилию';
-  }
-  return null;
-};
+    if (password.length < minLength) {
+      return 'Пароль должен содержать не менее 8 символов';
+    }
+    if (!hasUpperCase) {
+      return 'Пароль должен содержать хотя бы одну заглавную букву';
+    }
+    if (!hasNumber) {
+      return 'Пароль должен содержать хотя бы одну цифру';
+    }
+    if (!hasSpecialChar) {
+      return 'Пароль должен содержать хотя бы один специальный символ';
+    }
+    if (!hasNoName) {
+      return 'Пароль не должен содержать отображаемое имя';
+    }
+    return null;
+  };
 
   const createContact = async (values: any) => {
     if (!isAdmin) {
@@ -287,19 +315,18 @@ const fetchGroups = async () => {
         throw new Error('Токен аутентификации не найден.');
       }
 
-      const passwordError = validatePassword(values.password, values.first_name, values.last_name);
+      const passwordError = validatePassword(values.password, values.displayName);
       if (passwordError) {
         throw new Error(passwordError);
       }
 
       const contactData: Contact = {
-        id: values.sam_account_name?.trim(), 
-        first_name: values.first_name?.trim(),
-        last_name: values.last_name?.trim(),
+        id: values.sam_account_name?.trim(),
+        displayName: values.displayName?.trim(),
         email: values.email?.trim() || null,
-        phone_internal: values.phone_internal?.replace(/[^0-9]/g, '') || null,
-        phone_city: values.phone_city?.replace(/[^0-9]/g, '') || null,
-        phone_mobile: values.phone_mobile?.replace(/[^0-9]/g, '') || null,
+        phone_internal: (values.phone_internal) || null,
+        phone_city: (values.phone_city) || null,
+        phone_mobile: (values.phone_mobile) || null,
         department: values.department?.trim() || null,
         position: values.position?.trim() || null,
         password: values.password,
@@ -319,16 +346,20 @@ const fetchGroups = async () => {
 
       if (!response.ok) {
         let errorMessage = `Ошибка HTTP: ${response.status}`;
-        let errorDetail = null;
+        let errorDetail: string | { field: string; error: string }[] | null = null;
         try {
           const errorData = await response.json();
           errorDetail = errorData.detail || errorData.message || null;
-          if (response.status === 400 && errorDetail.includes('Пароль')) {
-            errorMessage = errorDetail;
-          } else if (response.status === 500 && errorDetail.includes('WILL_NOT_PERFORM')) {
+          if (response.status === 400 && errorDetail) {
+            if (Array.isArray(errorDetail)) {
+              errorMessage = errorDetail.map(err => `${err.field}: ${err.error}`).join('; ');
+            } else if (typeof errorDetail === 'string' && errorDetail.includes('Пароль')) {
+              errorMessage = errorDetail;
+            } else if (errorDetail) {
+              errorMessage = `Ошибка: ${errorDetail}`;
+            }
+          } else if (response.status === 500 && errorDetail?.includes('WILL_NOT_PERFORM')) {
             errorMessage = 'Ошибка создания пользователя в Active Directory. Проверьте настройки сервера или политику паролей.';
-          } else if (errorDetail) {
-            errorMessage = `Ошибка: ${errorDetail}`;
           }
         } catch (e) {}
 
@@ -341,7 +372,7 @@ const fetchGroups = async () => {
         throw new Error(errorMessage);
       }
 
-      const newContact = await response.json();
+      const newContact: Contact = await response.json();
       setContacts([...contacts, newContact]);
       setFilteredContacts([...filteredContacts, newContact]);
       showModal('success', 'Контакт успешно создан');
@@ -365,23 +396,22 @@ const fetchGroups = async () => {
       return;
     }
 
-    const passwordError = values.password ? validatePassword(values.password, values.first_name, values.last_name) : null;
+    const passwordError = values.password ? validatePassword(values.password, values.displayName) : null;
     if (passwordError) {
       showModal('error', passwordError);
       return;
     }
 
-    const normalizedValues: Contact = {
-      id: modal.contact.id,
-      first_name: values.first_name?.trim(),
-      last_name: values.last_name?.trim(),
+    // Форматируем данные для отправки
+    const requestData = {
+      displayName: values.displayName?.trim(),
       email: values.email?.trim() || null,
-      phone_internal: values.phone_internal?.replace(/[^0-9]/g, '') || null,
-      phone_city: values.phone_city?.replace(/[^0-9]/g, '') || null,
-      phone_mobile: values.phone_mobile?.replace(/[^0-9]/g, '') || null,
+      phone_internal: formatPhoneNumberForServer(values.phone_internal) || null,
+      phone_city: formatPhoneNumberForServer(values.phone_city) || null,
+      phone_mobile: formatPhoneNumberForServer(values.phone_mobile) || null,
       department: values.department?.trim() || null,
       position: values.position?.trim() || null,
-      password: values.password || undefined,
+      ...(values.password && { password: values.password }),
       groups: values.groups || [],
     };
 
@@ -403,23 +433,32 @@ const fetchGroups = async () => {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify(normalizedValues),
+            body: JSON.stringify(requestData),
           });
 
           if (!response.ok) {
             let errorMessage = `Ошибка HTTP: ${response.status}`;
-            let errorDetail = null;
+            let errorDetail: any = null;
+            
             try {
               const errorData = await response.json();
               errorDetail = errorData.detail || errorData.message || null;
-              if (response.status === 400 && errorDetail.includes('Пароль')) {
-                errorMessage = errorDetail;
-              } else if (response.status === 500 && errorDetail.includes('WILL_NOT_PERFORM')) {
-                errorMessage = 'Ошибка обновления пользователя в Active Directory. Проверьте настройки сервера или политику паролей.';
-              } else if (errorDetail) {
-                errorMessage = `Ошибка: ${errorDetail}`;
+              
+              // Обработка ошибок валидации
+              if (response.status === 422 && errorDetail) {
+                if (Array.isArray(errorDetail)) {
+                  // Ошибки валидации Pydantic
+                  errorMessage = errorDetail.map(err => {
+                    const field = err.loc?.[err.loc.length - 1] || 'неизвестное поле';
+                    return `${field}: ${err.msg}`;
+                  }).join('; ');
+                } else if (typeof errorDetail === 'string') {
+                  errorMessage = errorDetail;
+                }
               }
-            } catch (e) {}
+            } catch (e) {
+              console.error('Ошибка при разборе ответа сервера:', e);
+            }
 
             if (response.status === 401) {
               errorMessage = 'Сессия истекла. Пожалуйста, войдите снова.';
@@ -473,18 +512,23 @@ const fetchGroups = async () => {
 
           if (!response.ok) {
             let errorMessage = `Ошибка HTTP: ${response.status}`;
-            let errorDetail = null;
+            let errorDetail: string | { field: string; error: string }[] | null = null;
             try {
               const errorData = await response.json();
               errorDetail = errorData.detail || errorData.message || null;
+              if (errorDetail) {
+                if (Array.isArray(errorDetail)) {
+                  errorMessage = errorDetail.map(err => `${err.field}: ${err.error}`).join('; ');
+                } else {
+                  errorMessage = `Ошибка: ${errorDetail}`;
+                }
+              }
             } catch (e) {}
 
             if (response.status === 401) {
               errorMessage = 'Сессия истекла. Пожалуйста, войдите снова.';
               logout();
               setTimeout(() => navigate('/'), 2000);
-            } else if (errorDetail) {
-              errorMessage = `Ошибка: ${errorDetail}`;
             }
 
             throw new Error(errorMessage);
@@ -533,19 +577,23 @@ const fetchGroups = async () => {
 
           if (!response.ok) {
             let errorMessage = `Ошибка HTTP: ${response.status}`;
-            let errorDetail = null;
+            let errorDetail: string | { field: string; error: string }[] | null = null;
             try {
               const errorData = await response.json();
               errorDetail = errorData.detail || errorData.message || null;
-              console.error('[EditADContacts] Freeze error detail:', errorDetail);
+              if (errorDetail) {
+                if (Array.isArray(errorDetail)) {
+                  errorMessage = errorDetail.map(err => `${err.field}: ${err.error}`).join('; ');
+                } else {
+                  errorMessage = `Ошибка: ${errorDetail}`;
+                }
+              }
             } catch (e) {}
 
             if (response.status === 401) {
               errorMessage = 'Сессия истекла. Пожалуйста, войдите снова.';
               logout();
               setTimeout(() => navigate('/'), 2000);
-            } else if (errorDetail) {
-              errorMessage = `Ошибка: ${errorDetail}`;
             }
 
             throw new Error(errorMessage);
@@ -571,23 +619,29 @@ const fetchGroups = async () => {
 
   const columns = [
     {
-      title: 'Полное имя',
-      dataIndex: 'full_name',
-      key: 'full_name',
+      title: 'Отображаемое имя',
+      dataIndex: 'displayName',
+      key: 'displayName',
       sorter: (a: Contact, b: Contact) => {
-        const nameA = a.full_name || `${a.first_name || ''} ${a.last_name || ''}`.trim() || '';
-        const nameB = b.full_name || `${b.first_name || ''} ${b.last_name || ''}`.trim() || '';
+        const nameA = a.displayName || '';
+        const nameB = b.displayName || '';
         return nameA.localeCompare(nameB, 'ru', { sensitivity: 'base' });
       },
-      render: (text: string, record: Contact) =>
-        text || `${record.first_name || ''} ${record.last_name || ''}`.trim() || 'Не указано',
+      render: (text: string, record: Contact) => (
+        <div className="flex items-center gap-2">
+          <div className={`rounded-full w-8 h-8 flex items-center justify-center text-base font-semibold ${isAdmin ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'}`}>
+            {getInitials(record)}
+          </div>
+          <span>{text || 'Не указано'}</span>
+        </div>
+      ),
     },
     {
       title: 'Email',
       dataIndex: 'email',
       key: 'email',
       sorter: (a: Contact, b: Contact) => (a.email || '').localeCompare(b.email || '', 'ru', { sensitivity: 'base' }),
-      render: (text: string) => text || 'Нет email',
+      render: (text: string) => text ? <a href={`mailto:${text}`} title="Отправить письмо">{text}</a> : 'Нет email',
     },
     {
       title: 'Департамент',
@@ -613,6 +667,7 @@ const fetchGroups = async () => {
             icon={<EditOutlined />}
             onClick={() => showModal('edit', undefined, record)}
             disabled={!isAdmin}
+            title="Редактировать контакт"
           >
             Редактировать
           </Button>
@@ -621,6 +676,7 @@ const fetchGroups = async () => {
             icon={<DeleteOutlined />}
             onClick={() => deleteContact(record.id)}
             disabled={!isAdmin}
+            title="Удалить контакт"
           >
             Удалить
           </Button>
@@ -629,6 +685,7 @@ const fetchGroups = async () => {
             onClick={() => toggleFreezeContact(record.id, record.isFrozen || false)}
             disabled={!isAdmin}
             style={{ background: record.isFrozen ? '#52c41a' : '#faad14', color: 'white' }}
+            title={record.isFrozen ? 'Разморозить контакт' : 'Заморозить контакт'}
           >
             {record.isFrozen ? 'Разморозить' : 'Заморозить'}
           </Button>
@@ -638,196 +695,256 @@ const fetchGroups = async () => {
   ];
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-      <Button
-        type="link"
-        icon={<ArrowLeftOutlined />}
-        onClick={() => navigate('/dashboard')}
-        style={{ marginBottom: '16px' }}
-      >
-        Назад в Dashboard
-      </Button>
+    <div className="min-h-screen p-4 md:p-6 bg-gray-100">
+      <div className="max-w-7xl mx-auto">
+        <Button
+          type="link"
+          icon={<ArrowLeftOutlined />}
+          onClick={() => navigate('/dashboard')}
+          className="mb-4 text-blue-600 hover:text-blue-800"
+          title="Вернуться на главную страницу"
+        >
+          Назад в Dashboard
+        </Button>
 
-      <Card
-        title="Редактирование контактов Active Directory"
-        variant="outlined"
-        style={{ boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.03)' }}
-      >
-        <div style={{ marginBottom: '16px' }}>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => showModal('create')}
-            disabled={!isAdmin}
-          >
-            Добавить контакт
-          </Button>
-        </div>
-        <Input
-          placeholder="Поиск по имени или email..."
-          prefix={<SearchOutlined />}
-          value={searchQuery}
-          onChange={handleSearch}
-          style={{ marginBottom: '16px', maxWidth: '400px' }}
-          allowClear
-        />
-
-        {isLoading ? (
-          <Spin size="large" style={{ display: 'block', margin: '20px auto' }} />
-        ) : (
-          <Table
-            dataSource={filteredContacts}
-            columns={columns}
-            rowKey="id"
-            pagination={{ pageSize: 30 }}
-            locale={{ emptyText: searchQuery ? 'Контакты не найдены' : 'Нет контактов' }}
-          />
-        )}
-      </Card>
-
-      <Modal
-        open={modal.visible}
-        onCancel={hideModal}
-        footer={
-          modal.type === 'edit' || modal.type === 'create' ? [
-            <Button key="cancel" onClick={hideModal}>Отмена</Button>,
+        <Card
+          title="Редактирование контактов Active Directory"
+          className="shadow-sm bg-white rounded-lg"
+        >
+          <div className="mb-4">
             <Button
-              key="submit"
               type="primary"
-              loading={isLoading}
-              onClick={() => form.submit()}
-              icon={<SaveOutlined />}
+              icon={<PlusOutlined />}
+              onClick={() => showModal('create')}
+              disabled={!isAdmin}
+              title="Создать новый контакт"
             >
-              {modal.type === 'create' ? 'Создать' : 'Сохранить'}
+              Добавить контакт
             </Button>
-          ] : [
-            <Button key="ok" type="primary" onClick={hideModal}>OK</Button>
-          ]
-        }
-        title={modal.type === 'edit' ? 'Редактирование контакта' :
-               modal.type === 'create' ? 'Создание контакта' :
-               modal.type === 'success' ? 'Успешно!' : 'Ошибка'}
-      >
-        {(modal.type === 'edit' || modal.type === 'create') && (
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={modal.type === 'create' ? createContact : updateContact}
-            initialValues={modal.type === 'create' ? { isFrozen: false, groups: [] } : undefined}
-          >
-            <Form.Item
-              name="first_name"
-              label="Имя"
-              rules={[{ required: true, message: 'Пожалуйста, введите имя' }]}
-            >
-              <Input placeholder="Введите имя" />
-            </Form.Item>
-            <Form.Item
-              name="last_name"
-              label="Фамилия"
-              rules={[{ required: true, message: 'Пожалуйста, введите фамилию' }]}
-            >
-              <Input placeholder="Введите фамилию" />
-            </Form.Item>
-            <Form.Item
-  name="sam_account_name"
-  label="Имя входа (sAMAccountName)"
-  rules={[
-    { required: true, message: 'Пожалуйста, введите имя входа' },
-    { pattern: /^[a-zA-Z0-9-]{1,20}$/, message: 'Имя входа должно содержать 1-20 символов (буквы, цифры, дефис)' },
-  ]}
->
-  <Input placeholder="Введите имя входа (например: user123)" />
-</Form.Item>
-            <Form.Item
-              name="email"
-              label="Email"
-              rules={[{ type: 'email', message: 'Введите корректный email' }]}
-            >
-              <Input placeholder="Введите email" />
-            </Form.Item>
-            <Form.Item
-              name="phone_internal"
-              label="Внутренний телефон"
-              rules={[{ pattern: /^\d{4,}$|^(\+\d{1,3}\s?\(?[0-9]{3}\)?\s?[0-9]{3}-[0-9]{2}-[0-9]{1,2})$/, message: 'Введите корректный номер телефона' }]}
-            >
-              <Input placeholder="Например: 1234" />
-            </Form.Item>
-            <Form.Item
-              name="phone_city"
-              label="Городской телефон"
-              rules={[{ pattern: /^\d{4,}$|^(\+\d{1,3}\s?\(?[0-9]{3}\)?\s?[0-9]{3}-[0-9]{2}-[0-9]{1,2})$/, message: 'Введите корректный номер телефона' }]}
-            >
-              <Input placeholder="Например: 456-78-90" />
-            </Form.Item>
-            <Form.Item
-              name="phone_mobile"
-              label="Мобильный телефон"
-              rules={[{ pattern: /^\d{4,}$|^(\+\d{1,3}\s?\(?[0-9]{3}\)?\s?[0-9]{3}-[0-9]{2}-[0-9]{1,2})$|^(\+\d{1,3}[0-9]{9})$/, message: 'Введите корректный мобильный номер' }]}
-            >
-              <Input placeholder="Например: +375 (29) 456-78-90 или +375292314233" />
-            </Form.Item>
-            <Form.Item
-              name="department"
-              label="Отдел"
-              rules={[{ required: true, message: 'Пожалуйста, выберите отдел' }]}
-            >
-              <Select
-                placeholder="Выберите отдел"
-                options={departments.map(dept => ({ value: dept, label: dept }))}
-                showSearch
-                optionFilterProp="label"
-              />
-            </Form.Item>
-            <Form.Item
-              name="position"
-              label="Должность"
-            >
-              <Input placeholder="Введите должность" />
-            </Form.Item>
-            <Form.Item
-              name="groups"
-              label="Группы"
-            >
-              <Select
-                mode="multiple"
-                placeholder="Выберите группы"
-                options={groups.map(group => ({ value: group, label: group }))}
-                showSearch
-                optionFilterProp="label"
-              />
-            </Form.Item>
-            {modal.type === 'create' && (
-              <Form.Item
-                name="password"
-                label="Пароль"
-                rules={[{ required: true, message: 'Пожалуйста, введите пароль' }]}
-              >
-                <Input.Password placeholder="Введите пароль" />
-              </Form.Item>
-            )}
-            {modal.type === 'edit' && (
-              <Form.Item
-                name="password"
-                label="Новый пароль (опционально)"
-              >
-                <Input.Password placeholder="Введите новый пароль" />
-              </Form.Item>
-            )}
-          </Form>
-        )}
-        {(modal.type === 'success' || modal.type === 'error') && (
-          <div style={{ textAlign: 'center', padding: '24px' }}>
-            {modal.type === 'success' ? (
-              <CheckCircleOutlined style={{ fontSize: '48px', color: '#52c41a', marginBottom: '16px' }} />
-            ) : (
-              <CloseCircleOutlined style={{ fontSize: '48px', color: '#ff4d4f', marginBottom: '16px' }} />
-            )}
-            <h3 style={{ marginBottom: '8px' }}>{modal.type === 'success' ? 'Успешно!' : 'Ошибка'}</h3>
-            <p>{modal.message}</p>
           </div>
-        )}
-      </Modal>
+          <Input
+            placeholder="Поиск по имени, email или логину..."
+            prefix={<SearchOutlined />}
+            value={searchQuery}
+            onChange={handleSearch}
+            className="mb-4 max-w-md rounded-lg border-gray-300"
+            allowClear
+            title="Введите имя, email или логин для поиска"
+          />
+
+          {isLoading ? (
+            <Spin size="large" className="block my-8 mx-auto" />
+          ) : (
+            <Table
+              dataSource={filteredContacts}
+              columns={columns}
+              rowKey="id"
+              pagination={{ pageSize: 30 }}
+              locale={{ emptyText: searchQuery ? 'Контакты не найдены' : 'Нет контактов' }}
+              className="overflow-x-auto"
+            />
+          )}
+        </Card>
+
+        <Modal
+          open={modal.visible}
+          onCancel={hideModal}
+          footer={
+            modal.type === 'edit' || modal.type === 'create' ? [
+              <Button key="cancel" onClick={hideModal} title="Отменить изменения">Отмена</Button>,
+              <Button
+                key="submit"
+                type="primary"
+                loading={isLoading}
+                onClick={() => form.submit()}
+                icon={<SaveOutlined />}
+                title={modal.type === 'create' ? 'Создать контакт' : 'Сохранить изменения'}
+              >
+                {modal.type === 'create' ? 'Создать' : 'Сохранить'}
+              </Button>
+            ] : [
+              <Button key="ok" type="primary" onClick={hideModal} title="Закрыть">OK</Button>
+            ]
+          }
+          title={modal.type === 'edit' ? 'Редактирование контакта' :
+                 modal.type === 'create' ? 'Создание контакта' :
+                 modal.type === 'success' ? 'Успешно!' : 'Ошибка'}
+        >
+          {(modal.type === 'edit' || modal.type === 'create') && (
+            <Form
+              form={form}
+              layout="vertical"
+              onFinish={modal.type === 'create' ? createContact : updateContact}
+              initialValues={modal.type === 'create' ? { isFrozen: false, groups: [] } : undefined}
+              className="space-y-4"
+            >
+              <div className="bg-gray-50 p-4 rounded-md">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Личная информация</h4>
+                <Form.Item
+                  name="displayName"
+                  label="Отображаемое имя"
+                  rules={[{ required: true, message: 'Пожалуйста, введите отображаемое имя' }]}
+                >
+                  <Input placeholder="Введите отображаемое имя" className="rounded-md" title="Введите отображаемое имя сотрудника" />
+                </Form.Item>
+                <Form.Item
+                  name="sam_account_name"
+                  label="Имя входа (sAMAccountName)"
+                  rules={[
+                    { required: modal.type === 'create', message: 'Пожалуйста, введите имя входа' },
+                    { pattern: /^[a-zA-Z0-9-]{1,20}$/, message: 'Имя входа должно содержать 1-20 символов (буквы, цифры, дефис)' },
+                    {
+                      validator: async (_, value) => {
+                        if (modal.type === 'create' && value) {
+                          const isAvailable = await checkUsernameAvailability(value);
+                          if (!isAvailable) {
+                            return Promise.reject('Имя входа уже занято');
+                          }
+                        }
+                        return Promise.resolve();
+                      },
+                    },
+                  ]}
+                >
+                  <Input placeholder="Введите имя входа (например: user123)" disabled={modal.type === 'edit'} className="rounded-md" title="Введите уникальное имя входа" />
+                </Form.Item>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-md">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Контактная информация</h4>
+                <Form.Item
+                  name="email"
+                  label="Email"
+                  rules={[{ type: 'email', message: 'Введите корректный email' }]}
+                >
+                  <Input placeholder="Введите email" className="rounded-md" title="Введите email для отправки писем" />
+                </Form.Item>
+                <Form.Item
+                  name="phone_internal"
+                  label="Внутренний телефон"
+                  normalize={(value) => formatPhoneNumber(value)}
+                >
+                  <Input 
+                    placeholder="Например: 1234" 
+                    className="font-mono rounded-md" 
+                    title="Введите внутренний номер телефона"
+                    onChange={(e) => {
+                      const formatted = formatPhoneNumber(e.target.value);
+                      if (formatted && formatted !== e.target.value) {
+                        form.setFieldsValue({ phone_internal: formatted });
+                      }
+                    }}
+                  />
+                </Form.Item>
+                <Form.Item
+                  name="phone_city"
+                  label="Городской телефон"
+                  normalize={(value) => formatPhoneNumber(value)}
+                >
+                  <Input 
+                    placeholder="Например: 3758989, 375173758989" 
+                    className="font-mono rounded-md" 
+                    title="Введите городской номер телефона"
+                    onChange={(e) => {
+                      const formatted = formatPhoneNumber(e.target.value);
+                      if (formatted && formatted !== e.target.value) {
+                        form.setFieldsValue({ phone_city: formatted });
+                      }
+                    }}
+                  />
+                </Form.Item>
+                <Form.Item
+                  name="phone_mobile"
+                  label="Мобильный телефон"
+                  normalize={(value) => formatPhoneNumber(value)}
+                >
+                  <Input 
+                    placeholder="Например: 80291234567, 375291234567 или +375 (29) 123-45-67" 
+                    className="font-mono rounded-md" 
+                    title="Введите мобильный номер телефона"
+                    onChange={(e) => {
+                      const formatted = formatPhoneNumber(e.target.value);
+                      if (formatted && formatted !== e.target.value) {
+                        form.setFieldsValue({ phone_mobile: formatted });
+                      }
+                    }}
+                  />
+                </Form.Item>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-md">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Дополнительная информация</h4>
+                <Form.Item
+                  name="department"
+                  label="Отдел"
+                  rules={[{ required: true, message: 'Пожалуйста, выберите отдел' }]}
+                >
+                  <Select
+                    placeholder="Выберите отдел"
+                    options={departments.map(dept => ({ value: dept, label: dept }))}
+                    showSearch
+                    optionFilterProp="label"
+                    className="rounded-md"
+                    title="Выберите отдел сотрудника"
+                  />
+                </Form.Item>
+                <Form.Item
+                  name="position"
+                  label="Должность"
+                >
+                  <Input placeholder="Введите должность" className="rounded-md" title="Введите должность сотрудника" />
+                </Form.Item>
+                <Form.Item
+                  name="groups"
+                  label="Группы"
+                >
+                  <Select
+                    mode="multiple"
+                    placeholder="Выберите группы"
+                    options={groups.map(group => ({ value: group, label: group }))}
+                    showSearch
+                    optionFilterProp="label"
+                    className="rounded-md"
+                    title="Выберите группы доступа"
+                  />
+                </Form.Item>
+              </div>
+              {modal.type === 'create' && (
+                <div className="bg-gray-50 p-4 rounded-md">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Пароль</h4>
+                  <Form.Item
+                    name="password"
+                    label="Пароль"
+                    rules={[{ required: true, message: 'Пожалуйста, введите пароль' }]}
+                  >
+                    <Input.Password placeholder="Введите пароль" className="rounded-md" title="Введите пароль для учетной записи" />
+                  </Form.Item>
+                </div>
+              )}
+              {modal.type === 'edit' && (
+                <div className="bg-gray-50 p-4 rounded-md">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Пароль</h4>
+                  <Form.Item
+                    name="password"
+                    label="Новый пароль (опционально)"
+                  >
+                    <Input.Password placeholder="Введите новый пароль" className="rounded-md" title="Введите новый пароль (если требуется)" />
+                  </Form.Item>
+                </div>
+              )}
+            </Form>
+          )}
+          {(modal.type === 'success' || modal.type === 'error') && (
+            <div className="text-center py-6">
+              {modal.type === 'success' ? (
+                <CheckCircleOutlined className="text-5xl text-green-500 mb-4" />
+              ) : (
+                <CloseCircleOutlined className="text-5xl text-red-500 mb-4" />
+              )}
+              <h3 className="text-lg font-medium">{modal.type === 'success' ? 'Успешно!' : 'Ошибка'}</h3>
+              <p>{modal.message}</p>
+            </div>
+          )}
+        </Modal>
+      </div>
     </div>
   );
 };

@@ -3,6 +3,8 @@ import { useAuth } from '../AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { CaretDownOutlined, CaretUpOutlined } from '@ant-design/icons';
 import { Space } from 'antd';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 // === Типы ===
 interface Request {
   request_id: string;
@@ -91,14 +93,9 @@ export const RequestList: React.FC = () => {
     { id: 'secure-email', value: 'secure-email', label: 'Защищенная почта' }
   ];
 
-  const showToast = (message: string) => {
-    setToastMessage(message);
-    setTimeout(() => setToastMessage(null), 4000);
-  };
-
   const loadRequests = useCallback(async () => {
     if (!isAuthenticated) {
-      showToast('Требуется авторизация');
+      toast.error('Требуется авторизация');
       return;
     }
     setIsLoading(true);
@@ -108,7 +105,7 @@ export const RequestList: React.FC = () => {
         console.error("Ошибка авторизации. Поробуйте войти заново");
         return;
       }
-      const response = await fetch(`/request_list/get_requests`, {
+      const response = await fetch(`/api/request_list/get_requests`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -134,13 +131,13 @@ export const RequestList: React.FC = () => {
       if (result.status === 'success') {
         setRequests(result.data || []);
         setAllRequests(result.data || []);
-        setProcessingRequests(result.list_requests || [])
+        setProcessingRequests(result.list_requests || []);
       } else {
-        showToast(result.message || 'Ошибка загрузки данных');
+        toast.error(result.message || 'Ошибка загрузки данных');
       }
     } catch (err) {
       console.error('Fetch error:', err);
-      showToast(
+      toast.error(
         process.env.NODE_ENV === 'development'
           ? `Ошибка сети: ${err instanceof Error ? err.message : String(err)}`
           : 'Не удалось загрузить запросы. Проверьте соединение или обратитесь к администратору.'
@@ -152,7 +149,7 @@ export const RequestList: React.FC = () => {
 
   const loadAdmins = useCallback(async () => {
     if (!isAuthenticated) {
-      showToast('Требуется авторизация');
+      toast.error('Требуется авторизация');
       return;
     }
     if (role !== "admin") {
@@ -161,7 +158,7 @@ export const RequestList: React.FC = () => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/request_list/admins`, {
+      const response = await fetch(`api/request_list/admins`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -188,12 +185,12 @@ export const RequestList: React.FC = () => {
         setAllAdmins(result.data);
               
       } else {
-        showToast(result.message || 'Ошибка загрузки данных');
+        toast.error(result.message || 'Ошибка загрузки данных');
         setAllAdmins([]); 
       }
     } catch (err) {
       console.error('Fetch error:', err);
-      showToast(
+      toast.error(
         process.env.NODE_ENV === 'development'
           ? `Ошибка сети: ${err instanceof Error ? err.message : String(err)}`
           : 'Не удалось загрузить запросы. Проверьте соединение или обратитесь к администратору.'
@@ -212,7 +209,7 @@ export const RequestList: React.FC = () => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `/request_list/send_admin?admin=${selectedAdmin}&request_id=${expandedRequest?.request_id}`,
+        `/api/request_list/send_admin?admin=${selectedAdmin}&request_id=${expandedRequest?.request_id}`,
         {
           method: 'PUT',
           headers: {
@@ -233,62 +230,76 @@ export const RequestList: React.FC = () => {
       }
       const result: ApiResponse<Request[]> = await response.json();
       if (result.status === 'success') {
-        showToast("Изменения успешно внесены");
+        toast.success("Изменения успешно внесены");
         loadRequests();
       } else {
-        showToast(result.message || 'Ошибка сортировки');
+        toast.error(result.message || 'Ошибка отправки администратору');
       }
     } catch (err) {
       console.error('Sort error:', err);
-      showToast(
+      toast.error(
         process.env.NODE_ENV === 'development'
-          ? `Ошибка сортировки: ${err instanceof Error ? err.message : String(err)}`
-          : 'Ошибка сортировки. Попробуйте снова.'
+          ? `Ошибка отправки администратору: ${err instanceof Error ? err.message : String(err)}`
+          : 'Ошибка отправки администратору. Попробуйте снова.'
       );
     }
   };
   const sortTable = async (field: string) => {
-    const newOrder = currentSortField === field && currentSortOrder === 'asc' ? 'desc' : 'asc';
-    setCurrentSortField(field);
-    setCurrentSortOrder(newOrder);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `/request_list/sort_requests?field=${field}&order=${newOrder}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      if (!response.ok) {
-        let errorMessage = `Ошибка: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.detail || errorMessage;
-        } catch (e) {
-          // Если JSON не получен
-        }
-        throw new Error(errorMessage);
+  const newOrder = currentSortField === field && currentSortOrder === 'asc' ? 'desc' : 'asc';
+  setCurrentSortField(field);
+  setCurrentSortOrder(newOrder);
+
+  try {
+    const token = localStorage.getItem('token');
+    const listType = activeButtonTable === 'get' ? 'get_requests' : 'my_requests';
+
+    const response = await fetch(
+      `/api/request_list/sort_requests?field=${field}&order=${newOrder}&list_type=${listType}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
       }
-      const result: ApiResponse<Request[]> = await response.json();
-      if (result.status === 'success') {
-        setRequests(result.data || []);
-        setCurrentPage(1);
-      } else {
-        showToast(result.message || 'Ошибка добавления обработчика');
+    );
+
+    if (!response.ok) {
+      let errorMessage = `Ошибка: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.detail || errorMessage;
+      } catch (e) {
       }
-    } catch (err) {
-      console.error('Sort error:', err);
-      showToast(
-        process.env.NODE_ENV === 'development'
-          ? `Ошибка добавления обработчика: ${err instanceof Error ? err.message : String(err)}`
-          : 'Ошибка добавления обработчика. Попробуйте снова.'
-      );
+      throw new Error(errorMessage);
     }
-  };
+
+    const result: ApiResponse<Request[]> = await response.json();
+    console.log(result.data)
+    if (result.status === 'success') {
+      if (activeButtonTable === 'get') {
+        setProcessingRequests(result.data || []);
+      } else {
+        setRequests(result.data || []);
+        setAllRequests(result.data || []);
+      }
+      if (activeButtonTable === 'get') {
+         setCurrentPageGet(1);
+      } else {
+         setCurrentPage(1);
+      }
+    } else {
+      toast.error(result.message || 'Ошибка сортировки таблицы');
+    }
+  } catch (err) {
+    console.error('Sort error:', err);
+    toast.error(
+      process.env.NODE_ENV === 'development'
+        ? `Ошибка сортировки: ${err instanceof Error ? err.message : String(err)}`
+        : 'Ошибка сортировки. Попробуйте снова.'
+    );
+  }
+};
 
   useEffect(() => {
     if (searchQuery.length >= 2) {
@@ -296,7 +307,7 @@ export const RequestList: React.FC = () => {
         try {
           const token = localStorage.getItem('token');
           const response = await fetch(
-            `/request_list/search_request_id?query=${encodeURIComponent(searchQuery)}`,
+            `/api/request_list/search_request_id?query=${encodeURIComponent(searchQuery)}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -320,11 +331,11 @@ export const RequestList: React.FC = () => {
             setCurrentPage(1);
           } else {
             setRequests([]);
-            showToast(result.message || 'Ничего не найдено');
+            toast.error(result.message || 'Ничего не найдено');
           }
         } catch (err) {
           console.error('Search error:', err);
-          showToast(
+          toast.error(
             process.env.NODE_ENV === 'development'
               ? `Ошибка поиска: ${err instanceof Error ? err.message : String(err)}`
               : 'Ошибка поиска. Попробуйте снова.'
@@ -365,7 +376,7 @@ export const RequestList: React.FC = () => {
     }
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/request_list/request_repair', {
+      const response = await fetch('/api/request_list/request_repair', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -393,11 +404,11 @@ export const RequestList: React.FC = () => {
       if (result.status === 'success') {
         loadRequests();
       } else {
-        showToast(result.message || 'Ошибка загрузки данных');
+        toast.error(result.message || 'Ошибка загрузки данных');
       }
     } catch (err) {
       console.error('Fetch error:', err);
-      showToast(
+      toast.error(
         process.env.NODE_ENV === 'development'
           ? `Ошибка сети: ${err instanceof Error ? err.message : String(err)}`
           : 'Не удалось загрузить запросы. Проверьте соединение или обратитесь к администратору.'
@@ -412,7 +423,7 @@ export const RequestList: React.FC = () => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `/request_list/change_status?new_status=${newRequestStatus}&request_id=${expandedRequest?.request_id}`,
+        `/api/request_list/change_status?new_status=${newRequestStatus}&request_id=${expandedRequest?.request_id}`,
         {
           method: 'PUT',
           headers: {
@@ -433,14 +444,14 @@ export const RequestList: React.FC = () => {
       }
       const result: ApiResponse<Request[]> = await response.json();
       if (result.status === 'success') {
-        showToast("Изменения успешно внесены");
+        toast.success("Изменения успешно внесены");
         loadRequests();
       } else {
-        showToast(result.message || 'Ошибка обновления статуса запроса');
+        toast.error(result.message || 'Ошибка обновления статуса запроса');
       }
     } catch (err) {
       console.error('Sort error:', err);
-      showToast(
+      toast.error(
         process.env.NODE_ENV === 'development'
           ? `Ошибка обновления статуса запроса: ${err instanceof Error ? err.message : String(err)}`
           : 'Ошибка обновления статуса запроса. Попробуйте снова.'
@@ -532,6 +543,31 @@ export const RequestList: React.FC = () => {
     }
   };
 
+  const renderSortableHeader = (
+    label: string,
+    field: string,
+    onClick: () => void
+  ) => {
+    const isActive = currentSortField === field;
+    let sortIcon = <CaretDownOutlined />;
+
+    if (isActive) {
+      sortIcon = currentSortOrder === 'asc' ? <CaretUpOutlined /> : <CaretDownOutlined />;
+    }
+
+    return (
+      <th
+        onClick={onClick}
+        className={`p-3 text-left font-semibold cursor-pointer transition-colors ${highContrast ? 'border-b border-yellow-400 hover:bg-gray-600' : 'border-b border-gray-200 hover:bg-gray-200'}`}
+      >
+        <div className="flex items-center">
+          <span>{label}</span>
+          <span className="ml-1">{sortIcon}</span>
+        </div>
+      </th>
+    );
+  };
+
   const paginatedRequests = (
     activeButtonTable === 'my' ? requests : processingRequests
   ).slice(
@@ -541,6 +577,7 @@ export const RequestList: React.FC = () => {
 
   return (
     <div className={`p-4 sm:p-6 md:p-7 m-auto max-w-[1200px] min-h-screen ${highContrast ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} ${fontSizeClasses[fontSize]}`}>
+      <ToastContainer position="top-right" autoClose={3000} />
       <button
         onClick={() => navigate('/dashboard')}
         className={`flex items-center mb-4 sm:mb-6 transition-colors ${
@@ -644,35 +681,15 @@ export const RequestList: React.FC = () => {
                     >
                       № заявки
                     </th>
-                    <th
-                      onClick={() => sortTable('date')}
-                      className={`p-3 text-left font-semibold cursor-pointer transition-colors ${highContrast ? 'border-b border-yellow-400 hover:bg-gray-600' : 'border-b border-gray-200 hover:bg-gray-200'}`}
-                    >
-                      Дата
-                    </th>
-                    <th
-                      onClick={() => sortTable('fio')}
-                      className={`p-3 text-left font-semibold cursor-pointer transition-colors ${highContrast ? 'border-b border-yellow-400 hover:bg-gray-600' : 'border-b border-gray-200 hover:bg-gray-200'}`}
-                    >
-                      Отправитель
-                    </th>
+                    {renderSortableHeader('Дата', 'date', () => sortTable('date'))}
+                    {renderSortableHeader('Отправитель', 'fio', () => sortTable('fio'))}
                     <th
                       className={`p-3 text-left font-semibold ${highContrast ? 'border-b border-yellow-400' : 'border-b border-gray-200'}`}
                     >
                       Тема
                     </th>
-                    <th
-                      onClick={() => sortTable('processing_depart')}
-                      className={`p-3 text-left font-semibold cursor-pointer transition-colors ${highContrast ? 'border-b border-yellow-400 hover:bg-gray-600' : 'border-b border-gray-200 hover:bg-gray-200'}`}
-                    >
-                      Отдел
-                    </th>
-                    <th
-                      onClick={() => sortTable('status')}
-                      className={`p-3 text-left font-semibold cursor-pointer transition-colors ${highContrast ? 'border-b border-yellow-400 hover:bg-gray-600' : 'border-b border-gray-200 hover:bg-gray-200'}`}
-                    >
-                      Статус
-                    </th>
+                    {renderSortableHeader('Отдел', 'processing_depart', () => sortTable('processing_depart'))}
+                    {renderSortableHeader('Статус', 'status', () => sortTable('status'))}
                     <th
                       className={`p-3 text-left font-semibold ${highContrast ? 'border-b border-yellow-400' : 'border-b border-gray-200'}`}
                     >
@@ -697,7 +714,10 @@ export const RequestList: React.FC = () => {
                         </td>
                         <td className="p-3">
                           <button
-                            onClick={() => setExpandedRequest(expandedRequest?.request_id === request.request_id ? null : request)}
+                            onClick={() => {
+                              setExpandedRequest(expandedRequest?.request_id === request.request_id ? null : request);
+                              setNewRequestStatus('');
+                            }}
                             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                               highContrast ? 'bg-yellow-500 hover:bg-yellow-600 text-gray-900' : 'bg-blue-500 hover:bg-blue-600 text-white'
                             }`}
@@ -730,10 +750,10 @@ export const RequestList: React.FC = () => {
                                   {(expandedRequest.owner_fullname === user_fullname || role === "admin") && (<p><strong>Изменить статус:</strong>
                                       <select 
                                         className={getStatusStyles(request.status, highContrast)}
-                                        value={request.status}
+                                        value={newRequestStatus}
                                         onChange={(e) => setNewRequestStatus(e.target.value)}  
                                       >
-                                       <option value=''>{request.status}</option>
+                                       <option value=''>{newRequestStatus || request.status}</option>
                                        <option value='в обработке'>в обработке</option>
                                        <option value='завершено'>завершено</option>
                                       </select>
@@ -751,12 +771,13 @@ export const RequestList: React.FC = () => {
                               </div>
                               <div>
                                 <h4 className="font-semibold text-lg mb-1">Обработчик</h4>
-                                <p>
+
                                   <strong>ФИО:</strong>{' '}
                                   {request.owner_fullname === 'нет' && role === "admin" ? (
                                     <div className='flex justify-between'>
                                       <select
                                         value={selectedAdmin}
+                                        key={selectedAdmin}
                                         onChange={(e) => setSelectedAdmin(e.target.value)}
                                         className={`w-full max-w-80 p-2.5 border rounded-lg focus:ring-2 focus:outline-none ${
                                           highContrast
@@ -766,8 +787,9 @@ export const RequestList: React.FC = () => {
                                         required
                                       >
                                         <option value="">Выберите обработчика запроса</option>
-                                        {allAdmins.map((admin) => (
+                                        {allAdmins.map((admin, index) => (
                                           <option
+                                            key={index}
                                             value={admin}
                                           >
                                             {admin}
@@ -786,7 +808,7 @@ export const RequestList: React.FC = () => {
                                   ) : (
                                     request.owner_fullname
                                   )}
-                                </p>
+
                                 <h4 className="font-semibold text-lg mt-3">Дополнительная информация</h4>
                                 <div className="space-y-2">
                                   <p><strong>Комментарий:</strong> {request.comment || 'Не назначен'}</p>

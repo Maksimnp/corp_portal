@@ -58,7 +58,7 @@ export const Dashboard: React.FC = () => {
           <ServiceCard
             title="Служба поддержки"
             description="Создавайте и отслеживайте заявки в IT-поддержку"
-            to="/request_list"
+            to="/requests_list"
             icon={<span>🎟️</span>}
           />
 
@@ -96,7 +96,7 @@ export const Dashboard: React.FC = () => {
             description="Центр хранения внутренних документов и инструкций"
             to="/docs"
             icon={<span>📄</span>}
-            disabled={true}
+            disabled={false}
           />
 
           {/* Опросы */}

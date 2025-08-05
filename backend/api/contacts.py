@@ -32,9 +32,7 @@ LDAP_CA_CERT = os.getenv("LDAP_CA_CERT")
 # Модель контакта
 class Contact(BaseModel):
     id: Optional[str] = None
-    full_name: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
+    displayName: Optional[str] = None
     email: Optional[EmailStr] = None
     phone_internal: Optional[str] = Field(None, pattern=r'^\d{4,}$|^(\+\d{1,3}\s?\(?[0-9]{3}\)?\s?[0-9]{3}-[0-9]{2}-[0-9]{1,2})$')
     phone_city: Optional[str] = Field(None, pattern=r'^\d{4,}$|^(\+\d{1,3}\s?\(?[0-9]{3}\)?\s?[0-9]{3}-[0-9]{2}-[0-9]{1,2})$')
@@ -62,11 +60,11 @@ class Contact(BaseModel):
                 setattr(self, field, None)
         return self
 
-    @field_validator('first_name', 'last_name')
+    @field_validator('displayName')
     @classmethod
-    def validate_names(cls, v: str) -> str:
+    def validate_display_name(cls, v: str) -> str:
         if v and not re.match(r'^[A-Za-zА-Яа-яЁё\s\-]+$', v):
-            raise ValueError("Имя и фамилия должны содержать только буквы, пробелы или дефисы")
+            raise ValueError("Отображаемое имя должно содержать только буквы, пробелы или дефисы")
         return v
 
     @field_validator('password')
@@ -97,7 +95,8 @@ def timeout(seconds):
         yield
     finally:
         signal.alarm(0)
-router.get("/groups", response_model=List[str])
+
+@router.get("/groups", response_model=List[str])
 async def get_groups_endpoint(current_user: dict = Depends(get_current_user)):
     logger.info("Обработка запроса на /contacts/groups")
     try:
@@ -109,6 +108,7 @@ async def get_groups_endpoint(current_user: dict = Depends(get_current_user)):
     except Exception as e:
         logger.error(f"Ошибка в /groups: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ошибка сервера при получении групп")
+
 def safe_decode_attr(attr_value: Any, attr_name: str = "") -> Optional[str]:
     if not attr_value:
         return None
@@ -135,7 +135,7 @@ def encode_password(password: str) -> bytes:
     quoted_password = f'"{password}"'.encode('utf-16-le')
     return quoted_password
 
-def validate_password(password: str, first_name: str = "", last_name: str = "") -> bool:
+def validate_password(password: str, displayName: str = "") -> bool:
     """Проверяет пароль на соответствие требованиям AD."""
     if len(password) < 8:
         return False
@@ -145,9 +145,7 @@ def validate_password(password: str, first_name: str = "", last_name: str = "") 
         return False
     if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
         return False
-    if first_name and first_name.lower() in password.lower():
-        return False
-    if last_name and last_name.lower() in password.lower():
+    if displayName and displayName.lower() in password.lower():
         return False
     return True
 
@@ -207,13 +205,10 @@ def normalize_phone_number(phone: Optional[str]) -> Optional[str]:
     if not digits or len(digits) < 4:
         return None
     if re.match(r'^\+\d{1,3}\s*\(\d{3}\)\s*\d{3}-\d{2}-\d{1,2}$', phone):
+        logger.info(f"rematch - {cleaned}")
         return phone
     if len(digits) == 4:
         return digits
-    elif len(digits) == 10:
-        return f"+7 ({digits[0:3]}) {digits[3:6]}-{digits[6:8]}-{digits[8:10]}"
-    elif len(digits) == 11:
-        return f"+{digits[0]} ({digits[1:4]}) {digits[4:7]}-{digits[7:9]}-{digits[9:11]}"
     elif len(digits) == 12 and digits.startswith('375'):
         return f"+375 ({digits[3:6]}) {digits[6:9]}-{digits[9:11]}-{digits[11:12]}"
     elif len(digits) == 12:
@@ -221,12 +216,13 @@ def normalize_phone_number(phone: Optional[str]) -> Optional[str]:
     return digits
 
 def normalize_ldap_phone(phone: str) -> list:
+    logger.info(f"Телефон - {phone}")
     if not phone:
         return []
     digits = re.sub(r'[^\d]', '', phone)
     if not digits:
         return []
-    if len(digits) == 4:
+    if len(digits) == 3:
         return [digits]
     return [digits]
 
@@ -237,23 +233,15 @@ def search_ad_users(search_term: str = "", limit: int = 250) -> List[Contact]:
         base_filter = "(&(objectClass=user)(objectCategory=person)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
         if search_term and search_term.strip() != "*":
             escaped_term = escape_ldap_filter_chars(search_term.strip())
-            search_filter = f"(&{base_filter}(|" \
-                          f"(displayName=*{escaped_term}*)" \
-                          f"(sAMAccountName=*{escaped_term}*)" \
-                          f"(mail=*{escaped_term}*)" \
-                          f"(telephoneNumber=*{escaped_term}*)" \
-                          f"(otherTelephone=*{escaped_term}*)" \
-                          f"(mobile=*{escaped_term}*)" \
-                          f"(givenName=*{escaped_term}*)" \
-                          f"(sn=*{escaped_term}*)))"
+            search_filter = f"(&{base_filter}(|(displayName=*{escaped_term}*)(sAMAccountName=*{escaped_term}*)(mail=*{escaped_term}*)(telephoneNumber=*{escaped_term}*)(otherTelephone=*{escaped_term}*)(mobile=*{escaped_term}*)))"
         else:
             search_filter = base_filter
         
         logger.debug(f"Используемый фильтр: {search_filter}")
         attributes = [
-            'sAMAccountName', 'displayName', 'givenName', 'sn',
-            'mail', 'telephoneNumber', 'department', 'title',
-            'otherTelephone', 'mobile', 'userAccountControl', 'memberOf'
+            'sAMAccountName', 'displayName', 'mail', 'telephoneNumber',
+            'department', 'title', 'otherTelephone', 'mobile',
+            'userAccountControl', 'memberOf'
         ]
         with timeout(15):
             result = conn.search_s(BASE_DN, ldap.SCOPE_SUBTREE, search_filter, attributes)
@@ -273,8 +261,6 @@ def search_ad_users(search_term: str = "", limit: int = 250) -> List[Contact]:
             conn.unbind()
         except Exception as e:
             logger.warning(f"Ошибка при отключении от LDAP: {e}")
-
-
 
 def get_all_groups() -> List[str]:
     logger.info("Начало получения списка групп из AD")
@@ -303,6 +289,7 @@ def get_all_groups() -> List[str]:
             conn.unbind()
         except Exception as e:
             logger.warning(f"Ошибка при отключении от LDAP: {e}")
+
 @router.get("/check-username")
 async def check_username_unique(
     username: str = Query(..., description="sAMAccountName для проверки"),
@@ -327,6 +314,7 @@ async def check_username_unique(
                 conn.unbind()
             except Exception as e:
                 logger.warning(f"Ошибка при отключении от LDAP: {e}")
+
 def get_departments() -> List[str]:
     logger.info("Начало получения списка организационных подразделений и групп из AD")
     conn = get_ad_search_connection()
@@ -402,31 +390,6 @@ async def get_departments_endpoint(current_user: dict = Depends(get_current_user
         logger.error(f"Ошибка в /departments: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ошибка сервера")
 
-@router.get("/check-username")
-async def check_username_unique(
-    username: str = Query(..., description="sAMAccountName для проверки"),
-    current_user: dict = Depends(get_current_user)
-):
-    conn = None
-    try:
-        conn = get_ad_search_connection()
-        search_filter = f"(sAMAccountName={escape_ldap_filter_chars(username)})"
-        with timeout(15):
-            result = conn.search_s(BASE_DN, ldap.SCOPE_SUBTREE, search_filter)
-        return {"available": not bool(result)}
-    except TimeoutError:
-        logger.error("Превышен таймаут проверки имени пользователя")
-        raise HTTPException(status_code=500, detail="Таймаут проверки имени пользователя")
-    except ldap.LDAPError as e:
-        logger.error(f"Ошибка LDAP при проверке имени пользователя: {e}")
-        raise HTTPException(status_code=500, detail=f"Ошибка проверки имени пользователя: {str(e)}")
-    finally:
-        if conn:
-            try:
-                conn.unbind()
-            except Exception as e:
-                logger.warning(f"Ошибка при отключении от LDAP: {e}")
-
 @router.get("/{contact_id}", response_model=Contact)
 async def get_contact(
     contact_id: str,
@@ -471,8 +434,7 @@ async def update_contact(
         mod_attrs = []
         
         field_mapping = {
-            'first_name': ('givenName', lambda x: [x.encode('utf-8')] if x else []),
-            'last_name': ('sn', lambda x: [x.encode('utf-8')] if x else []),
+            'displayName': ('displayName', lambda x: [x.encode('utf-8')] if x else []),
             'email': ('mail', lambda x: [x.encode('utf-8')] if x else []),
             'phone_internal': ('telephoneNumber', lambda x: [p.encode('utf-8') for p in normalize_ldap_phone(x)]),
             'phone_city': ('otherTelephone', lambda x: [p.encode('utf-8') for p in normalize_ldap_phone(x)]),
@@ -504,9 +466,9 @@ async def update_contact(
                     mod_attrs.append((ldap.MOD_REPLACE, attr, []))
         
         if contact_data.password:
-            if not validate_password(contact_data.password, contact_data.first_name or "", contact_data.last_name or ""):
+            if not validate_password(contact_data.password, contact_data.displayName or ""):
                 logger.error("Пароль не соответствует требованиям политики безопасности AD")
-                raise HTTPException(status_code=400, detail="Пароль должен быть не менее 8 символов, содержать заглавные буквы, цифры, специальные символы и не содержать имя или фамилию")
+                raise HTTPException(status_code=400, detail="Пароль должен быть не менее 8 символов, содержать заглавные буквы, цифры, специальные символы и не содержать отображаемое имя")
             try:
                 with timeout(15):
                     conn.passwd_s(dn, None, encode_password(contact_data.password))
@@ -514,9 +476,6 @@ async def update_contact(
                 logger.error(f"Ошибка установки пароля для {dn}: {e}")
                 raise HTTPException(status_code=500, detail="Сервер AD требует защищённое соединение для установки пароля")
         
-        if not mod_attrs and not contact_data.password:
-            raise HTTPException(status_code=400, detail="Нет данных для обновления")
-
         if mod_attrs:
             try:
                 with timeout(15):
@@ -636,12 +595,12 @@ async def create_contact(
         if not current_user.get("isAdmin"):
             raise HTTPException(status_code=403, detail="Только администратор может создавать контакты")
         
-        if not contact_data.first_name or not contact_data.last_name or not contact_data.password or not contact_data.sam_account_name:
-            raise HTTPException(status_code=400, detail="Требуются first_name, last_name, password и sam_account_name")
+        if not contact_data.displayName or not contact_data.password or not contact_data.sam_account_name:
+            raise HTTPException(status_code=400, detail="Требуются displayName, password и sam_account_name")
         
-        if not validate_password(contact_data.password, contact_data.first_name or "", contact_data.last_name or ""):
+        if not validate_password(contact_data.password, contact_data.displayName or ""):
             logger.error("Пароль не соответствует требованиям политики безопасности AD")
-            raise HTTPException(status_code=400, detail="Пароль должен быть не менее 8 символов, содержать заглавные буквы, цифры, специальные символы и не содержать имя или фамилию")
+            raise HTTPException(status_code=400, detail="Пароль должен быть не менее 8 символов, содержать заглавные буквы, цифры, специальные символы и не содержать отображаемое имя")
 
         conn = get_ad_search_connection()
         
@@ -652,21 +611,19 @@ async def create_contact(
         if result:
             raise HTTPException(status_code=409, detail="Имя входа уже занято. Выберите другое.")
 
-        full_name = contact_data.full_name or f"{contact_data.first_name} {contact_data.last_name}".strip()
-        if not full_name:
-            raise HTTPException(status_code=400, detail="Полное имя не может быть пустым")
+        display_name = contact_data.displayName.strip()
+        if not display_name:
+            raise HTTPException(status_code=400, detail="Отображаемое имя не может быть пустым")
         
-        dn = f"CN={full_name},{USER_CONTAINER},{BASE_DN}"
+        dn = f"CN={display_name},{USER_CONTAINER},{BASE_DN}"
 
         attrs = {
             'objectClass': [b'top', b'person', b'organizationalPerson', b'user'],
             'sAMAccountName': contact_data.sam_account_name.encode('utf-8'),
             'userPrincipalName': f"{contact_data.sam_account_name}@{AD_DOMAIN}".encode('utf-8'),
-            'givenName': contact_data.first_name.encode('utf-8') if contact_data.first_name else None,
-            'sn': contact_data.last_name.encode('utf-8') if contact_data.last_name else None,
-            'displayName': full_name.encode('utf-8'),
-            'cn': full_name.encode('utf-8'),
-            'name': full_name.encode('utf-8'),
+            'displayName': display_name.encode('utf-8'),
+            'cn': display_name.encode('utf-8'),
+            'name': display_name.encode('utf-8'),
             'mail': contact_data.email.encode('utf-8') if contact_data.email else None,
             'telephoneNumber': normalize_ldap_phone(contact_data.phone_internal)[0].encode('utf-8') if contact_data.phone_internal else None,
             'department': contact_data.department.encode('utf-8') if contact_data.department else None,
@@ -720,9 +677,7 @@ async def create_contact(
         
         return Contact(
             id=contact_data.sam_account_name,
-            full_name=full_name,
-            first_name=contact_data.first_name,
-            last_name=contact_data.last_name,
+            displayName=display_name,
             email=contact_data.email,
             phone_internal=contact_data.phone_internal,
             phone_city=contact_data.phone_city,
@@ -744,6 +699,7 @@ async def create_contact(
                 conn.unbind()
             except Exception as e:
                 logger.warning(f"Ошибка при отключении от LDAP: {e}")
+
 @router.patch("/{contact_id}")
 async def freeze_contact(
     contact_id: str,
@@ -805,8 +761,6 @@ def process_ldap_search_results(ldap_results: list) -> List[Contact]:
                 continue
 
             display_name = safe_decode_attr(attrs.get('displayName', [None])[0])
-            given_name = safe_decode_attr(attrs.get('givenName', [None])[0])
-            surname = safe_decode_attr(attrs.get('sn', [None])[0])
             mail = safe_decode_attr(attrs.get('mail', [None])[0])
             telephone = safe_decode_attr(attrs.get('telephoneNumber', [None])[0])
             other_phone = safe_decode_attr(attrs.get('otherTelephone', [None])[0])
@@ -831,13 +785,9 @@ def process_ldap_search_results(ldap_results: list) -> List[Contact]:
                     if cn_match:
                         groups.append(cn_match.group(1))
 
-            full_name = display_name or f"{given_name or ''} {surname or ''}".strip()
-
             user_data = {
                 "id": sam_account,
-                "full_name": full_name,
-                "first_name": given_name,
-                "last_name": surname,
+                "displayName": display_name,
                 "email": mail,
                 "phone_internal": normalize_phone_number(telephone),
                 "phone_city": normalize_phone_number(other_phone),
@@ -873,15 +823,7 @@ async def get_contacts(
         
         if query and query.strip() != "*":
             escaped_term = escape_ldap_filter_chars(query.strip())
-            search_filter = f"(&{base_filter}(|" \
-                          f"(displayName=*{escaped_term}*)" \
-                          f"(sAMAccountName=*{escaped_term}*)" \
-                          f"(mail=*{escaped_term}*)" \
-                          f"(telephoneNumber=*{escaped_term}*)" \
-                          f"(otherTelephone=*{escaped_term}*)" \
-                          f"(mobile=*{escaped_term}*)" \
-                          f"(givenName=*{escaped_term}*)" \
-                          f"(sn=*{escaped_term}*)))"
+            search_filter = f"(&{base_filter}(|(displayName=*{escaped_term}*)(sAMAccountName=*{escaped_term}*)(mail=*{escaped_term}*)(telephoneNumber=*{escaped_term}*)(otherTelephone=*{escaped_term}*)(mobile=*{escaped_term}*)))"
         else:
             search_filter = base_filter
         
@@ -890,9 +832,10 @@ async def get_contacts(
         
         conn = get_ad_search_connection()
         attributes = [
-            'sAMAccountName', 'displayName', 'givenName', 'sn', 'mail',
-            'telephoneNumber', 'department', 'title', 'otherTelephone',
-            'mobile', 'userAccountControl', 'memberOf'
+            'sAMAccountName', 'displayName', 'mail',
+            'telephoneNumber', 'department', 'title',
+            'otherTelephone', 'mobile', 'userAccountControl',
+            'memberOf'
         ]
         
         try:

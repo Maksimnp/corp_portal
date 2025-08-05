@@ -1,0 +1,29 @@
+CREATE TABLE channels (
+    id UUID PRIMARY KEY,
+    name TEXT NOT NULL,
+    creator VARCHAR(50),
+    is_private BOOLEAN NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    image_url VARCHAT(255)
+);
+
+CREATE TABLE messages (
+    id UUID PRIMARY KEY,
+    channel_id UUID REFERENCES channels(id),
+    sender VARCHAR(50),
+    content TEXT,
+    timestamp TIMESTAMPTZ NOT NULL,
+    is_file BOOLEAN DEFAULT FALSE,
+    file_name TEXT,
+    file_size BIGINT,
+    file_type TEXT,
+    id_edited BOOLEAN,
+    edited_at TIMESTAMPTZ
+);
+
+CREATE TABLE channel_members (
+    channel_id UUID REFERENCES channels(id),
+    username VARCHAR(50),
+    joined_at TIMESTAMPTZ DEFAULT NOW(),
+    role VARCHAR(50) DEFAULT 'member'
+);

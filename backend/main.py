@@ -1,11 +1,10 @@
-# main.py
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import HTTPException
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from api.ad_contacts import router as contacts_router
+from api.ad_contacts import router as ad_contacts_router
 import uvicorn
 import logging
 import logging.handlers
@@ -13,15 +12,16 @@ from dotenv import load_dotenv
 import os
 from typing import List
 from api.contacts import get_all_groups
+from api.routes.documents import router as documents_router
 load_dotenv()
 
 # Импорт роутеров
 from api.auth import router as auth_router
-from api.chat import router as chat_router
+# from api.chat import router as chat_router
 from api.contacts import router as contacts_router
 from api.admin import router as admin_router
 from api.request_list import router as request_list_router
-
+from api.documents import router as documents_router
 
 # Настройка логирования
 LOGGING_CONFIG = {
@@ -81,7 +81,7 @@ def check_env_vars():
 # Инициализация приложения
 app = FastAPI(
     title="Employee Portal API",
-    description="API для корпоративного портала: аутентификация, чат, заявки, контакты",
+    description="API для корпоративного портала: аутентификация, чат, заявки, контакты, документы",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -96,15 +96,16 @@ def get_cors_origins():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=get_cors_origins(),
+    allow_origins=["http://192.1.66.117:3000", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"],
 )
+
 @app.get("/contacts/groups")
 async def list_groups():
     return get_all_groups()
+
 # Подключение статических файлов из templates/static
 app.mount("/static", StaticFiles(directory="templates/static"), name="static")
 
@@ -130,10 +131,12 @@ async def log_requests(request: Request, call_next):
 
 # Подключение роутеров
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
-app.include_router(chat_router, prefix="/chat", tags=["chat"])
+# app.include_router(chat_router, prefix="/chat", tags=["chat"])
 app.include_router(contacts_router, prefix="/contacts", tags=["contacts"])
 app.include_router(admin_router, prefix="/admin", tags=["admin"])
 app.include_router(request_list_router, prefix="/request_list", tags=["requests"])
+app.include_router(documents_router, prefix="/api", tags=["documents"])
+
 # Health check
 @app.get("/health", include_in_schema=False)
 async def health_check():
