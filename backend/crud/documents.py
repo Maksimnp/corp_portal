@@ -10,7 +10,7 @@ def create_document(db: Session, document: DocumentCreate):
     return db_document
 
 def get_user_documents(db: Session, username: str, search: str = None):
-    query = db.query(Document).filter(Document.owner == username)
+    query = db.query(Document).filter(Document.owner_username == username)
     if search:
         query = query.filter(Document.title.ilike(f"%{search}%"))
     return query.all()
@@ -23,7 +23,7 @@ def share_document(db: Session, shared_doc: SharedDocumentCreate):
     return db_shared
 
 def get_shared_documents(db: Session, username: str, search: str = None):
-    query = db.query(SharedDocument).filter(SharedDocument.recipient == username)
+    query = db.query(SharedDocument).filter(SharedDocument.recipient_username == username)
     if search:
         query = query.join(Document).filter(Document.title.ilike(f"%{search}%"))
     return query.all()
@@ -31,7 +31,7 @@ def get_shared_documents(db: Session, username: str, search: str = None):
 def update_shared_document_status(db: Session, document_id: str, username: str, status: DocumentStatus):
     shared_doc = db.query(SharedDocument).filter(
         SharedDocument.document_id == document_id,
-        SharedDocument.recipient == username
+        SharedDocument.recipient_username == username
     ).first()
     if shared_doc:
         shared_doc.status = status

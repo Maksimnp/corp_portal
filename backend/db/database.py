@@ -11,10 +11,10 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_DATABASE = os.getenv("DB_DATABASE", "portal_db")
-DB_USER = os.getenv("DB_USER", "portal_admin")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "season")
+DB_HOST = os.getenv("DOCUMENTS_DB_HOST", "localhost")
+DB_DATABASE = os.getenv("DOCUMENTS_DB_DATABASE", "portal_db")
+DB_USER = os.getenv("DOCUMENTS_DB_USER", "portal_admin")
+DB_PASSWORD = os.getenv("DOCUMENTS_DB_PASSWORD", "season")
 DB_PORT = os.getenv("DB_PORT", "5432")
 
 SQLALCHEMY_DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_DATABASE}"

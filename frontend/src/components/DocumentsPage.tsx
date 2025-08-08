@@ -4,18 +4,21 @@ import { debounce } from 'lodash';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { DocumentStatus, DocumentPermission } from '/home/msa/corp_portal/frontend/models/documentModels';
+import { Modal } from 'antd';
 
 interface User {
-  username: string;
-  full_name: string;
+  displayName: string;
+  department: string;
   email?: string;
+  id: string;
 }
 
 interface Document {
   id: string;
   title: string;
-  owner: string;
+  owner_username: string;
   file_path: string;
+  file_type: string,
   created_at: string;
   status: DocumentStatus;
 }
@@ -27,8 +30,9 @@ interface SharedDocument {
   shared_at: string;
   status: DocumentStatus;
   title: string;
-  owner: string;
+  owner_username: string;
   file_path: string;
+  file_type: string;
 }
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.1.66.117:8000'; // Изменено на порт 8000
@@ -44,7 +48,10 @@ const DocumentsPage: React.FC = () => {
   const [recipient, setRecipient] = useState('');
   const [canEdit, setCanEdit] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchQueryContacts, setSearchQueryContacts] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [isOpenMyDocument, setIsOpenMyDocument] = useState(true);
+  const [isOpenSharedDocument, setIsOpenSharedDocument] = useState(false);
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
 
@@ -54,7 +61,8 @@ const DocumentsPage: React.FC = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
-        setMyDocuments(await response.json());
+        const result = await response.json(); 
+        setMyDocuments(result);
       } else {
         const errorData = await response.json().catch(() => ({}));
         toast.error(`Ошибка получения документов: ${errorData.detail || response.statusText}`);
@@ -84,7 +92,8 @@ const DocumentsPage: React.FC = () => {
 
   const fetchContacts = async () => {
     try {
-      const response = await fetch(`${BASE_URL}/api/contacts/${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''}`, {
+      const searchParams = new URLSearchParams({ query: searchQueryContacts.trim() });
+      const response = await fetch(`${BASE_URL}/contacts?${searchParams.toString()}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -116,7 +125,7 @@ const DocumentsPage: React.FC = () => {
     formData.append('title', title);
 
     try {
-      const response = await fetch(`${BASE_URL}/api/documents`, {
+      const response = await fetch(`${BASE_URL}/api/documents/documents`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -151,13 +160,14 @@ const DocumentsPage: React.FC = () => {
       const response = await fetch(`${BASE_URL}/api/documents/share`, {
         method: 'POST',
         headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/x-www-form-urlencoded'
+          'Authorization': `Bearer ${token}`
         },
         body: new URLSearchParams({
           document_id: currentDoc.id,
-          recipient_username: recipient,
-          can_edit: String(canEdit)
+          recipient: recipient,
+          permission: canEdit ? 'EDIT': 'VIEW',
+          fil_type: currentDoc.file_type,
+          title: currentDoc.title
         })
       });
 
@@ -179,13 +189,14 @@ const DocumentsPage: React.FC = () => {
 
   const updateDocumentStatus = async (docId: string, status: DocumentStatus) => {
     try {
+      console.log(status);
       const response = await fetch(`${BASE_URL}/api/documents/status/${docId}`, {
         method: 'PUT',
         headers: { 
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ status })
+        body: JSON.stringify(status)
       });
 
       if (response.ok) {
@@ -202,29 +213,58 @@ const DocumentsPage: React.FC = () => {
   };
 
   const handleDeleteDocument = async (docId: string) => {
-    if (!confirm('Вы уверены, что хотите удалить этот документ?')) return;
+    Modal.confirm({
+        title: 'Подтверждение удаления',
+        content: 'Вы уверены, что хотите удалить этот документ?',
+        okText: 'Удалить',
+        okType: 'danger',
+        cancelText: 'Отмена',
+        onOk: async () => {
+          try {
+            const response = await fetch(`${BASE_URL}/api/documents/${docId}`, {
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${token}` },
+            });
 
-    try {
-      const response = await fetch(`${BASE_URL}/api/documents/${docId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-
-      if (response.ok) {
-        toast.success('Документ успешно удалён');
-        fetchMyDocuments();
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        toast.error(`Ошибка удаления документа: ${errorData.detail || response.statusText}`);
+            if (response.ok) {
+              toast.success('Документ успешно удалён');
+              fetchMyDocuments();
+            } else {
+              const errorData = await response.json().catch(() => ({}));
+              toast.error(`Ошибка удаления документа: ${errorData.detail || response.statusText}`);
+            }
+          } catch (error) {
+            toast.error('Ошибка сети при удалении документа');
+            console.error('Ошибка удаления документа:', error);
+          }
+        }
       }
-    } catch (error) {
-      toast.error('Ошибка сети при удалении документа');
-      console.error('Ошибка удаления документа:', error);
-    }
-  };
+    );
 
-  const downloadDocument = (docId: string, fileName: string) => {
-    window.open(`${BASE_URL}/api/documents/download/${docId}`, '_blank');
+    
+  };
+  const downloadDocument = async (docId: string, fileName: string, extension: string) => {
+    // window.open(`${BASE_URL}/api/documents/download/${docId}`, '_blank');
+    const response = await fetch(`${BASE_URL}/api/documents/download/${docId}`, {
+      headers: {'Authorization': `Bearer ${token}`}
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      toast.error(`Ошибка скачивания документа: ${errorData.detail || response.statusText}`);
+      return;
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${fileName}${extension}` || docId);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('Подвердите скачивание в вашем браузере');
+    window.URL.revokeObjectURL(url);
   };
 
   useEffect(() => {
@@ -237,12 +277,14 @@ const DocumentsPage: React.FC = () => {
       navigate('/login');
     }
   }, []);
-
   useEffect(() => {
     debouncedFetchMyDocuments();
     debouncedFetchSharedDocuments();
-    debouncedFetchContacts();
   }, [searchQuery]);
+
+  useEffect(() => {
+    debouncedFetchContacts();
+  }, [searchQueryContacts]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -298,7 +340,10 @@ const DocumentsPage: React.FC = () => {
                   </div>
                   <input
                     type="file"
-                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                    onChange={(e) => {
+                      setSelectedFile(e.target.files?.[0] || null);
+                      setTitle(e.target.files?.[0].name.split('.')[0] || '');
+                    }}
                     className="hidden"
                     required
                   />
@@ -317,16 +362,28 @@ const DocumentsPage: React.FC = () => {
 
         <div className="mb-6 border-b border-gray-200">
           <nav className="-mb-px flex space-x-8">
-            <button className="border-b-2 border-blue-500 text-blue-600 px-4 py-3 text-sm font-medium">
+            <button
+              className={`border-b-2 px-4 py-3 text-sm font-medium 
+                ${isOpenMyDocument ? 'border-blue-500 text-blue-600' 
+                : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+                `}
+              onClick={() => {setIsOpenMyDocument(true);setIsOpenSharedDocument(false)}}
+            >
               Мои документы
             </button>
-            <button className="border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 px-4 py-3 text-sm font-medium">
+            <button 
+              className={`border-b-2 px-4 py-3 text-sm font-medium 
+                ${isOpenSharedDocument ? 'border-blue-500 text-blue-600' 
+                : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+                `}
+              onClick={() => {setIsOpenMyDocument(false);setIsOpenSharedDocument(true)}}
+            >
               Доступные мне
             </button>
           </nav>
         </div>
 
-        <div className="mb-10">
+        {isOpenMyDocument && (<div className="mb-10">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-gray-800">Мои документы</h2>
             <div className="relative w-64">
@@ -374,7 +431,7 @@ const DocumentsPage: React.FC = () => {
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">{doc.title}</div>
-                            <div className="text-sm text-gray-500">Владелец: {doc.owner}</div>
+                            <div className="text-sm text-gray-500">Владелец: {doc.owner_username}</div>
                           </div>
                         </div>
                       </td>
@@ -394,7 +451,7 @@ const DocumentsPage: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
                           <button
-                            onClick={() => downloadDocument(doc.id, doc.title)}
+                            onClick={() => downloadDocument(doc.id, doc.title, doc.file_type)}
                             className="text-blue-600 hover:text-blue-900"
                           >
                             Скачать
@@ -422,9 +479,9 @@ const DocumentsPage: React.FC = () => {
               </table>
             </div>
           )}
-        </div>
+        </div>)}
 
-        <div>
+        {isOpenSharedDocument && (<div>
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold text-gray-800">Доступные мне документы</h2>
             <div className="relative w-64">
@@ -462,7 +519,7 @@ const DocumentsPage: React.FC = () => {
                       </div>
                       <div className="ml-4 flex-1">
                         <h3 className="text-lg font-medium text-gray-900">{item.title}</h3>
-                        <p className="text-sm text-gray-500 mt-1">От: {item.owner}</p>
+                        <p className="text-sm text-gray-500 mt-1">От: <strong>{item.owner_username}</strong></p>
                         <div className="mt-2 flex flex-wrap gap-2">
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                             item.status === DocumentStatus.PENDING ? 'bg-yellow-100 text-yellow-800' :
@@ -488,7 +545,7 @@ const DocumentsPage: React.FC = () => {
                   </div>
                   <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex justify-end space-x-2">
                     <button
-                      onClick={() => downloadDocument(item.document_id, item.title)}
+                      onClick={() => downloadDocument(item.document_id, item.title, item.file_type)}
                       className="text-sm text-blue-600 hover:text-blue-800 font-medium"
                     >
                       Скачать
@@ -507,7 +564,7 @@ const DocumentsPage: React.FC = () => {
               ))}
             </div>
           )}
-        </div>
+        </div>)}
 
         {shareModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -535,9 +592,9 @@ const DocumentsPage: React.FC = () => {
                   <div className="relative">
                     <input
                       type="text"
-                      value={searchQuery}
+                      value={searchQueryContacts}
                       onChange={(e) => {
-                        setSearchQuery(e.target.value);
+                        setSearchQueryContacts(e.target.value);
                         debouncedFetchContacts();
                       }}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -552,19 +609,19 @@ const DocumentsPage: React.FC = () => {
                     {contacts.length > 0 ? (
                       contacts.map((contact) => (
                         <div 
-                          key={contact.username}
-                          onClick={() => setRecipient(contact.username)}
-                          className={`p-3 cursor-pointer hover:bg-gray-50 ${
-                            recipient === contact.username ? 'bg-blue-50' : ''
+                          key={contact.id}
+                          onClick={() => setRecipient(contact.id)}
+                          className={`p-3 cursor-pointer hover:bg-gray-100 ${
+                            recipient === contact.id ? 'bg-blue-100' : ''
                           }`}
                         >
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-600">
-                              {contact.full_name.charAt(0)}
+                              {/* {contact.displayName || ''} */}
                             </div>
                             <div className="ml-3">
-                              <p className="text-sm font-medium text-gray-900">{contact.full_name}</p>
-                              <p className="text-sm text-gray-500">@{contact.username}</p>
+                              <p className="text-sm font-medium text-gray-900">{contact.displayName}</p>
+                              <p className="text-sm text-gray-500">@{contact.id}</p>
                             </div>
                           </div>
                         </div>

@@ -19,8 +19,12 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60))
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 def create_access_token(data: Dict[str, Union[str, int]], expires_delta: Optional[timedelta] = None) -> str:
+    if not data:
+        raise ValueError("data cannot be empty")
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    if expire is None:
+        raise ValueError("expire cannot be empty")
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -28,8 +32,11 @@ def create_access_token(data: Dict[str, Union[str, int]], expires_delta: Optiona
 def verify_token(token: str) -> Optional[Dict[str, str]]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload is None:
+            logger.warning("Токен не содержит данных")
+            return None
         username = payload.get("sub")
-        if not username:
+        if username is None:
             logger.warning("Токен не содержит имя пользователя (sub)")
             return None
         user_data = {
@@ -55,8 +62,10 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict[str, str
     
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload is None:
+            logger.warning("Токен не содержит данных")
+            raise credentials_exception
         username: str = payload.get("sub")
-        
         if username is None:
             logger.warning("Токен не содержит имя пользователя (sub)")
             raise credentials_exception
@@ -65,7 +74,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict[str, str
             "username": username,
             "full_name": payload.get("full_name", username),
             "role": str(payload.get("role", "user")),
-            "isAdmin": str(payload.get("role", "user")).lower() == "admin" 
+            "isAdmin": str(payload.get("role", "user")).lower() == "admin"  
         }
         
         logger.info(f"Пользователь {username} аутентифицирован через токен")

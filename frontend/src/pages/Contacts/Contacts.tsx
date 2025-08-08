@@ -17,8 +17,8 @@ export interface Contact {
 }
 
 // Функция для форматирования номера телефона
-const formatPhoneNumber = (phone: string | undefined): string | null => {
-  if (!phone) return null;
+const formatPhoneNumber = (phone: string | undefined): string | undefined => {
+  if (!phone) return undefined;
   const cleaned = phone.replace(/[^\d+]/g, '');
   if (cleaned.length >= 8) {
     if (cleaned.startsWith('+375') && cleaned.length === 13) {
@@ -27,7 +27,7 @@ const formatPhoneNumber = (phone: string | undefined): string | null => {
       return `+375 (${cleaned.slice(3, 5)}) ${cleaned.slice(5, 8)}-${cleaned.slice(8, 10)}-${cleaned.slice(10, 12)}`;
     }
   }
-  return phone;
+  return phone; 
 };
 
 // Функция для получения инициалов

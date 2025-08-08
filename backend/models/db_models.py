@@ -1,31 +1,37 @@
-from sqlalchemy import Column, String, Integer, Enum, DateTime, ForeignKey
+from sqlalchemy import Column, String, Integer, Enum, DateTime, ForeignKey, BigInteger, text
+from sqlalchemy.dialects.postgresql import UUID
 from db.database import Base
 from datetime import datetime
 import enum
 
 class DocumentStatus(enum.Enum):
-    PENDING = "pending"
-    VIEWED = "viewed"
-    EDITED = "edited"
+    PENDING = "PENDING"
+    VIEWED = "VIEWED"
+    EDITED = "EDITED"
 
-class DocumentPermission(enum.Enum):
-    VIEW = "view"
-    EDIT = "edit"
+class DocumentPermission(str, enum.Enum):
+    VIEW = "VIEW"
+    EDIT = "EDIT"
 
 class Document(Base):
     __tablename__ = "documents"
-    id = Column(String, primary_key=True, index=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True)
     title = Column(String, index=True)
-    owner = Column(String, index=True)
+    owner_username = Column(String, index=True)
     file_path = Column(String)
+    file_size = Column(BigInteger)
+    file_type = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
     status = Column(Enum(DocumentStatus), default=DocumentStatus.PENDING)
 
 class SharedDocument(Base):
-    __tablename__ = "shared_documents"
-    id = Column(Integer, primary_key=True, index=True)
-    document_id = Column(String, ForeignKey("documents.id"), index=True)
-    recipient = Column(String, index=True)
+    __tablename__ = "document_shares"
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True, server_default=text("gen_random_uuid()"))
+    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id"), index=True)
+    recipient_username = Column(String, index=True)
+    file_type = Column(String)
     permission = Column(Enum(DocumentPermission))
     shared_at = Column(DateTime, default=datetime.utcnow)
     status = Column(Enum(DocumentStatus), default=DocumentStatus.PENDING)
+    owner_username = Column(String)
+    title = Column(String)

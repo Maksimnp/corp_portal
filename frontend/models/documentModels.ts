@@ -1,7 +1,7 @@
 export enum DocumentStatus {
-  PENDING = "pending",
-  VIEWED = "viewed",
-  EDITED = "edited"
+  PENDING = "PENDING",
+  VIEWED = "VIEWED",
+  EDITED = "EDITED"
 }
 
 export enum DocumentPermission {

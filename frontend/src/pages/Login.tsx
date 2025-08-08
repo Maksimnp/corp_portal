@@ -1,7 +1,7 @@
 // src/pages/Login.tsx
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from './AuthContext'; // Импорт useAuth
+import { useAuth } from './AuthContext';
 
 interface LoginResponse {
   access_token: string;
@@ -20,7 +20,7 @@ const Login: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth(); // Использование контекста
+  const { login } = useAuth();
 
   const handleLogin = useCallback(async () => {
     if (isLoading) return;
@@ -31,73 +31,45 @@ const Login: React.FC = () => {
     setError(null);
     setLoading(true);
 
-    let attempt = 0;
-    const maxAttempts = 3;
-    const delayMs = 1000;
-
     try {
-      while (attempt < maxAttempts) {
-        try {
-          console.log('Sending:', { username, password });
-          const response = await fetch('http://192.1.66.117:8000/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password }),
-          });
+      const response = await fetch('http://192.1.66.117:8000/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
 
-          const data = await response.json() as LoginResponse | LoginError;
-
-          if (response.ok) {
-            const { access_token, role, full_name = username } = data;
-            console.log('Received token:', access_token);
-            login(access_token, String(role)); // Обновление контекста
-            localStorage.setItem('token', access_token);
-            localStorage.setItem('role', String(role));
-            localStorage.setItem('username', full_name);
-            console.log('Stored in localStorage:', {
-              token: localStorage.getItem('token'),
-              role: localStorage.getItem('role'),
-              username: localStorage.getItem('username'),
-            });
-            navigate('/dashboard'); // Перенаправление на Dashboard после успешной авторизации
-            return;
-          }
-
-          let errorMessage = `Ошибка: ${response.status}`;
-          if (data.detail) {
-            errorMessage = typeof data.detail === 'string' ? data.detail : errorMessage;
-          }
-
-          if (response.status === 401) {
-            attempt++;
-            if (attempt < maxAttempts) {
-              await new Promise((resolve) => setTimeout(resolve, delayMs));
-              continue;
-            }
-            setError('Неверный логин или пароль. Превышено количество попыток.');
-          } else if (response.status === 422) {
-            setError(`Ошибка валидации: ${errorMessage}`);
-          } else if (response.status === 500) {
-            setError('Внутренняя ошибка сервера. Обратитесь к администратору.');
-          } else {
-            setError(errorMessage);
-          }
-          break;
-        } catch (err) {
-          console.error('Ошибка сети:', err);
-          if (attempt < maxAttempts - 1) {
-            attempt++;
-            await new Promise((resolve) => setTimeout(resolve, delayMs));
-            continue;
-          }
-          setError(
-            process.env.NODE_ENV === 'development'
-              ? `Ошибка сети: ${err instanceof Error ? err.message : String(err)}`
-              : 'Не удалось подключиться к серверу. Проверьте его доступность.'
-          );
-          break;
-        }
+      if (response.ok) {
+        const { access_token, role, full_name = username } = await response.json<LoginResponse>();
+        login(access_token, String(role));
+        localStorage.setItem('token', access_token);
+        localStorage.setItem('role', String(role));
+        localStorage.setItem('username', full_name);
+        navigate('/dashboard');
+        return;
       }
+
+      const data = await response.json<LoginError>();
+      let errorMessage = `Ошибка: ${response.status}`;
+      if (data.detail) {
+        errorMessage = typeof data.detail === 'string' ? data.detail : errorMessage;
+      }
+
+      if (response.status === 401) {
+        setError('Неверный логин или пароль. Превышено количество попыток.');
+      } else if (response.status === 422) {
+        setError(`Ошибка валидации: ${errorMessage}`);
+      } else if (response.status === 500) {
+        setError('Внутренняя ошибка сервера. Обратитесь к администратору.');
+      } else {
+        setError(errorMessage);
+      }
+    } catch (err) {
+      console.error('Ошибка сети:', err);
+      setError(
+        process.env.NODE_ENV === 'development'
+          ? `Ошибка сети: ${err instanceof Error ? err.message : String(err)}`
+          : 'Не удалось подключиться к серверу. Проверьте его доступность.'
+      );
     } finally {
       setLoading(false);
     }

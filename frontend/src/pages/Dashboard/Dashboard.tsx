@@ -2,30 +2,34 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { EditOutlined } from '@ant-design/icons';
 
-interface ServiceCardProps {
-  title: string;
-  description: string;
-  to: string;
-  icon: React.ReactNode;
-  disabled?: boolean;
-}
+const services = [
+  { title: 'Чат', description: 'Общайтесь с коллегами в каналах и личных сообщениях', to: '/chat', icon: '💬' },
+  { title: 'Служба поддержки', description: 'Создавайте и отслеживайте заявки в IT-поддержку', to: '/requests_list', icon: '🎟️' },
+  { title: 'Контакты', description: 'Поиск сотрудников по имени, отделу или должности', to: '/contacts', icon: '📞' },
+  { title: 'Редактирование контактов', description: 'Управление контактами Active Directory', to: '/edit-contacts', icon: <EditOutlined style={{ fontSize: '24px' }} />, isAdminOnly: true },
+  { title: 'Админ-панель', description: 'Управление пользователями и настройками системы', to: '/admin', icon: '👮‍♂️', isAdminOnly: true },
+  { title: 'Документы', description: 'Центр хранения внутренних документов и инструкций', to: '/docs', icon: '📄' },
+  { title: 'Опросы', description: 'Участвуйте в корпоративных опросах и голосованиях', to: '/polls', icon: '📊', disabled: true },
+];
 
-const ServiceCard: React.FC<ServiceCardProps> = ({ title, description, to, icon, disabled = false }) => {
+const ServiceCard: React.FC<{ service: typeof services[number] }> = ({ service }) => {
+  const role = localStorage.getItem('role') || 'user';
+  const isAdmin = role === 'admin';
+  const isDisabled = service.disabled || (service.isAdminOnly && !isAdmin);
+
   return (
     <Link
-      to={disabled ? '#' : to}
+      to={isDisabled ? '#' : service.to}
       className={`block p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 border border-gray-200 ${
-        disabled ? 'opacity-60 cursor-not-allowed' : 'hover:border-blue-300 cursor-pointer'
+        isDisabled ? 'opacity-60 cursor-not-allowed' : 'hover:border-blue-300 cursor-pointer'
       }`}
-      onClick={(e) => disabled && e.preventDefault()}
+      onClick={(e) => isDisabled && e.preventDefault()}
     >
       <div className="flex items-center mb-4">
-        <div className="text-blue-600 text-3xl mr-4">
-          {icon}
-        </div>
-        <h3 className="text-xl font-semibold text-gray-800">{title}</h3>
+        <div className="text-blue-600 text-3xl mr-4">{service.icon}</div>
+        <h3 className="text-xl font-semibold text-gray-800">{service.title}</h3>
       </div>
-      <p className="text-gray-600">{description}</p>
+      <p className="text-gray-600">{service.description}</p>
     </Link>
   );
 };
@@ -46,67 +50,9 @@ export const Dashboard: React.FC = () => {
 
         {/* Сетка сервисов */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Чат */}
-          <ServiceCard
-            title="Чат"
-            description="Общайтесь с коллегами в каналах и личных сообщениях"
-            to="/chat"
-            icon={<span>💬</span>}
-          />
-
-          {/* Справка */}
-          <ServiceCard
-            title="Служба поддержки"
-            description="Создавайте и отслеживайте заявки в IT-поддержку"
-            to="/requests_list"
-            icon={<span>🎟️</span>}
-          />
-
-          {/* Контакты */}
-          <ServiceCard
-            title="Контакты"
-            description="Поиск сотрудников по имени, отделу или должности"
-            to="/contacts"
-            icon={<span>📞</span>}
-          />
-
-          {/* Редактирование контактов (только для admin) */}
-          {isAdmin && (
-            <ServiceCard
-              title="Редактирование контактов"
-              description="Управление контактами Active Directory"
-              to="/edit-contacts"
-              icon={<EditOutlined style={{ fontSize: '24px' }} />}
-            />
-          )}
-
-          {/* Админ-панель (только для admin) */}
-          {isAdmin && (
-            <ServiceCard
-              title="Админ-панель"
-              description="Управление пользователями и настройками системы"
-              to="/admin"
-              icon={<span>👮‍♂️</span>}
-            />
-          )}
-
-          {/* Документы */}
-          <ServiceCard
-            title="Документы"
-            description="Центр хранения внутренних документов и инструкций"
-            to="/docs"
-            icon={<span>📄</span>}
-            disabled={false}
-          />
-
-          {/* Опросы */}
-          <ServiceCard
-            title="Опросы"
-            description="Участвуйте в корпоративных опросах и голосованиях"
-            to="/polls"
-            icon={<span>📊</span>}
-            disabled={true}
-          />
+          {services.filter(({ isAdminOnly }) => !isAdminOnly || isAdmin).map((service) => (
+            <ServiceCard key={service.title} service={service} />
+          ))}
         </div>
 
         {/* Профиль и выход */}

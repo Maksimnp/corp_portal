@@ -1,11 +1,12 @@
 import os
 import uuid
 from datetime import datetime
-from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Query
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Query, Body
 from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer
 from typing import List, Optional
 from models.document_models import Document, SharedDocument, DocumentStatus, DocumentPermission
+from schemas.document_schemas import DocumentCreate,DocumentResponse, SharedDocumentCreate
 from services.jwt_utils import verify_token
 from services.ad_auth import authenticate_user
 import logging
@@ -32,7 +33,7 @@ MAX_FILE_SIZE = int(os.getenv("DOCUMENTS_MAX_SIZE_MB", 50)) * 1024 * 1024  # в 
 # Создаем директорию для загрузок
 Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 
-@router.post("/documents", response_model=Document)
+@router.post("/documents", response_model=DocumentResponse)
 async def upload_document(
     file: UploadFile = File(...),
     title: str = Form(...),
@@ -61,10 +62,9 @@ async def upload_document(
                 detail=f"File too large. Max size: {MAX_FILE_SIZE // (1024 * 1024)}MB"
             )
     await file.seek(0)
-    
     # Сохраняем файл
-    file_id = str(uuid.uuid4())
-    file_path = os.path.join(UPLOAD_DIR, f"{file_id}{file_ext}")
+    file_id = uuid.uuid4()
+    file_path = os.path.join(UPLOAD_DIR, f"{str(file_id)}{file_ext}")
     
     try:
         with open(file_path, "wb") as buffer:
@@ -76,9 +76,12 @@ async def upload_document(
     # Создаем запись о документе в БД
     try:
         document = create_document(db, DocumentCreate(
+            id=file_id,
             title=title,
-            owner=user['username'],
-            file_path=file_path
+            owner_username=user['username'],
+            file_path=file_path,
+            file_size=file_size,
+            file_type=file_ext
         ))
     except Exception as e:
         logger.error(f"Error creating document record: {e}")
@@ -104,7 +107,7 @@ async def get_my_documents(
         raise HTTPException(status_code=500, detail="Error getting documents")
 
 @router.get("/shared", response_model=List[SharedDocument])
-async def get_shared_documents(
+async def get_shared_document(
     token: str = Depends(oauth2_scheme),
     search: Optional[str] = Query(None),
     db: Session = Depends(get_db)
@@ -124,6 +127,8 @@ async def share_document_endpoint(
     document_id: str = Form(...),
     recipient: str = Form(...),
     permission: DocumentPermission = Form(...),
+    fil_type: str = Form(...),
+    title: str = Form(...),
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
@@ -133,14 +138,18 @@ async def share_document_endpoint(
     
     # Проверяем, существует ли документ и принадлежит ли он пользователю
     document = get_document(db, document_id)
-    if not document or document.owner != user['username']:
+    if not document or document.owner_username != user['username']:
         raise HTTPException(status_code=404, detail="Document not found or access denied")
     
     try:
+        logger.info(f"типа файла - {fil_type}")
         shared_doc = share_document(db, SharedDocumentCreate(
             document_id=document_id,
-            recipient=recipient,
-            permission=permission
+            recipient_username=recipient,
+            permission=permission,
+            file_type=fil_type,
+            owner_username=user["username"],
+            title=title
         ))
         return shared_doc
     except Exception as e:
@@ -150,7 +159,7 @@ async def share_document_endpoint(
 @router.put("/status/{document_id}", response_model=SharedDocument)
 async def update_document_status(
     document_id: str,
-    status: DocumentStatus,
+    status: DocumentStatus = Body(...),
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
@@ -178,7 +187,7 @@ async def download_document(
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     document = get_document(db, document_id)
-    if not document or (document.owner != user['username'] and not get_shared_documents(db, user['username'])):
+    if not document or (document.owner_username != user['username'] and not get_shared_documents(db, user['username'])):
         raise HTTPException(status_code=404, detail="Document not found or access denied")
     
     if not os.path.exists(document.file_path):
@@ -190,7 +199,7 @@ async def download_document(
         filename=document.title
     )
 
-@router.delete("/documents/{document_id}", status_code=204)
+@router.delete("/{document_id}", status_code=204)
 async def delete_document_endpoint(
     document_id: str,
     token: str = Depends(oauth2_scheme),
@@ -201,7 +210,7 @@ async def delete_document_endpoint(
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     document = get_document(db, document_id)
-    if not document or document.owner != user['username']:
+    if not document or document.owner_username != user['username']:
         raise HTTPException(status_code=404, detail="Document not found or access denied")
     
     try:

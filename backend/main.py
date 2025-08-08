@@ -1,13 +1,10 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import HTTPException
-from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.exceptions import HTTPException
 from starlette.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from api.ad_contacts import router as ad_contacts_router
 import uvicorn
 import logging
-import logging.handlers
 from dotenv import load_dotenv
 import os
 from typing import List
@@ -21,7 +18,7 @@ from api.auth import router as auth_router
 from api.contacts import router as contacts_router
 from api.admin import router as admin_router
 from api.request_list import router as request_list_router
-from api.documents import router as documents_router
+# from api.documents import router as documents_router
 
 # Настройка логирования
 LOGGING_CONFIG = {
