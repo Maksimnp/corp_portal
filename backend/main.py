@@ -19,7 +19,7 @@ from api.contacts import router as contacts_router
 from api.admin import router as admin_router
 from api.request_list import router as request_list_router
 # from api.documents import router as documents_router
-
+from api.vpn import router as vpn_router
 # Настройка логирования
 LOGGING_CONFIG = {
     "version": 1,
@@ -93,7 +93,7 @@ def get_cors_origins():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://192.1.66.117:3000", "http://localhost:3000"],
+    allow_origins=["http://192.1.66.117:3000", "http://localhost:3000", "https://192.1.3.141:943/status"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -133,7 +133,7 @@ app.include_router(contacts_router, prefix="/contacts", tags=["contacts"])
 app.include_router(admin_router, prefix="/admin", tags=["admin"])
 app.include_router(request_list_router, prefix="/request_list", tags=["requests"])
 app.include_router(documents_router, prefix="/api", tags=["documents"])
-
+app.include_router(vpn_router, prefix="", tags=["vpn"])
 # Health check
 @app.get("/health", include_in_schema=False)
 async def health_check():
@@ -152,7 +152,7 @@ if __name__ == "__main__":
         uvicorn.run(
             "main:app",
             host="0.0.0.0",
-            port=8000,
+            port=9000,
             reload=False,
             log_level="info",
             workers=1,

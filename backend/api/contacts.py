@@ -9,11 +9,11 @@ from services.jwt_utils import get_current_user
 from pydantic import BaseModel, EmailStr, Field, model_validator, field_validator, ValidationError
 from contextlib import contextmanager
 import signal
-
+from services.jwt_utils import jwt_service
 # Настройка логирования
 logging.basicConfig(level=logging.INFO if os.getenv("ENV") == "production" else logging.DEBUG)
 logger = logging.getLogger(__name__)
-
+from services.jwt_utils import verify_token, get_current_user, create_access_token
 # Загрузка переменных окружения
 load_dotenv()
 

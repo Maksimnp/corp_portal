@@ -5,8 +5,8 @@ export enum DocumentStatus {
 }
 
 export enum DocumentPermission {
-  VIEW = "view",
-  EDIT = "edit"
+  VIEW = "VIEW",
+  EDIT = "EDIT"
 }
 
 export interface Document {

@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Request, Body
 from pydantic import BaseModel, validator
 from typing import Optional
 import logging
-
+from services.jwt_utils import verify_token, get_current_user, create_access_token
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)

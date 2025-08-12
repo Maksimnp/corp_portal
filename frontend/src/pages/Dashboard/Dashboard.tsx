@@ -10,6 +10,7 @@ const services = [
   { title: 'Админ-панель', description: 'Управление пользователями и настройками системы', to: '/admin', icon: '👮‍♂️', isAdminOnly: true },
   { title: 'Документы', description: 'Центр хранения внутренних документов и инструкций', to: '/docs', icon: '📄' },
   { title: 'Опросы', description: 'Участвуйте в корпоративных опросах и голосованиях', to: '/polls', icon: '📊', disabled: true },
+{ title: 'VPN Управление', description: 'Управление подключениями и профилями OpenVPN', to: '/VPNManagement', icon: '🔒', isAdminOnly: true },
 ];
 
 const ServiceCard: React.FC<{ service: typeof services[number] }> = ({ service }) => {

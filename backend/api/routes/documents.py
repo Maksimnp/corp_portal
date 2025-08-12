@@ -1,8 +1,10 @@
 import os
 import uuid
+import requests
+from jose import jwt
 from datetime import datetime
-from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Query, Body
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Query, Body, Path
+from fastapi.responses import FileResponse, PlainTextResponse, HTMLResponse, JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from typing import List, Optional
 from models.document_models import Document, SharedDocument, DocumentStatus, DocumentPermission
@@ -10,7 +12,7 @@ from schemas.document_schemas import DocumentCreate,DocumentResponse, SharedDocu
 from services.jwt_utils import verify_token
 from services.ad_auth import authenticate_user
 import logging
-from pathlib import Path
+from pathlib import Path as PathLib
 from sqlalchemy.orm import Session
 from db.database import get_db_connection as get_db
 from crud.documents import (
@@ -29,9 +31,11 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 UPLOAD_DIR = os.getenv("DOCUMENTS_UPLOAD_DIR", "uploads/documents")
 ALLOWED_EXTENSIONS = os.getenv("DOCUMENTS_ALLOWED_TYPES", ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt").split(",")
 MAX_FILE_SIZE = int(os.getenv("DOCUMENTS_MAX_SIZE_MB", 50)) * 1024 * 1024  # в байтах
-
+ONLYOFFICE_SERVER_URL = os.getenv("ONLYOFFICE_SERVER_URL", "http://192.1.66.117")
+YOUR_PORTAL_API_BASE_URL = os.getenv("YOUR_PORTAL_API_BASE_URL", "http://192.1.66.117:8000")
+ONLYOFFICE_JWT_SECRET = os.getenv("ONLYOFFICE_SECRET", "your_strong_secret_key_here")
 # Создаем директорию для загрузок
-Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
+PathLib(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 
 @router.post("/documents", response_model=DocumentResponse)
 async def upload_document(
@@ -179,16 +183,16 @@ async def update_document_status(
 @router.get("/download/{document_id}", response_class=FileResponse)
 async def download_document(
     document_id: str,
-    token: str = Depends(oauth2_scheme),
+    # token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
-    user = verify_token(token)
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    # user = verify_token(token)
+    # if not user:
+    #     raise HTTPException(status_code=401, detail="Unauthorized")
     
     document = get_document(db, document_id)
-    if not document or (document.owner_username != user['username'] and not get_shared_documents(db, user['username'])):
-        raise HTTPException(status_code=404, detail="Document not found or access denied")
+    # if not document or (document.owner_username != user['username'] and not get_shared_documents(db, user['username'])):
+    #     raise HTTPException(status_code=404, detail="Document not found or access denied")
     
     if not os.path.exists(document.file_path):
         raise HTTPException(status_code=404, detail="File not found")
@@ -222,3 +226,139 @@ async def delete_document_endpoint(
     except Exception as e:
         logger.error(f"Error deleting document: {e}")
         raise HTTPException(status_code=500, detail="Error deleting document")
+    
+
+@router.get("/onlyoffice/config/{document_id}")
+async def get_onlyoffice_config(
+    document_id: str = Path(...),
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    """
+    Генерирует конфигурацию для встраивания OnlyOffice редактора.
+    """
+    user = verify_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    document = get_document(db, document_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    has_access = False
+    has_edit_permission = False
+
+    if document.owner_username == user['username']:
+        has_access = True
+        has_edit_permission = True
+    else:
+        shared_doc = db.query(SharedDocument).filter(
+            SharedDocument.document_id == document_id,
+            SharedDocument.recipient_username == user['username']
+        ).first()
+
+        if shared_doc:
+            has_access = True
+            if shared_doc.permission == DocumentPermission.EDIT:
+                has_edit_permission = True
+
+    if not has_access:
+        raise HTTPException(status_code=403, detail="Access denied to this document")
+
+    document_url = f"{YOUR_PORTAL_API_BASE_URL}/api/documents/download/{document_id}"
+    callback_url = f"{YOUR_PORTAL_API_BASE_URL}/api/documents/onlyoffice/callback"
+
+    key = str(uuid.uuid4())
+    document_type = get_document_type(document.file_type)
+
+    config = {
+        "document": {
+            "fileType": document.file_type.lstrip('.').lower(),
+            "key": key,
+            "title": document.title,
+            "url": document_url
+        },
+        "documentType": document_type,
+        "editorConfig": {
+            "callbackUrl": callback_url,
+            "mode": "edit" if has_edit_permission else "view",
+            "user": {
+                "id": user['username'],
+                "name": user.get('displayName', user['username'])
+            },
+            "lang": "ru"
+        }
+    }
+    token = jwt.encode(config, ONLYOFFICE_JWT_SECRET, algorithm="HS256")
+    config["token"] = token
+    return JSONResponse(content={"config": config, "token": token})
+
+def get_document_type(file_ext: str) -> str:
+    """Определяет тип документа для OnlyOffice по расширению файла."""
+    word_exts = {'.doc', '.docx', '.dotx', '.docm', '.dotm', '.odt', '.ott', '.rtf', '.txt', '.html', '.htm', '.mht', '.pdf', '.djvu', '.fb2', '.epub', '.xps'}
+    cell_exts = {'.xls', '.xlsx', '.xlsm', '.xlsb', '.xlt', '.xltx', '.xltm', '.ods', '.ots', '.csv'}
+    slide_exts = {'.ppt', '.pptx', '.pptm', '.pot', '.potx', '.potm', '.pps', '.ppsx', '.ppsm', '.odp', '.otp'}
+
+    ext = file_ext.lower()
+    if ext in word_exts:
+        return "word"
+    elif ext in cell_exts:
+        return "cell"
+    elif ext in slide_exts:
+        return "slide"
+    else:
+        return "word"
+
+@router.post("/onlyoffice/callback")
+async def onlyoffice_callback(request: dict, db: Session = Depends(get_db)):
+    """
+    Callback URL для получения обновленного файла от OnlyOffice.
+    ВАЖНО: Этот эндпоинт ДОЛЖЕН БЫТЬ доступен с сервера OnlyOffice без аутентификации!
+    """
+    try:
+        callback_data = request
+        print(f"Received OnlyOffice callback: {callback_data}")
+
+        status = callback_data.get("status", 0)
+        
+        if status in [2, 6]: 
+            key = callback_data.get("key")
+            if not key:
+                return JSONResponse(content={"error": 1}) 
+            
+            download_url = callback_data.get("url")
+            if not download_url:
+                return JSONResponse(content={"error": 1})
+            
+            document_id = key 
+            document = get_document(db, document_id)
+            if not document:
+                return JSONResponse(content={"error": 1})
+
+            response = requests.get(download_url, timeout=60)
+            response.raise_for_status()
+
+            with open(document.file_path, 'wb') as f:
+                f.write(response.content)
+
+            print(f"Document {document_id} updated successfully.")
+            return JSONResponse(content={"error": 0})
+
+        elif status in [3, 7]:
+            logger.error(f"Ошибка сохранения файла")
+            return JSONResponse(content={"error": 1})
+        elif status == 4:
+            return JSONResponse(content={"error": 0})
+        elif status == 1:
+            return JSONResponse(content={"error": 0})
+        else:
+            return JSONResponse(content={"error": 0}) 
+            
+    except requests.exceptions.RequestException as e:
+        print(f"Network error downloading file from OnlyOffice: {e}")
+        return JSONResponse(content={"error": 1})
+    except Exception as e:
+        print(f"Error processing OnlyOffice callback: {e}")
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(content={"error": 1})

@@ -52,6 +52,11 @@ const DocumentsPage: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isOpenMyDocument, setIsOpenMyDocument] = useState(true);
   const [isOpenSharedDocument, setIsOpenSharedDocument] = useState(false);
+
+  const [isOnlyOfficeModalOpen, setIsOnlyOfficeModalOpen] = useState(false);
+  const [onlyOfficeConfig, setOnlyOfficeConfig] = useState<any>(null);
+  const [onlyOfficeJwtToken, setOnlyOfficeJwtToken] = useState<string | null>(null);
+
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
 
@@ -240,9 +245,8 @@ const DocumentsPage: React.FC = () => {
         }
       }
     );
-
-    
   };
+
   const downloadDocument = async (docId: string, fileName: string, extension: string) => {
     // window.open(`${BASE_URL}/api/documents/download/${docId}`, '_blank');
     const response = await fetch(`${BASE_URL}/api/documents/download/${docId}`, {
@@ -265,6 +269,118 @@ const DocumentsPage: React.FC = () => {
     
     toast.success('Подвердите скачивание в вашем браузере');
     window.URL.revokeObjectURL(url);
+  };
+
+  const openInOnlyOffice = async (docId: string) => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/documents/onlyoffice/config/${docId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Ошибка получения конфигурации OnlyOffice: ${errorData.detail || response.statusText}`);
+      }
+
+      const { config, jwtToken } = await response.json();
+
+      setOnlyOfficeConfig(config);
+      setIsOnlyOfficeModalOpen(true);
+      setOnlyOfficeJwtToken(jwtToken);
+      // const onlyOfficeServerUrl = import.meta.env.VITE_ONLYOFFICE_SERVER_URL || 'http://192.1.66.117';
+      // const editorUrl = `${onlyOfficeServerUrl}/editor?config=${encodeURIComponent(JSON.stringify(config))}`;
+      // window.open(editorUrl, '_blank');
+    }
+    catch (error) {
+      console.error("Ошибка открытия документа в OnlyOffice:", error);
+      toast.error('Не удалось открыть документ в OnlyOffice.');
+    }
+  };
+
+  const OnlyOfficeModal = ({ 
+    isOpen, 
+    onClose, 
+    config,
+    jwtToken 
+  }: { 
+    isOpen: boolean; 
+    onClose: () => void; 
+    config: any;
+    jwtToken?: string | null; 
+  }) => {
+    const onlyOfficeServerUrl = import.meta.env.VITE_ONLYOFFICE_SERVER_URL || 'http://192.1.66.117';
+
+    useEffect(() => {
+      if (!isOpen || !config) return;
+
+      let editorInstance: window.DocsAPI.DocEditor = null;
+
+      const initEditor = () => {
+        if (window.DocsAPI) {
+          try {
+            // DocsAPI.DocEditor(containerId, config [, jwtToken]);
+            editorInstance = new window.DocsAPI.DocEditor("onlyoffice-editor-container", config, jwtToken );
+            console.log("OnlyOffice editor initialized", editorInstance);
+          } catch (initError) {
+            console.error("Error initializing OnlyOffice editor:", initError);
+            toast.error("Ошибка инициализации редактора OnlyOffice");
+            onClose();
+          }
+        } else {
+          console.error("OnlyOffice DocsAPI not loaded");
+          toast.error("Не удалось загрузить API OnlyOffice");
+          onClose();
+        }
+      };
+      const script = document.createElement('script');
+      script.src = `${onlyOfficeServerUrl}/web-apps/apps/api/documents/api.js`;
+      script.async = true;
+      script.onload = () => {
+        initEditor();
+      };
+      script.onerror = () => {
+        console.error("Failed to load OnlyOffice API script");
+        toast.error("Не удалось загрузить скрипт OnlyOffice");
+        onClose();
+      };
+
+      document.body.appendChild(script);
+
+      return () => {
+        if (script.parentNode) {
+          script.parentNode.removeChild(script);
+        }
+        if (editorInstance && typeof editorInstance.destroy === 'function') {
+          editorInstance.destroy();
+          console.log("OnlyOffice editor destroyed");
+        }
+      };
+    }, [isOpen, config, jwtToken]);
+
+    return (
+      <Modal
+        title="Редактор OnlyOffice"
+        open={isOpen}
+        onCancel={onClose}
+        footer={null}
+        width="100%"
+        styles={{
+          body: {
+            height: '95vh',
+            padding: 0,
+            margin: 0,
+            overflow: 'hidden',
+            top: '10px',
+          }
+        }}
+      >
+        <div id="onlyoffice-editor-container" style={{ width: '100%', height: '100%' }}></div>
+      </Modal>
+    );
   };
 
   useEffect(() => {
@@ -559,6 +675,12 @@ const DocumentsPage: React.FC = () => {
                     >
                       {item.permission === DocumentPermission.EDIT ? 'Отметить как отредактировано' : 'Отметить как просмотрено'}
                     </button>
+                    <button
+                      onClick={() => openInOnlyOffice(item.document_id)}
+                      className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                    >
+                      Открыть
+                    </button>
                   </div>
                 </div>
               ))}
@@ -668,6 +790,14 @@ const DocumentsPage: React.FC = () => {
           </div>
         )}
       </div>
+      {isOnlyOfficeModalOpen && (
+        <OnlyOfficeModal
+          isOpen={isOnlyOfficeModalOpen}
+          onClose={() => setIsOnlyOfficeModalOpen(false)}
+          config={onlyOfficeConfig}
+          jwtToken={onlyOfficeJwtToken}
+        />
+      )}
     </div>
   );
 };

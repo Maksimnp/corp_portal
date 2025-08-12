@@ -10,6 +10,7 @@ import HomePage from './pages/HomePage/HomePage';
 import EditADContacts from './components/EditADContacts';
 import DocumentsPage from './components/DocumentsPage';
 import { AuthProvider, useAuth } from './pages/AuthContext';
+import  VPNManagement  from './pages/VPNManagement/VPNManagement';
 
 const PrivateRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
     const { isAuthenticated, loading } = useAuth();
@@ -85,6 +86,14 @@ const App: React.FC = () => {
                         element={
                             <PrivateRoute>
                                 <DocumentsPage />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/VPNManagement"
+                        element={
+                            <PrivateRoute>
+                                <VPNManagement/>
                             </PrivateRoute>
                         }
                     />
