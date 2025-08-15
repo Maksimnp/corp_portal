@@ -12,6 +12,7 @@ class DocumentStatus(enum.Enum):
 class DocumentPermission(str, enum.Enum):
     VIEW = "VIEW"
     EDIT = "EDIT"
+    REVIEW = "REVIEW"
 
 class Document(Base):
     __tablename__ = "documents"
@@ -23,6 +24,7 @@ class Document(Base):
     file_type = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
     status = Column(Enum(DocumentStatus), default=DocumentStatus.PENDING)
+    permission = Column(Enum(DocumentPermission), default=DocumentPermission.EDIT)
 
 class SharedDocument(Base):
     __tablename__ = "document_shares"

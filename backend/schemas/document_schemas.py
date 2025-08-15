@@ -28,6 +28,7 @@ class DocumentResponse(BaseModel):
     file_type: str
     created_at: datetime
     status: DocumentStatus
+    permission: DocumentPermission
 
     class Config:
         orm_mode = True  # Enable ORM mode to convert SQLAlchemy objects to Pydantic

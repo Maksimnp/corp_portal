@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { debounce } from 'lodash';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { DocumentStatus, DocumentPermission } from '/home/msa/corp_portal/frontend/models/documentModels';
-import { Modal } from 'antd';
+import {  DocumentStatus, DocumentPermission } from '/home/msa/corp_portal/frontend/models/documentModels';
+import { Modal, Tooltip } from 'antd';
+import screenfull from 'screenfull';
+import { FullscreenExitOutlined, FullscreenOutlined } from '@ant-design/icons';
 
 interface User {
   displayName: string;
@@ -47,6 +49,7 @@ const DocumentsPage: React.FC = () => {
   const [currentDoc, setCurrentDoc] = useState<Document | null>(null);
   const [recipient, setRecipient] = useState('');
   const [canEdit, setCanEdit] = useState(false);
+  const [canReview, setCanReview] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchQueryContacts, setSearchQueryContacts] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -55,11 +58,11 @@ const DocumentsPage: React.FC = () => {
 
   const [isOnlyOfficeModalOpen, setIsOnlyOfficeModalOpen] = useState(false);
   const [onlyOfficeConfig, setOnlyOfficeConfig] = useState<any>(null);
-  const [onlyOfficeJwtToken, setOnlyOfficeJwtToken] = useState<string | null>(null);
+  const [onlyOfficeJwtToken, setOnlyOfficeJwtToken] = useState<string | undefined>(undefined);
 
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
-
+  console.log(myDocuments)
   const fetchMyDocuments = async () => {
     try {
       const response = await fetch(`${BASE_URL}/api/documents/my${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''}`, {
@@ -170,7 +173,7 @@ const DocumentsPage: React.FC = () => {
         body: new URLSearchParams({
           document_id: currentDoc.id,
           recipient: recipient,
-          permission: canEdit ? 'EDIT': 'VIEW',
+          permission: canEdit ? 'EDIT': canReview ? 'REVIEW': 'VIEW',
           fil_type: currentDoc.file_type,
           title: currentDoc.title
         })
@@ -181,6 +184,7 @@ const DocumentsPage: React.FC = () => {
         setShareModalOpen(false);
         setRecipient('');
         setCanEdit(false);
+        setCanReview(false);
         fetchSharedDocuments();
       } else {
         const errorData = await response.json().catch(() => ({}));
@@ -205,7 +209,7 @@ const DocumentsPage: React.FC = () => {
       });
 
       if (response.ok) {
-        toast.success('Статус документа обновлён');
+        // toast.success('Статус документа обновлён');
         fetchSharedDocuments();
       } else {
         const errorData = await response.json().catch(() => ({}));
@@ -248,7 +252,6 @@ const DocumentsPage: React.FC = () => {
   };
 
   const downloadDocument = async (docId: string, fileName: string, extension: string) => {
-    // window.open(`${BASE_URL}/api/documents/download/${docId}`, '_blank');
     const response = await fetch(`${BASE_URL}/api/documents/download/${docId}`, {
       headers: {'Authorization': `Bearer ${token}`}
     });
@@ -271,9 +274,9 @@ const DocumentsPage: React.FC = () => {
     window.URL.revokeObjectURL(url);
   };
 
-  const openInOnlyOffice = async (docId: string) => {
+  const openInOnlyOffice = async (docId: string, typeDoc: string) => {
     try {
-      const response = await fetch(`${BASE_URL}/api/documents/onlyoffice/config/${docId}`, {
+      const response = await fetch(`${BASE_URL}/api/documents/onlyoffice/config/${docId}?type_doc=${typeDoc}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -287,13 +290,10 @@ const DocumentsPage: React.FC = () => {
       }
 
       const { config, jwtToken } = await response.json();
-
+      updateDocumentStatus(docId, DocumentStatus.VIEWED)
       setOnlyOfficeConfig(config);
       setIsOnlyOfficeModalOpen(true);
       setOnlyOfficeJwtToken(jwtToken);
-      // const onlyOfficeServerUrl = import.meta.env.VITE_ONLYOFFICE_SERVER_URL || 'http://192.1.66.117';
-      // const editorUrl = `${onlyOfficeServerUrl}/editor?config=${encodeURIComponent(JSON.stringify(config))}`;
-      // window.open(editorUrl, '_blank');
     }
     catch (error) {
       console.error("Ошибка открытия документа в OnlyOffice:", error);
@@ -310,19 +310,20 @@ const DocumentsPage: React.FC = () => {
     isOpen: boolean; 
     onClose: () => void; 
     config: any;
-    jwtToken?: string | null; 
+    jwtToken?: string | undefined; 
   }) => {
     const onlyOfficeServerUrl = import.meta.env.VITE_ONLYOFFICE_SERVER_URL || 'http://192.1.66.117';
+    const modalContainerRef = useRef<HTMLDivElement>(null);
+    const [isFullscreenActive, setIsFullscreenActive] = useState(false);
 
     useEffect(() => {
       if (!isOpen || !config) return;
 
-      let editorInstance: window.DocsAPI.DocEditor = null;
+      let editorInstance: any = null;
 
       const initEditor = () => {
         if (window.DocsAPI) {
           try {
-            // DocsAPI.DocEditor(containerId, config [, jwtToken]);
             editorInstance = new window.DocsAPI.DocEditor("onlyoffice-editor-container", config, jwtToken );
             console.log("OnlyOffice editor initialized", editorInstance);
           } catch (initError) {
@@ -361,26 +362,82 @@ const DocumentsPage: React.FC = () => {
       };
     }, [isOpen, config, jwtToken]);
 
+  useEffect(() => {
+    if (!screenfull.isEnabled) {
+      console.warn('Fullscreen mode is not supported by this browser.');
+      return;
+    }
+
+    const handleFullscreenChange = () => {
+      setIsFullscreenActive(screenfull.isEnabled ? screenfull.isFullscreen : false);
+    };
+
+    screenfull.on('change', handleFullscreenChange);
+    handleFullscreenChange();
+
+    return () => {
+      screenfull.off('change', handleFullscreenChange);
+    };
+  }, []);
+  // ---------------------------------------
+  const toggleFullscreen = async () => {
+    if (!screenfull.isEnabled) {
+      toast.error('Полноэкранный режим не поддерживается вашим браузером.');
+      console.warn('Fullscreen is not enabled/supported.');
+      return;
+    }
+
+    try {
+      await screenfull.toggle();
+
+    } catch (error) {
+      console.error('Failed to toggle fullscreen mode:', error);
+      toast.error('Не удалось переключить полноэкранный режим.');
+    }
+  };
     return (
+    <div ref={modalContainerRef}>
       <Modal
-        title="Редактор OnlyOffice"
+        title={
+          <div className="flex justify-between items-center w-full">
+            <span>Редактор OnlyOffice</span>
+            <div className="flex items-center space-x-2">
+              {screenfull.isEnabled && (
+                <Tooltip title={isFullscreenActive ? "Выйти из полноэкранного режима" : "На весь экран"}>
+                  <button
+                    onClick={toggleFullscreen}
+                    className="p-1 -mt-2 rounded mr-5 hover:bg-gray-200 focus:outline-none focus:ring-1 focus:ring-gray-400"
+                  >
+                    {isFullscreenActive ? (
+                      <FullscreenExitOutlined style={{ fontSize: '18px', padding: '0' }}/>
+                      
+                    ) : (
+                      <FullscreenOutlined style={{ fontSize: '18px', padding: '0' }}/>
+                    )}
+                  </button>
+                </Tooltip>
+              )}
+            </div>
+          </div>
+        }
         open={isOpen}
         onCancel={onClose}
         footer={null}
-        width="100%"
+        width="calc(100vw - 20px)"
+        style={{ top: 10 }}
         styles={{
           body: {
-            height: '95vh',
+            height: "93vh",
             padding: 0,
             margin: 0,
-            overflow: 'hidden',
-            top: '10px',
-          }
+            overflow: "hidden",
+          },
         }}
       >
-        <div id="onlyoffice-editor-container" style={{ width: '100%', height: '100%' }}></div>
+        <div id="onlyoffice-editor-container" style={{ width: "100%", height: "100%" }}></div>
       </Modal>
-    );
+    </div>
+  );
   };
 
   useEffect(() => {
@@ -408,10 +465,6 @@ const DocumentsPage: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         <header className="mb-8">
           <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-800">Документы</h1>
-              <p className="text-gray-600">Управляйте вашими документами и доступом</p>
-            </div>
             <button
               onClick={() => navigate('/dashboard')}
               className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -421,6 +474,10 @@ const DocumentsPage: React.FC = () => {
               </svg>
               Назад в Dashboard
             </button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800">Документы</h1>
+              <p className="text-gray-600">Управляйте вашими документами и доступом</p>
+            </div>
           </div>
         </header>
 
@@ -582,6 +639,12 @@ const DocumentsPage: React.FC = () => {
                             Поделиться
                           </button>
                           <button
+                            onClick={() => openInOnlyOffice(doc.id, 'self')}
+                            className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                          >
+                            Открыть
+                          </button>
+                          <button
                             onClick={() => handleDeleteDocument(doc.id)}
                             className="text-red-600 hover:text-red-900"
                           >
@@ -624,8 +687,8 @@ const DocumentsPage: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {sharedDocuments.map((item) => (
-                <div key={`${item.document_id}_${item.recipient}`} className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md transition-shadow">
+              {sharedDocuments.map((item, index) => (
+                <div key={`${item.document_id}_${item.recipient}_${index}`} className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md transition-shadow">
                   <div className="p-5">
                     <div className="flex items-start">
                       <div className="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center">
@@ -676,7 +739,7 @@ const DocumentsPage: React.FC = () => {
                       {item.permission === DocumentPermission.EDIT ? 'Отметить как отредактировано' : 'Отметить как просмотрено'}
                     </button>
                     <button
-                      onClick={() => openInOnlyOffice(item.document_id)}
+                      onClick={() => openInOnlyOffice(item.document_id, 'get')}
                       className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
                     >
                       Открыть
@@ -760,11 +823,20 @@ const DocumentsPage: React.FC = () => {
                   <label className="flex items-center">
                     <input
                       type="checkbox"
+                      checked={canReview}
+                      onChange={(e) => setCanReview(e.target.checked)}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">Разрешить <strong>рецензирование</strong></span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
                       checked={canEdit}
                       onChange={(e) => setCanEdit(e.target.checked)}
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
-                    <span className="ml-2 text-sm text-gray-700">Разрешить редактирование</span>
+                    <span className="ml-2 text-sm text-gray-700">Разрешить <strong>редактирование</strong></span>
                   </label>
                 </div>
               </div>

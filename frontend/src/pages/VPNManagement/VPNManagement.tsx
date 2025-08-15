@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Button, Input, Table, message, Spin } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
@@ -17,7 +18,8 @@ const VPNManagement: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://192.1.66.117:8000';
-
+  const navigate = useNavigate();
+  
   useEffect(() => {
     fetchStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -101,8 +103,18 @@ const VPNManagement: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-6">Управление OpenVPN</h1>
-
+        <div className='flex justify-between items-start'>
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <svg className="h-5 w-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Назад в Dashboard
+          </button>
+          <h1 className="text-3xl font-bold text-gray-800 mb-6">Управление OpenVPN</h1>
+        </div>
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Статус подключений</h2>
           <Spin spinning={loading}>

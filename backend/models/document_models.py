@@ -12,6 +12,7 @@ class DocumentStatus(str, Enum):
 class DocumentPermission(str, Enum):
     VIEW = "VIEW"
     EDIT = "EDIT"
+    REVIEW = "REVIEW"
 
 class DocumentBase(BaseModel):
     title: str
@@ -20,6 +21,7 @@ class DocumentBase(BaseModel):
     file_size: Optional[int] = None
     file_type: Optional[str] = None
     description: Optional[str] = None 
+    permission: DocumentPermission
 
 class DocumentCreate(DocumentBase):
     pass

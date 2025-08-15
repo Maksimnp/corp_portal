@@ -2,15 +2,13 @@ import os
 import uuid
 import requests
 from jose import jwt
-from datetime import datetime
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Query, Body, Path
-from fastapi.responses import FileResponse, PlainTextResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from typing import List, Optional
 from models.document_models import Document, SharedDocument, DocumentStatus, DocumentPermission
 from schemas.document_schemas import DocumentCreate,DocumentResponse, SharedDocumentCreate
 from services.jwt_utils import verify_token
-from services.ad_auth import authenticate_user
 import logging
 from pathlib import Path as PathLib
 from sqlalchemy.orm import Session
@@ -18,7 +16,7 @@ from db.database import get_db_connection as get_db
 from crud.documents import (
     create_document, get_user_documents, share_document,
     get_shared_documents, update_shared_document_status,
-    delete_document, get_document
+    delete_document, get_document, get_shared_document
 )
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
@@ -111,7 +109,7 @@ async def get_my_documents(
         raise HTTPException(status_code=500, detail="Error getting documents")
 
 @router.get("/shared", response_model=List[SharedDocument])
-async def get_shared_document(
+async def get_shared_doc(
     token: str = Depends(oauth2_scheme),
     search: Optional[str] = Query(None),
     db: Session = Depends(get_db)
@@ -183,17 +181,10 @@ async def update_document_status(
 @router.get("/download/{document_id}", response_class=FileResponse)
 async def download_document(
     document_id: str,
-    # token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
-):
-    # user = verify_token(token)
-    # if not user:
-    #     raise HTTPException(status_code=401, detail="Unauthorized")
-    
+):    
     document = get_document(db, document_id)
-    # if not document or (document.owner_username != user['username'] and not get_shared_documents(db, user['username'])):
-    #     raise HTTPException(status_code=404, detail="Document not found or access denied")
-    
+ 
     if not os.path.exists(document.file_path):
         raise HTTPException(status_code=404, detail="File not found")
     
@@ -231,6 +222,7 @@ async def delete_document_endpoint(
 @router.get("/onlyoffice/config/{document_id}")
 async def get_onlyoffice_config(
     document_id: str = Path(...),
+    type_doc: str = Query(...),
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
@@ -242,46 +234,26 @@ async def get_onlyoffice_config(
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     document = get_document(db, document_id)
+    share_doc = get_shared_document(db, document_id)
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-
-    has_access = False
-    has_edit_permission = False
-
-    if document.owner_username == user['username']:
-        has_access = True
-        has_edit_permission = True
-    else:
-        shared_doc = db.query(SharedDocument).filter(
-            SharedDocument.document_id == document_id,
-            SharedDocument.recipient_username == user['username']
-        ).first()
-
-        if shared_doc:
-            has_access = True
-            if shared_doc.permission == DocumentPermission.EDIT:
-                has_edit_permission = True
-
-    if not has_access:
-        raise HTTPException(status_code=403, detail="Access denied to this document")
 
     document_url = f"{YOUR_PORTAL_API_BASE_URL}/api/documents/download/{document_id}"
     callback_url = f"{YOUR_PORTAL_API_BASE_URL}/api/documents/onlyoffice/callback"
 
-    key = str(uuid.uuid4())
     document_type = get_document_type(document.file_type)
-
+    
     config = {
         "document": {
             "fileType": document.file_type.lstrip('.').lower(),
-            "key": key,
+            "key": document_id,
             "title": document.title,
             "url": document_url
         },
         "documentType": document_type,
         "editorConfig": {
             "callbackUrl": callback_url,
-            "mode": "edit" if has_edit_permission else "view",
+            "mode": (share_doc.permission.lower() if (type_doc == 'get') else document.permission.lower()),
             "user": {
                 "id": user['username'],
                 "name": user.get('displayName', user['username'])

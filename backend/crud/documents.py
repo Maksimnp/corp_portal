@@ -49,3 +49,6 @@ def delete_document(db: Session, document_id: str):
 
 def get_document(db: Session, document_id: str):
     return db.query(Document).filter(Document.id == document_id).first()
+
+def get_shared_document(db: Session, document_id: str):
+    return db.query(SharedDocument).filter(SharedDocument.document_id == document_id).first()

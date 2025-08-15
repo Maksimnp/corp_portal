@@ -11,6 +11,7 @@ import EditADContacts from './components/EditADContacts';
 import DocumentsPage from './components/DocumentsPage';
 import { AuthProvider, useAuth } from './pages/AuthContext';
 import  VPNManagement  from './pages/VPNManagement/VPNManagement';
+import JitsiWrapper from './pages/meet/JitsiWrapper';
 
 const PrivateRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
     const { isAuthenticated, loading } = useAuth();
@@ -73,6 +74,14 @@ const App: React.FC = () => {
                             </PrivateRoute>
                         }
                     />
+                    <Route
+    path="/jitsi"
+    element={
+        <PrivateRoute>
+            <JitsiWrapper />
+        </PrivateRoute>
+    }
+/>
                     <Route
                         path="/edit-contacts"
                         element={

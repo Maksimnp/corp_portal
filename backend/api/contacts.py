@@ -13,7 +13,7 @@ from services.jwt_utils import jwt_service
 # Настройка логирования
 logging.basicConfig(level=logging.INFO if os.getenv("ENV") == "production" else logging.DEBUG)
 logger = logging.getLogger(__name__)
-from services.jwt_utils import verify_token, get_current_user, create_access_token
+from services.jwt_utils import get_current_user
 # Загрузка переменных окружения
 load_dotenv()
 
@@ -823,7 +823,7 @@ async def get_contacts(
         
         if query and query.strip() != "*":
             escaped_term = escape_ldap_filter_chars(query.strip())
-            search_filter = f"(&{base_filter}(|(displayName=*{escaped_term}*)(sAMAccountName=*{escaped_term}*)(mail=*{escaped_term}*)(telephoneNumber=*{escaped_term}*)(otherTelephone=*{escaped_term}*)(mobile=*{escaped_term}*)))"
+            search_filter = f"(&{base_filter}(|(displayName=*{escaped_term}*)(sAMAccountName=*{escaped_term}*)(mail=*{escaped_term}*)(telephoneNumber=*{escaped_term}*)(otherTelephone=*{escaped_term}*)(mobile=*{escaped_term}*)(department=*{escaped_term}*)))"
         else:
             search_filter = base_filter
         

@@ -576,15 +576,17 @@ export const RequestList: React.FC = () => {
   );
 
   return (
-    <div className={`p-4 sm:p-6 md:p-7 m-auto max-w-[1200px] min-h-screen ${highContrast ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} ${fontSizeClasses[fontSize]}`}>
+    <div className={`p-4 sm:p-6 md:p-7 m-auto max-w-[1400px] min-h-screen duration-200 transition-colors ${highContrast ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} ${fontSizeClasses[fontSize]}`}>
       <ToastContainer position="top-right" autoClose={3000} />
       <button
         onClick={() => navigate('/dashboard')}
-        className={`flex items-center mb-4 sm:mb-6 transition-colors ${
-          highContrast ? 'text-yellow-400 hover:text-yellow-300' : 'text-blue-600 hover:text-blue-800'
-          }`}
+        className={`flex items-center mb-3 px-4 py-2 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 
+          ${highContrast ? 'border-yellow-300  text-yellow-300 hover:bg-gray-700 focus:ring-blue-500':'border-gray-300  text-gray-700 hover:bg-gray-50 focus:ring-blue-500'} `}
       >
-        ← Назад в Dashboard
+        <svg className={`h-5 w-5 mr-2 ${highContrast ? 'text-yellow-500':'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Назад в Dashboard
       </button>
       <div className={`rounded-xl shadow-lg p-4 sm:p-6 md:p-8 ${highContrast ? 'bg-gray-800' : 'bg-white'}`}>
         {/* Toast сообщение */}
@@ -596,34 +598,36 @@ export const RequestList: React.FC = () => {
 
         {/* Заголовок и элементы управления */}
         <div className={`flex flex-wrap items-center justify-between mb-6 gap-3 print:hidden ${
-            highContrast ? 'text-yellow-400' : 'text-gray-800'
-          }`}>
-          {requests.length !== 0 && (
-            <button
-              onClick={() => setActiveButtonTable('my')}
-              className={`py-2 rounded-lg transition-colors text-2xl md:text-3xl font-bold ${
-                activeButtonTable === 'my'
-                  ? (highContrast ? 'underline decoration-yellow-600' : 'underline decoration-blue-600')
-                  : ('')
-                }
-              `}
-            >
-              Отправленные заявки
-            </button>
-          )}
-          {processingRequests.length !== 0 && (
-            <button
-              onClick={() => setActiveButtonTable('get')}
-              className={`py-2 rounded-lg transition-colors text-2xl md:text-3xl font-bold ${
-                activeButtonTable === 'get'
-                  ? (highContrast ? 'underline decoration-yellow-600' : 'underline decoration-blue-600')
-                  : ('')
-                }
-              `}
-            >
-              Полученные заявки
-            </button>
-          )}
+          highContrast ? 'text-yellow-400' : 'text-gray-800'
+        }`}>
+          <div>
+            {requests.length !== 0 && (
+              <button
+                onClick={() => setActiveButtonTable('my')}
+                className={`py-2 rounded-lg mr-6 transition-colors text-2xl md:text-3xl font-bold ${
+                  activeButtonTable === 'my'
+                    ? (highContrast ? 'underline decoration-yellow-600' : 'underline decoration-blue-600')
+                    : ('')
+                  }
+                `}
+              >
+                Отправленные заявки
+              </button>
+            )}
+            {processingRequests.length !== 0 && (
+              <button
+                onClick={() => setActiveButtonTable('get')}
+                className={`py-2 rounded-lg transition-colors text-2xl md:text-3xl font-bold ${
+                  activeButtonTable === 'get'
+                    ? (highContrast ? 'underline decoration-yellow-600' : 'underline decoration-blue-600')
+                    : ('')
+                  }
+                `}
+              >
+                Полученные заявки
+              </button>
+            )}
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setHighContrast(!highContrast)}
@@ -701,7 +705,7 @@ export const RequestList: React.FC = () => {
                   {paginatedRequests.map((request) => (
                     <React.Fragment key={request.request_id}>
                       {/* Основная строка */}
-                      <tr className={`${highContrast ? 'border-b border-gray-600' : 'border-b border-gray-200'}`}>
+                      <tr className={`${highContrast ? 'border-b border-gray-600 hover:bg-yellow-800' : 'border-b border-gray-200 hover:bg-gray-100'}`}>
                         <td className="p-3">{request.request_id}</td>
                         <td className="p-3">{request.send_date}</td>
                         <td className="p-3 hover:cursor-pointer hover:underline" onClick={()=>navigate(`/contacts?search=${request.sender_fullname}`)}>{request.sender_fullname}</td>
