@@ -1,25 +1,25 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import HTTPException
-from starlette.exceptions import HTTPException
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.staticfiles import StaticFiles
 import uvicorn
 import logging
+import logging.config
 from dotenv import load_dotenv
 import os
-from typing import List
 from api.contacts import get_all_groups
 from api.routes.documents import router as documents_router
-load_dotenv()
 
 # Импорт роутеров
 from api.auth import router as auth_router
-# from api.chat import router as chat_router
 from api.contacts import router as contacts_router
 from api.admin import router as admin_router
 from api.request_list import router as request_list_router
-# from api.documents import router as documents_router
 from api.vpn import router as vpn_router
+from api.chat import router as chat_router  
+
+load_dotenv()
 
 # Настройка логирования
 LOGGING_CONFIG = {
@@ -73,48 +73,61 @@ def check_env_vars():
     ]
     missing = [var for var in required_vars if not os.getenv(var)]
     if missing:
-        logger.error(f"Отсутствуют переменные окружения: {', '.join(missing)}")
-        raise EnvironmentError(f"Не хватает переменных окружения: {', '.join(missing)}")
+        error_msg = f"Отсутствуют переменные окружения: {', '.join(missing)}"
+        logger.critical(error_msg)
+        raise EnvironmentError(error_msg)
 
-# Инициализация приложения
+# Получение CORS origins
+def get_cors_origins():
+    origins_str = os.getenv("CORS_ORIGINS", "http://192.1.66.117:3000,http://localhost:3000,https://portal.minskhleb.by")
+    origins = [origin.strip() for origin in origins_str.split(",") if origin.strip()]
+    return origins
+
+# Инициализация приложения FastAPI с middleware
 app = FastAPI(
     title="Employee Portal API",
     description="API для корпоративного портала: аутентификация, чат, заявки, контакты, документы",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
-    openapi_url="/openapi.json"
+    openapi_url="/openapi.json",
 )
-
-# Настройка CORS
-def get_cors_origins():
-    origins_str = os.getenv("CORS_ORIGINS", "http://192.1.66.117:3000,http://localhost:3000,https://portal.minskhleb.by")
-    origins = [origin.strip() for origin in origins_str.split(",") if origin.strip()]
-    return origins
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://192.1.66.117:3000", "http://localhost:3000", "https://192.1.3.141:943/status"],
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
+# Дополнительные CORS headers для WebSocket
+@app.middleware("http")
+async def add_cors_headers(request: Request, call_next):
+    response = await call_next(request)
+    origin = request.headers.get('origin')
+    if origin in get_cors_origins():
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    return response
+
+# HTTP маршруты
 @app.get("/contacts/groups")
 async def list_groups():
     return get_all_groups()
 
-# Подключение статических файлов из templates/static
 app.mount("/static", StaticFiles(directory="templates/static"), name="static")
 
-# Мидлвар для логирования запросов
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     safe_headers = {
         k: v for k, v in request.headers.items()
         if k.lower() not in ["authorization", "cookie", "set-cookie"]
     }
-    logger.info(f"Request: {request.method} {request.url.path} | Headers: {safe_headers}")
+    logger.info(f"Request: {request.method} {request.url.path} | Origin: {request.headers.get('origin')} | Headers: {safe_headers}")
 
     try:
         response = await call_next(request)
@@ -129,18 +142,17 @@ async def log_requests(request: Request, call_next):
 
 # Подключение роутеров
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
-# app.include_router(chat_router, prefix="/chat", tags=["chat"])
 app.include_router(contacts_router, prefix="/contacts", tags=["contacts"])
 app.include_router(admin_router, prefix="/admin", tags=["admin"])
 app.include_router(request_list_router, prefix="/request_list", tags=["requests"])
 app.include_router(documents_router, prefix="/api", tags=["documents"])
 app.include_router(vpn_router, prefix="", tags=["vpn"])
-# Health check
+app.include_router(chat_router)
+
 @app.get("/health", include_in_schema=False)
 async def health_check():
     return {"status": "healthy", "timestamp": __import__("datetime").datetime.utcnow()}
 
-# Главная страница (редирект на dashboard для React)
 @app.get("/", include_in_schema=False)
 async def root():
     return {"message": "Добро пожаловать в Employee Portal", "redirect": "/dashboard"}
@@ -160,6 +172,8 @@ if __name__ == "__main__":
             ws_max_size=10 * 1024 * 1024,
             ws_ping_interval=20,
             ws_ping_timeout=60,
+            ws="websockets",
+            timeout_keep_alive=60,
         )
     except EnvironmentError as e:
         logger.critical(f"Ошибка окружения: {e}")

@@ -82,7 +82,7 @@ const EditADContacts: React.FC = () => {
   const navigate = useNavigate();
   const { token, isAdmin, logout } = useAuth();
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.1.66.117:8000';
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   useEffect(() => {
     if (token) {
@@ -358,8 +358,12 @@ const EditADContacts: React.FC = () => {
             } else if (errorDetail) {
               errorMessage = `Ошибка: ${errorDetail}`;
             }
-          } else if (response.status === 500 && errorDetail?.includes('WILL_NOT_PERFORM')) {
-            errorMessage = 'Ошибка создания пользователя в Active Directory. Проверьте настройки сервера или политику паролей.';
+          } else if (response.status === 500) {
+            let errorMessageDetail = 'Внутренняя ошибка сервера.';
+            if (typeof errorDetail === 'string' && errorDetail.includes('WILL_NOT_PERFORM')) {
+              errorMessageDetail = 'Ошибка создания пользователя в Active Directory. Проверьте настройки сервера или политику паролей.';
+            }
+            throw new Error(errorMessageDetail);
           }
         } catch (e) {}
 

@@ -10,7 +10,7 @@ from models.document_models import Document, SharedDocument, DocumentStatus, Doc
 from services.jwt_utils import verify_token
 from services.ad_auth import authenticate_user
 import logging
-from jose import jwt, JWTError
+from jose import jwt
 import requests
 
 logger = logging.getLogger(__name__)
@@ -32,8 +32,8 @@ ONLYOFFICE_SECRET = os.getenv("ONLYOFFICE_SECRET")
 if not ONLYOFFICE_SECRET:
     raise RuntimeError("ONLYOFFICE_SECRET не установлена в переменных окружения")
 
-BASE_URL = os.getenv("BASE_URL", "http://192.1.66.117:8000")
-ONLYOFFICE_SERVER_URL = "http://192.1.66.117"
+BASE_URL = os.getenv("BASE_URL")
+ONLYOFFICE_SERVER_URL = os.getenv("ONLYOFFICE_SERVER_URL")
 
 async def get_db_connection():
     try:

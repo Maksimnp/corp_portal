@@ -1,3 +1,4 @@
+// models/documentModels.ts
 export enum DocumentStatus {
   PENDING = "PENDING",
   VIEWED = "VIEWED",

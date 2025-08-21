@@ -5,14 +5,18 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 
 interface LoginResponse {
-    access_token: string;
-    role: number;
-    full_name?: string;
+  access_token: string;
+  role: number;
+  full_name?: string;
 }
 
 interface LoginError {
-    detail: string;
+  detail: string;
 }
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const YOUTUBE_URL = import.meta.env.YOUTUBE_CHANEL_URL;
+const INST_URL = import.meta.env.INSTAGRAM_URL;
 
 const HomePage: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -89,7 +93,7 @@ const HomePage: React.FC = () => {
     try {
         while (attempt < maxAttempts) {
             try {
-                const response = await fetch('http://192.1.66.117:8000/auth/login', {
+                const response = await fetch(`${BASE_URL}/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password }),
@@ -280,13 +284,13 @@ const HomePage: React.FC = () => {
                 className={`absolute top-full left-0 mt-2 border rounded-lg shadow-lg hidden group-hover:flex flex-col w-48 opacity-0 group-hover:opacity-100 transition-all duration-300 ${darkMode ? 'bg-gray-700 border-gray-600 text-gray-100' : 'bg-white border-gray-200 text-gray-800'}`}
               >
                 <li className={`p-2 rounded transition-colors duration-200 ${darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'}`}>
-                  <a href="https://www.instagram.com/minskhleb_by/" className="flex items-center gap-2" aria-label="Instagram">
+                  <a href={`${INST_URL}`} className="flex items-center gap-2" aria-label="Instagram">
                     <span className="text-red-500">📸</span> Instagram
                   </a>
                 </li>
                 <li className={`p-2 rounded transition-colors duration-200 ${darkMode ? 'hover:bg-gray-600' : 'hover:bg-gray-100'}`}>
                   <a
-                    href="https://www.youtube.com/channel/UCJuS4Sxf8AOCIxRjlNxxffA"
+                    href={`${YOUTUBE_URL}`}
                     className="flex items-center gap-2"
                     aria-label="Youtube"
                   >
@@ -523,14 +527,14 @@ const HomePage: React.FC = () => {
         <p>© 2025 MinskXlebHelp. Все права защищены.</p>
         <div className="flex justify-center gap-4 mt-4">
           <a
-            href="https://www.instagram.com/minskhleb_by/"
+            href={`${INST_URL}`}
             aria-label="Instagram"
             className="text-white hover:text-red-400 transition-colors duration-200 text-2xl"
           >
             📸
           </a>
           <a
-            href="https://www.youtube.com/channel/UCJuS4Sxf8AOCIxRjlNxxffA"
+            href={`${YOUTUBE_URL}`}
             aria-label="Youtube"
             className="text-white hover:text-red-400 transition-colors duration-200 text-2xl"
           >

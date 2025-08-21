@@ -1,7 +1,8 @@
 from sqlalchemy.orm import Session
-from models.db_models import Document, SharedDocument, DocumentStatus, DocumentPermission
-from schemas.document_schemas import DocumentCreate, SharedDocumentCreate
-
+from models.db_models import Document, SharedDocument, DocumentStatus, DocumentStatusModel
+from schemas.document_schemas import DocumentCreate, SharedDocumentCreate, DocumentStatusCreate
+import logging
+logger = logging.getLogger(__name__)
 def create_document(db: Session, document: DocumentCreate):
     db_document = Document(**document.dict())
     db.add(db_document)
@@ -22,16 +23,30 @@ def share_document(db: Session, shared_doc: SharedDocumentCreate):
     db.refresh(db_shared)
     return db_shared
 
+def create_status_document(db: Session, status_doc: DocumentStatusCreate):
+    db_status = DocumentStatusModel(**status_doc.dict())
+    db.add(db_status)
+    db.commit()
+    db.refresh(db_status)
+    return db_status
+
 def get_shared_documents(db: Session, username: str, search: str = None):
     query = db.query(SharedDocument).filter(SharedDocument.recipient_username == username)
     if search:
         query = query.join(Document).filter(Document.title.ilike(f"%{search}%"))
+        logger.info(query)
+    return query.all()
+
+def get_sended_documents(db: Session, username: str, search: str = None):
+    query = db.query(SharedDocument).filter(SharedDocument.owner_username == username)
+    if search:
+        query = query.filter(SharedDocument.title.ilike(f"%{search}%"))
     return query.all()
 
 def update_shared_document_status(db: Session, document_id: str, username: str, status: DocumentStatus):
-    shared_doc = db.query(SharedDocument).filter(
-        SharedDocument.document_id == document_id,
-        SharedDocument.recipient_username == username
+    shared_doc = db.query(DocumentStatusModel).filter(
+        DocumentStatusModel.document_id == document_id,
+        DocumentStatusModel.recipient_username == username
     ).first()
     if shared_doc:
         shared_doc.status = status

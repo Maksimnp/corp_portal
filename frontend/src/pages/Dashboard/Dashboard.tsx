@@ -13,6 +13,7 @@ const services = [
   { title: 'Опросы', description: 'Участвуйте в корпоративных опросах и голосованиях', to: '/polls', icon: '📊', disabled: true },
   { title: 'VPN Управление', description: 'Управление подключениями и профилями OpenVPN', to: '/VPNManagement', icon: '🔒', isAdminOnly: true },
 ];
+const JITSI_URL = import.meta.env.VITE_API_JITSI_URL;
 
 const ServiceCard: React.FC<{ service: typeof services[number] }> = ({ service }) => {
   const role = localStorage.getItem('role') || 'user';
@@ -28,7 +29,7 @@ const ServiceCard: React.FC<{ service: typeof services[number] }> = ({ service }
     }
     if (isVideoConf) {
       e.preventDefault();
-      window.open('https://192.1.66.117:8444/', '_blank', 'noopener,noreferrer');
+      window.open(JITSI_URL, '_blank', 'noopener,noreferrer');
     }
   };
 

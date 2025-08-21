@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from services.jwt_utils import get_current_user
-#import jwt
+from jose import jwt
 from datetime import datetime, timedelta
 import os
 from typing import Optional, Dict

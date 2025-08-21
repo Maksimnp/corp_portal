@@ -305,8 +305,6 @@ async def request_repair(
         logger.warning("Unauthorized access attempt")
         raise HTTPException(status_code=401, detail="Требуется авторизация")
     
-    username = token["username"]
-    user_role = token.get("role")
     full_name = token.get("full_name")
 
     contacts = search_ad_users(search_term=full_name, limit=1)
@@ -371,7 +369,7 @@ async def request_repair(
         raise HTTPException(status_code=500, detail="Ошибка подключения к базе данных")
     
     try:
-        await conn.execute( #FIX поднять данные из contacts
+        await conn.execute(
             """
             INSERT INTO requests (
                 request_id, status, comment, sender_fullname, sender_phone, sender_email,

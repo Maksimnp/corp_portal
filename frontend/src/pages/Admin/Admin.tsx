@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 export const Admin: React.FC = () => {
   const [tickets, setTickets] = useState<{ id: number; title: string; assigneeId?: string }[]>([]);
   const [contacts, setContacts] = useState<{ id: string; name: string }[]>([]);
@@ -10,7 +12,7 @@ export const Admin: React.FC = () => {
 
   useEffect(() => {
     // Загрузка тикетов
-    fetch('http://192.1.66.117:8000/helpdesk/tickets', {
+    fetch(`${BASE_URL}/helpdesk/tickets`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
     })
       .then((res) => res.json())
@@ -18,7 +20,7 @@ export const Admin: React.FC = () => {
       .catch((err) => console.error('Ошибка загрузки тикетов:', err));
 
     // Загрузка контактов
-    fetch('http://192.1.66.117:8000/contacts', {
+    fetch(`${BASE_URL}/contacts`, {
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
     })
       .then((res) => res.json())
@@ -28,7 +30,7 @@ export const Admin: React.FC = () => {
 
   const handleAssignTicket = async (ticketId: number, assigneeId: string) => {
     try {
-      const response = await fetch(`http://192.1.66.117:8000/admin/tickets/${ticketId}/assign`, {
+      const response = await fetch(`${BASE_URL}/admin/tickets/${ticketId}/assign`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

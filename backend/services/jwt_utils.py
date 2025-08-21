@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Union
 from jose import jwt, JWTError
-from fastapi import HTTPException, status, Depends
+from fastapi import HTTPException, status, Depends, Header
 from fastapi.security import OAuth2PasswordBearer
 import os
 from dotenv import load_dotenv
@@ -91,6 +91,7 @@ class JWTService:
 
         user_data = self.verify_token(token)
         if not user_data:
+            logger.warning(f"Не удалось верифицировать токен: {token[:10]}...")
             raise credentials_exception
 
         logger.info(f"Успешная аутентификация пользователя: {user_data['username']}")
@@ -121,8 +122,6 @@ jwt_service = JWTService()
 
 
 # === ЭКСПОРТ ФУНКЦИЙ ДЛЯ ИМПОРТА В ДРУГИХ МОДУЛЯХ ===
-# Теперь можно: from services.jwt_utils import create_access_token, verify_token, get_current_user
-
 def create_access_token(
     data: Dict[str, Union[str, int]],
     expires_delta: Optional[timedelta] = None,

@@ -51,3 +51,15 @@ class SharedDocument(SharedDocumentBase):
     
     class Config:
         from_attributes = True
+
+class DocumentStatusBase(BaseModel):
+    document_id: uuid.UUID
+    owner_username: str
+    recipient_username: str
+    status: DocumentStatus
+
+class DocumentStatusCreate(DocumentStatusBase):
+    pass
+
+class DocumentStatusMod(DocumentStatusBase):
+    pass

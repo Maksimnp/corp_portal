@@ -17,7 +17,7 @@ const VPNManagement: React.FC = () => {
   const [clientName, setClientName] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const API_URL = process.env.REACT_APP_BACKEND_URL || 'http://192.1.66.117:8000';
+  const API_URL = process.env.VITE_API_BASE_URL;
   const navigate = useNavigate();
   
   useEffect(() => {

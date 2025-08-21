@@ -1,8 +1,10 @@
 import React from 'react';
 
+const BASE_URL_JITSI = import.meta.env.VITE_API_JITSI_URL;
+
 const VideoConferenceButton: React.FC = () => {
   const openConference = () => {
-    window.open('https://192.1.66.117:8444/', '_blank', 'noopener,noreferrer');
+    window.open(BASE_URL_JITSI, '_blank', 'noopener,noreferrer');
   };
 
   return (

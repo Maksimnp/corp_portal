@@ -30,6 +30,7 @@ interface ApiResponse<T> {
   order?: 'asc' | 'desc';
   message?: string;
 }
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export const RequestList: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -105,7 +106,7 @@ export const RequestList: React.FC = () => {
         console.error("Ошибка авторизации. Поробуйте войти заново");
         return;
       }
-      const response = await fetch(`/api/request_list/get_requests`, {
+      const response = await fetch(`/request_list/get_requests`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -158,7 +159,7 @@ export const RequestList: React.FC = () => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`api/request_list/admins`, {
+      const response = await fetch(`request_list/admins`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -209,7 +210,7 @@ export const RequestList: React.FC = () => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `/api/request_list/send_admin?admin=${selectedAdmin}&request_id=${expandedRequest?.request_id}`,
+        `/request_list/send_admin?admin=${selectedAdmin}&request_id=${expandedRequest?.request_id}`,
         {
           method: 'PUT',
           headers: {
@@ -254,7 +255,7 @@ export const RequestList: React.FC = () => {
     const listType = activeButtonTable === 'get' ? 'get_requests' : 'my_requests';
 
     const response = await fetch(
-      `/api/request_list/sort_requests?field=${field}&order=${newOrder}&list_type=${listType}`,
+      `/request_list/sort_requests?field=${field}&order=${newOrder}&list_type=${listType}`,
       {
         method: 'POST',
         headers: {
@@ -307,7 +308,7 @@ export const RequestList: React.FC = () => {
         try {
           const token = localStorage.getItem('token');
           const response = await fetch(
-            `/api/request_list/search_request_id?query=${encodeURIComponent(searchQuery)}`,
+            `/request_list/search_request_id?query=${encodeURIComponent(searchQuery)}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -376,7 +377,7 @@ export const RequestList: React.FC = () => {
     }
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/request_list/request_repair', {
+      const response = await fetch('/request_list/request_repair', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -423,7 +424,7 @@ export const RequestList: React.FC = () => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `/api/request_list/change_status?new_status=${newRequestStatus}&request_id=${expandedRequest?.request_id}`,
+        `/request_list/change_status?new_status=${newRequestStatus}&request_id=${expandedRequest?.request_id}`,
         {
           method: 'PUT',
           headers: {

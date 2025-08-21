@@ -6,8 +6,8 @@ from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException, Q
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import OAuth2PasswordBearer
 from typing import List, Optional
-from models.document_models import Document, SharedDocument, DocumentStatus, DocumentPermission
-from schemas.document_schemas import DocumentCreate,DocumentResponse, SharedDocumentCreate
+from models.document_models import Document, SharedDocument, DocumentStatus, DocumentPermission, DocumentStatusMod
+from schemas.document_schemas import DocumentCreate,DocumentResponse, SharedDocumentCreate, DocumentStatusCreate
 from services.jwt_utils import verify_token
 import logging
 from pathlib import Path as PathLib
@@ -16,7 +16,8 @@ from db.database import get_db_connection as get_db
 from crud.documents import (
     create_document, get_user_documents, share_document,
     get_shared_documents, update_shared_document_status,
-    delete_document, get_document, get_shared_document
+    delete_document, get_document, get_shared_document,
+    get_sended_documents, create_status_document
 )
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
@@ -29,8 +30,8 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 UPLOAD_DIR = os.getenv("DOCUMENTS_UPLOAD_DIR", "uploads/documents")
 ALLOWED_EXTENSIONS = os.getenv("DOCUMENTS_ALLOWED_TYPES", ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt").split(",")
 MAX_FILE_SIZE = int(os.getenv("DOCUMENTS_MAX_SIZE_MB", 50)) * 1024 * 1024  # в байтах
-ONLYOFFICE_SERVER_URL = os.getenv("ONLYOFFICE_SERVER_URL", "http://192.1.66.117")
-YOUR_PORTAL_API_BASE_URL = os.getenv("YOUR_PORTAL_API_BASE_URL", "http://192.1.66.117:8000")
+ONLYOFFICE_SERVER_URL = os.getenv("ONLYOFFICE_SERVER_URL")
+YOUR_PORTAL_API_BASE_URL = os.getenv("VITE_API_BASE_URL")
 ONLYOFFICE_JWT_SECRET = os.getenv("ONLYOFFICE_SECRET", "your_strong_secret_key_here")
 # Создаем директорию для загрузок
 PathLib(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
@@ -124,6 +125,22 @@ async def get_shared_doc(
         logger.error(f"Error getting shared documents: {e}")
         raise HTTPException(status_code=500, detail="Error getting shared documents")
 
+@router.get("/sended", response_model=List[SharedDocument])
+async def get_sended_doc(
+    token: str = Depends(oauth2_scheme),
+    search: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    user = verify_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    try:
+        return get_sended_documents(db, user['username'], search)
+    except Exception as e:
+        logger.error(f"Error getting shared documents: {e}")
+        raise HTTPException(status_code=500, detail="Error getting shared documents")
+    
 @router.post("/share", response_model=SharedDocument)
 async def share_document_endpoint(
     document_id: str = Form(...),
@@ -158,7 +175,35 @@ async def share_document_endpoint(
         logger.error(f"Error sharing document: {e}")
         raise HTTPException(status_code=500, detail="Error sharing document")
 
-@router.put("/status/{document_id}", response_model=SharedDocument)
+@router.post("/doc_status", response_model=DocumentStatusMod)
+async def share_document_endpoint(
+    document_id: str = Form(...),
+    recipient: str = Form(...),
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
+    user = verify_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    # Проверяем, существует ли документ и принадлежит ли он пользователю
+    document = get_document(db, document_id)
+    if not document or document.owner_username != user['username']:
+        raise HTTPException(status_code=404, detail="Document not found or access denied")
+    
+    try:
+        status_doc = create_status_document(db, DocumentStatusCreate(
+            document_id=document_id,
+            recipient_username=recipient,
+            owner_username=user["username"],
+            status=DocumentStatus.PENDING
+        ))
+        return status_doc
+    except Exception as e:
+        logger.error(f"Error sharing document: {e}")
+        raise HTTPException(status_code=500, detail="Error sharing document")
+    
+@router.put("/status/{document_id}", response_model=DocumentStatusMod)
 async def update_document_status(
     document_id: str,
     status: DocumentStatus = Body(...),
@@ -177,6 +222,7 @@ async def update_document_status(
     except Exception as e:
         logger.error(f"Error updating document status: {e}")
         raise HTTPException(status_code=500, detail="Error updating document status")
+        
 
 @router.get("/download/{document_id}", response_class=FileResponse)
 async def download_document(
@@ -240,7 +286,8 @@ async def get_onlyoffice_config(
 
     document_url = f"{YOUR_PORTAL_API_BASE_URL}/api/documents/download/{document_id}"
     callback_url = f"{YOUR_PORTAL_API_BASE_URL}/api/documents/onlyoffice/callback"
-
+    session_key = str(uuid.uuid4())
+    combined_key = f"{session_key}.{document_id}"
     document_type = get_document_type(document.file_type)
     
     config = {
@@ -248,7 +295,7 @@ async def get_onlyoffice_config(
             "fileType": document.file_type.lstrip('.').lower(),
             "key": document_id,
             "title": document.title,
-            "url": document_url
+            "url": document_url,
         },
         "documentType": document_type,
         "editorConfig": {
@@ -256,11 +303,20 @@ async def get_onlyoffice_config(
             "mode": (share_doc.permission.lower() if (type_doc == 'get') else document.permission.lower()),
             "user": {
                 "id": user['username'],
-                "name": user.get('displayName', user['username'])
+                "name": user.get('displayName', user['username']),
+                "documentId": document_id
             },
             "lang": "ru"
-        }
+        },
+        "userdata": document_id
     }
+    config["editorConfig"]["customization"] = {
+        "forcesave": True,  # Включает принудительное сохранение по команде
+        "autosave": True    # Убедитесь, что autosave включен (по умолчанию true)
+    }
+    if (share_doc and share_doc.permission == 'REVIEW'):
+        config["document"]["permissions"] = { "edit": False, "review": True }
+    
     token = jwt.encode(config, ONLYOFFICE_JWT_SECRET, algorithm="HS256")
     config["token"] = token
     return JSONResponse(content={"config": config, "token": token})
@@ -280,6 +336,94 @@ def get_document_type(file_ext: str) -> str:
         return "slide"
     else:
         return "word"
+
+# @router.post("/onlyoffice/callback")
+# async def onlyoffice_callback(request: dict, db: Session = Depends(get_db)):
+#     """
+#     Callback URL для получения обновленного файла от OnlyOffice.
+#     ВАЖНО: Этот эндпоинт ДОЛЖЕН БЫТЬ доступен с сервера OnlyOffice без аутентификации!
+#     """
+#     try:
+#         callback_data = request
+#         print(f"Received OnlyOffice callback: {callback_data}")
+
+#         status = callback_data.get("status", 0)
+#         key = callback_data.get("key")
+#         # Ключ теперь имеет формат session_key.document_id
+#         if not key or '.' not in key:
+#              print("Invalid key format received.")
+#              return JSONResponse(content={"error": 1}) 
+#         document_id = key.split('.')[-1] # Берем последнюю часть как ID документа
+        
+#         print(f"Callback Status: {status}, Document ID: {document_id}")
+
+#         # --- Обработка статусов ---
+#         if status == 1: # Документ загружается
+#             print("Document is being loaded.")
+#             return JSONResponse(content={"error": 0})
+
+#         elif status == 2: # Документ готов (пользователь открыл, autosave может быть)
+#             print("Document is ready for editing.")
+#             return JSONResponse(content={"error": 0})
+
+#         elif status == 3: # Изменения сохранены (autosave завершен)
+#             print("Changes saved (autosave).")
+#             # Здесь можно обновить статус документа в БД, если нужно
+#             return JSONResponse(content={"error": 0})
+
+#         elif status == 4: # Документ закрыт пользователем (без forceSave)
+#             print("Document closed by user (no forceSave requested).")
+#             return JSONResponse(content={"error": 0})
+
+#         elif status == 6: # ForceSave завершен успешно
+#             print("ForceSave completed successfully.")
+#             download_url = callback_data.get("url")
+#             if not download_url:
+#                 print("No download URL provided for forceSave.")
+#                 return JSONResponse(content={"error": 1})
+            
+#             # Скачиваем обновленный файл
+#             try:
+#                 response = requests.get(download_url, timeout=60)
+#                 response.raise_for_status()
+
+#                 document = get_document(db, document_id)
+#                 if not document:
+#                     print(f"Document with ID {document_id} not found in DB.")
+#                     return JSONResponse(content={"error": 1})
+
+#                 # Перезаписываем файл
+#                 with open(document.file_path, 'wb') as f:
+#                     f.write(response.content)
+                
+#                 print(f"Document {document_id} updated successfully via forceSave.")
+#                 # Опционально: обновляем статус в БД
+#                 # update_shared_document_status(db, document_id, ..., DocumentStatus.EDITED)
+#                 return JSONResponse(content={"error": 0})
+
+#             except requests.exceptions.RequestException as e:
+#                 print(f"Network error downloading file from OnlyOffice: {e}")
+#                 return JSONResponse(content={"error": 1})
+#             except Exception as e:
+#                 print(f"Error saving updated document: {e}")
+#                 return JSONResponse(content={"error": 1})
+
+#         elif status == 7: # Ошибка при сохранении (включая forceSave)
+#             print("Error occurred during saving (including forceSave).")
+#             # Можно залогировать ошибку из callback_data.get('error')
+#             error_details = callback_data.get('error', 'Unknown error')
+#             print(f"Save error details: {error_details}")
+#             return JSONResponse(content={"error": 1})
+
+#         else:
+#             print(f"Unknown or unhandled status: {status}")
+#             return JSONResponse(content={"error": 0}) 
+            
+#     except Exception as e:
+#         print(f"Error processing OnlyOffice callback: {e}")
+#         import traceback
+#         traceback.print_exc()
+#         return JSONResponse(content={"error": 1})
 
 @router.post("/onlyoffice/callback")
 async def onlyoffice_callback(request: dict, db: Session = Depends(get_db)):

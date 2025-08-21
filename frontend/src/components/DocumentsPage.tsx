@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { debounce } from 'lodash';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import {  DocumentStatus, DocumentPermission } from '/home/msa/corp_portal/frontend/models/documentModels';
-import { Modal, Tooltip } from 'antd';
+import {  DocumentStatus, DocumentPermission } from '../../models/documentModels';
+import { Modal, Tooltip, Popover, Button, List, Tag } from 'antd';
+import type { PopoverProps } from 'antd';
 import screenfull from 'screenfull';
-import { FullscreenExitOutlined, FullscreenOutlined } from '@ant-design/icons';
+import { CloseOutlined, FileOutlined, FullscreenExitOutlined, FullscreenOutlined } from '@ant-design/icons';
 
 interface User {
   displayName: string;
@@ -27,7 +28,7 @@ interface Document {
 
 interface SharedDocument {
   document_id: string;
-  recipient: string;
+  recipient_username: string;
   permission: DocumentPermission;
   shared_at: string;
   status: DocumentStatus;
@@ -37,11 +38,13 @@ interface SharedDocument {
   file_type: string;
 }
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.1.66.117:8000'; // Изменено на порт 8000
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const onlyOfficeServerUrl = import.meta.env.VITE_ONLYOFFICE_SERVER_URL;
 
 const DocumentsPage: React.FC = () => {
   const [myDocuments, setMyDocuments] = useState<Document[]>([]);
   const [sharedDocuments, setSharedDocuments] = useState<SharedDocument[]>([]);
+  const [sendedDocuments, setSendedDocuments] = useState<SharedDocument[]>([]);
   const [contacts, setContacts] = useState<User[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
@@ -62,7 +65,7 @@ const DocumentsPage: React.FC = () => {
 
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
-  console.log(myDocuments)
+
   const fetchMyDocuments = async () => {
     try {
       const response = await fetch(`${BASE_URL}/api/documents/my${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''}`, {
@@ -90,13 +93,41 @@ const DocumentsPage: React.FC = () => {
         setSharedDocuments(await response.json());
       } else {
         const errorData = await response.json().catch(() => ({}));
-        toast.error(`Ошибка получения общих документов: ${errorData.detail || response.statusText}`);
+        toast.error(`Ошибка получения доступных документов: ${errorData.detail || response.statusText}`);
       }
     } catch (error) {
-      toast.error('Ошибка сети при получении общих документов');
-      console.error('Ошибка получения общих документов:', error);
+      toast.error('Ошибка сети при получении доступных документов');
+      console.error('Ошибка получения доступных документов:', error);
     }
   };
+
+  const fetchSendedDocuments = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/api/documents/sended${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const result = await response.json();
+        console.log('123');
+        console.log(result);
+        setSendedDocuments(result);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(`Ошибка получения отправленных документов: ${errorData.detail || response.statusText}`);
+      }
+    } catch (error) {
+      toast.error('Ошибка сети при получении отправленных документов');
+      console.error('Ошибка получения отправленных документов:', error);
+    }
+  }
+
+  useEffect(() => {
+    if (token) {
+      fetchSendedDocuments();
+    } else {
+      console.warn('Токен отсутствует, невозможно загрузить документы.');
+    }
+  }, [sharedDocuments, myDocuments]);
 
   const fetchContacts = async () => {
     try {
@@ -165,6 +196,7 @@ const DocumentsPage: React.FC = () => {
     }
 
     try {
+      //создаем элемент в таблице document_shared
       const response = await fetch(`${BASE_URL}/api/documents/share`, {
         method: 'POST',
         headers: { 
@@ -178,14 +210,25 @@ const DocumentsPage: React.FC = () => {
           title: currentDoc.title
         })
       });
-
-      if (response.ok) {
+      //создаем элемент в таблице documents_status
+      const response_stat = await fetch(`${BASE_URL}/api/documents/doc_status`, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`
+        },
+        body: new URLSearchParams({
+          document_id: currentDoc.id,
+          recipient: recipient
+        })
+      });
+      if (response.ok && response_stat.ok) {
         toast.success('Документ успешно отправлен');
         setShareModalOpen(false);
         setRecipient('');
         setCanEdit(false);
         setCanReview(false);
         fetchSharedDocuments();
+        fetchSendedDocuments();
       } else {
         const errorData = await response.json().catch(() => ({}));
         toast.error(`Ошибка шаринга документа: ${errorData.detail || response.statusText}`);
@@ -198,7 +241,6 @@ const DocumentsPage: React.FC = () => {
 
   const updateDocumentStatus = async (docId: string, status: DocumentStatus) => {
     try {
-      console.log(status);
       const response = await fetch(`${BASE_URL}/api/documents/status/${docId}`, {
         method: 'PUT',
         headers: { 
@@ -274,8 +316,9 @@ const DocumentsPage: React.FC = () => {
     window.URL.revokeObjectURL(url);
   };
 
-  const openInOnlyOffice = async (docId: string, typeDoc: string) => {
+  const openInOnlyOffice = async (docId: string, status: DocumentStatus, typeDoc: string) => {
     try {
+      typeDoc === 'self' ? '': status === DocumentStatus.PENDING ? updateDocumentStatus(docId, DocumentStatus.VIEWED): '';
       const response = await fetch(`${BASE_URL}/api/documents/onlyoffice/config/${docId}?type_doc=${typeDoc}`, {
         method: 'GET',
         headers: {
@@ -290,7 +333,8 @@ const DocumentsPage: React.FC = () => {
       }
 
       const { config, jwtToken } = await response.json();
-      updateDocumentStatus(docId, DocumentStatus.VIEWED)
+      
+      
       setOnlyOfficeConfig(config);
       setIsOnlyOfficeModalOpen(true);
       setOnlyOfficeJwtToken(jwtToken);
@@ -312,7 +356,6 @@ const DocumentsPage: React.FC = () => {
     config: any;
     jwtToken?: string | undefined; 
   }) => {
-    const onlyOfficeServerUrl = import.meta.env.VITE_ONLYOFFICE_SERVER_URL || 'http://192.1.66.117';
     const modalContainerRef = useRef<HTMLDivElement>(null);
     const [isFullscreenActive, setIsFullscreenActive] = useState(false);
 
@@ -439,7 +482,42 @@ const DocumentsPage: React.FC = () => {
     </div>
   );
   };
+  const getStatusColor = (status: DocumentStatus) => {
+    switch (status) {
+      case DocumentStatus.PENDING: return 'orange';
+      case DocumentStatus.VIEWED: return 'green';
+      case DocumentStatus.EDITED: return 'blue';
+      default: return 'default';
+    }
+  };
 
+  const getStatusText = (status: DocumentStatus) => {
+    switch (status) {
+      case DocumentStatus.PENDING: return 'Ожидает';
+      case DocumentStatus.VIEWED: return 'Просмотрен';
+      case DocumentStatus.EDITED: return 'Отредактирован';
+      default: return status;
+    }
+  };
+
+  const getPermissionColor = (permission: DocumentPermission) => {
+    switch (permission) {
+      case DocumentPermission.VIEW: return 'default';
+      case DocumentPermission.EDIT: return 'purple';
+      case DocumentPermission.REVIEW: return 'gold';
+      default: return 'default';
+    }
+  };
+
+  const getPermissionText = (permission: DocumentPermission) => {
+    switch (permission) {
+      case DocumentPermission.VIEW: return 'Просмотр';
+      case DocumentPermission.EDIT: return 'Редактирование';
+      case DocumentPermission.REVIEW: return 'Рецензирование';
+      default: return permission;
+    }
+  };
+  
   useEffect(() => {
     if (token) {
       fetchMyDocuments();
@@ -612,14 +690,50 @@ const DocumentsPage: React.FC = () => {
                         <div className="text-sm text-gray-900">{new Date(doc.created_at).toLocaleDateString()}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          doc.status === DocumentStatus.PENDING ? 'bg-yellow-100 text-yellow-800' :
-                          doc.status === DocumentStatus.VIEWED ? 'bg-green-100 text-green-800' :
-                          'bg-blue-100 text-blue-800'
-                        }`}>
-                          {doc.status === DocumentStatus.PENDING ? 'Не просмотрено' : 
-                           doc.status === DocumentStatus.VIEWED ? 'Просмотрено' : 'Отредактировано'}
-                        </span>
+                      <Popover
+                        placement="right"
+                        title={<span className="font-medium">Переданные файлы</span>} 
+                        content={
+                          sendedDocuments && sendedDocuments.length > 0 ? (
+                          <div className="max-h-96 overflow-y-auto w-80">
+                            <List
+                              dataSource={sendedDocuments.filter((sendDoc) => sendDoc.document_id === doc.id)}
+                              renderItem={(sendDoc) => (
+                                <List.Item className="!px-0 !py-1 flex-col items-start hover:bg-gray-100">
+                                  <div className="flex items-start w-full">
+                                    <FileOutlined className="mt-1 mr-2 flex-shrink-0 text-gray-500" />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex justify-between items-start w-full">
+                                          {sendDoc.title}
+                                        <Tag color={getStatusColor(sendDoc.status)} className="flex-shrink-0 ml-1">
+                                          {getStatusText(sendDoc.status)}
+                                        </Tag>
+                                      </div>
+                                      <div className="flex justify-between items-center w-full text-xs text-gray-500 mt-1">
+                                        <span className="truncate mr-2">@{sendDoc.recipient_username}</span>
+                                        <Tag color={getPermissionColor(sendDoc.permission)} className="flex-shrink-0 ml-1">
+                                          {getPermissionText(sendDoc.permission)}
+                                        </Tag>
+                                      </div>
+                                        {new Date(sendDoc.shared_at).toLocaleString('ru-RU')}
+                                    </div>
+                                  </div>
+                                </List.Item>
+                              )}
+                            />
+                          </div>
+                        ) : (
+                          <div className="text-center py-4 text-gray-500">
+                            Нет отправленных документов
+                          </div>
+                        )
+                      }
+                        trigger="hover" 
+                      >
+                        <button className="text-blue-500 hover:text-blue-700 focus:outline-none">
+                          Просмотреть<FileOutlined />
+                        </button>
+                      </Popover> 
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
@@ -639,7 +753,7 @@ const DocumentsPage: React.FC = () => {
                             Поделиться
                           </button>
                           <button
-                            onClick={() => openInOnlyOffice(doc.id, 'self')}
+                            onClick={() => openInOnlyOffice(doc.id, doc.status, 'self')}
                             className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
                           >
                             Открыть
@@ -688,7 +802,7 @@ const DocumentsPage: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {sharedDocuments.map((item, index) => (
-                <div key={`${item.document_id}_${item.recipient}_${index}`} className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md transition-shadow">
+                <div key={`${item.document_id}_${item.recipient_username}_${index}`} className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100 hover:shadow-md transition-shadow">
                   <div className="p-5">
                     <div className="flex items-start">
                       <div className="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-lg flex items-center justify-center">
@@ -711,7 +825,7 @@ const DocumentsPage: React.FC = () => {
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                             item.permission === DocumentPermission.EDIT ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
                           }`}>
-                            {item.permission === DocumentPermission.EDIT ? 'Редактирование' : 'Только просмотр'}
+                            {item.permission === DocumentPermission.EDIT ? 'Редактирование' : item.permission === DocumentPermission.REVIEW ? 'Рецензирование': 'Только просмотр'}
                           </span>
                         </div>
                       </div>
@@ -739,7 +853,7 @@ const DocumentsPage: React.FC = () => {
                       {item.permission === DocumentPermission.EDIT ? 'Отметить как отредактировано' : 'Отметить как просмотрено'}
                     </button>
                     <button
-                      onClick={() => openInOnlyOffice(item.document_id, 'get')}
+                      onClick={() => openInOnlyOffice(item.document_id, item.status, 'get')}
                       className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
                     >
                       Открыть
@@ -865,7 +979,12 @@ const DocumentsPage: React.FC = () => {
       {isOnlyOfficeModalOpen && (
         <OnlyOfficeModal
           isOpen={isOnlyOfficeModalOpen}
-          onClose={() => setIsOnlyOfficeModalOpen(false)}
+          onClose={() => {
+            setIsOnlyOfficeModalOpen(false);
+            fetchSharedDocuments();
+            setOnlyOfficeConfig(null);
+            setOnlyOfficeJwtToken(undefined);
+          }}
           config={onlyOfficeConfig}
           jwtToken={onlyOfficeJwtToken}
         />

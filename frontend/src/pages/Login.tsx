@@ -13,6 +13,7 @@ interface LoginError {
   detail?: string;
   status?: number;
 }
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -32,14 +33,14 @@ const Login: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await fetch('http://192.1.66.117:8000/auth/login', {
+      const response = await fetch(`${BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
       });
 
       if (response.ok) {
-        const { access_token, role, full_name = username } = await response.json<LoginResponse>();
+        const { access_token, role, full_name = username } = (await response.json()) as LoginResponse;;
         login(access_token, String(role));
         localStorage.setItem('token', access_token);
         localStorage.setItem('role', String(role));
@@ -48,7 +49,7 @@ const Login: React.FC = () => {
         return;
       }
 
-      const data = await response.json<LoginError>();
+      const data = (await response.json()) as LoginError;
       let errorMessage = `Ошибка: ${response.status}`;
       if (data.detail) {
         errorMessage = typeof data.detail === 'string' ? data.detail : errorMessage;

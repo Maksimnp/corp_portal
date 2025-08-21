@@ -1,6 +1,6 @@
 import requests
 import os
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException
 from dotenv import load_dotenv
 import logging
 

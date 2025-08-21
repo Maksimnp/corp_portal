@@ -16,6 +16,8 @@ export interface Contact {
   groups?: string[];
 }
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 // Иконки
 const PhoneIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`w-4 h-4 ${className}`}>
@@ -161,7 +163,6 @@ export default function ContactsPage() {
   // Загрузка всех контактов
   const fetchAllContacts = async () => {
     setError(null);
-    // setLoading(true);
     setIsLimited(false);
 
     try {
@@ -170,8 +171,7 @@ export default function ContactsPage() {
         throw new Error('Токен аутентификации не найден. Пожалуйста, войдите снова.');
       }
 
-      const baseUrl = process.env.VITE_API_URL || 'http://192.1.66.117:8000';
-      const url = `${baseUrl}/contacts?query=*`;
+      const url = `${BASE_URL}/contacts?query=*`;
 
       const response = await fetch(url, {
         method: 'GET',
@@ -247,15 +247,13 @@ export default function ContactsPage() {
       return;
     }
     
-    // setLoading(true);
     setIsLimited(false);
     try {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Токен аутентификации не найден.');
 
-      const baseUrl = 'http://192.1.66.117:8000';
       const searchParams = new URLSearchParams({ query: searchQuery.trim() });
-      const url = `${baseUrl}/contacts?${searchParams.toString()}`;
+      const url = `${BASE_URL}/contacts?${searchParams.toString()}`;
 
       const response = await fetch(url, {
         method: 'GET',

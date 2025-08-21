@@ -19,6 +19,12 @@ class SharedDocumentCreate(BaseModel):
     owner_username: str
     title: str
 
+class DocumentStatusCreate(BaseModel):
+    document_id: str
+    recipient_username: str
+    owner_username: str
+    status: DocumentStatus
+
 class DocumentResponse(BaseModel):
     id: uuid.UUID
     title: str

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Enum, DateTime, ForeignKey, BigInteger, text
+from sqlalchemy import Column, String, Enum, DateTime, ForeignKey, BigInteger, text
 from sqlalchemy.dialects.postgresql import UUID
 from db.database import Base
 from datetime import datetime
@@ -37,3 +37,10 @@ class SharedDocument(Base):
     status = Column(Enum(DocumentStatus), default=DocumentStatus.PENDING)
     owner_username = Column(String)
     title = Column(String)
+
+class DocumentStatusModel(Base):
+    __tablename__ = "documents_status"
+    document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id", ondelete="CASCADE"), primary_key=True, nullable=False)
+    owner_username = Column(String, primary_key=True, nullable=False)
+    recipient_username = Column(String, primary_key=True, nullable=False)
+    status = Column(Enum(DocumentStatus), default=DocumentStatus.PENDING)

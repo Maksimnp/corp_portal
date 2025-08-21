@@ -1,7 +1,7 @@
 # Используем официальный образ Python
 FROM python:3.9-slim
 
-# Устанавливаем системные зависимости для python-ldap
+# Устанавливаем системные зависимости, включая компилятор
 RUN apt-get update && apt-get install -y \
     gcc \
     python3-dev \
@@ -26,4 +26,4 @@ COPY . .
 ENV PYTHONPATH=/app
 
 # Указываем команду для запуска
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "2000"]
