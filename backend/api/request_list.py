@@ -181,12 +181,14 @@ async def sort_requests(
     try:
         base_query = "SELECT * FROM requests"
         params = []
-
-        if (list_type == "my_requests"):
+        logger.info(f"ROLE ------------------- {user_role}")
+        if (list_type == "my_requests" and user_role != "admin"):
             base_query += " WHERE sender_fullname = $1"
+            params.append(full_name)
         elif (list_type == "get_requests"):
             base_query += " WHERE owner_fullname = $1"
-        params.append(full_name)
+            params.append(full_name)
+        
 
         order_direction = "DESC" if order == "desc" else "ASC"
         if field == "date":

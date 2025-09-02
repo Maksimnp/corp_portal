@@ -2,18 +2,23 @@ import os
 import json
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query, UploadFile, File
-from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean, create_engine, inspect, text
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query, UploadFile, File, Path 
+from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean, create_engine
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
 from sqlalchemy.sql import func
 from pydantic import BaseModel, Field, ConfigDict
 from uuid import UUID as UUIDType
 from services.jwt_utils import get_current_user, verify_token
-import ldap
+# import ldap
+import ldap3
+from ldap.filter import escape_filter_chars
+from ldap3 import Server, Connection, ALL_ATTRIBUTES, SUBTREE, AUTO_BIND_NO_TLS, SIMPLE
+from ldap3.core.exceptions import LDAPException, LDAPBindError, LDAPSocketOpenError
 import anyio
+
 
 # -----------------------------
 # Логирование
@@ -42,15 +47,18 @@ engine = create_engine(DATABASE_URL, pool_pre_ping=True, future=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
+
 # -----------------------------
 # Настройка Active Directory
 # -----------------------------
-LDAP_SERVER = os.getenv("LDAP_SERVER", "ldap://192.1.3.6:389")
+LDAP_SERVER = os.getenv("LDAP_SERVER")
 LDAP_USER = os.getenv("LDAP_USER", "ServiceReader")
 LDAP_PASSWORD = os.getenv("LDAP_PASSWORD", "Season24")
-LDAP_BASE_DN = os.getenv("LDAP_BASE_DN", "DC=mhp,DC=net")
+BASE_DN = os.getenv("BASE_DN", "DC=mhp,DC=net")
 BYPASS_AD_VALIDATION = os.getenv("BYPASS_AD_VALIDATION", "false").lower() == "true"
-
+LDAP_VALIDATE_CERTS = os.getenv("LDAP_VALIDATE_CERTS")
+LDAP_CA_CERT = os.getenv("LDAP_CA_CERT")
 # -----------------------------
 # МОДЕЛИ SQLAlchemy
 # -----------------------------
@@ -71,15 +79,25 @@ class Message(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
     channel_id = Column(UUID(as_uuid=True), ForeignKey("channels.id", ondelete="CASCADE"), index=True, nullable=False)
     sender = Column(String, index=True, nullable=False)
-    content = Column(String, nullable=True)  # Allow null for file-only messages
+    content = Column(String, nullable=True)
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True, nullable=False)
     is_read = Column(Boolean, default=False, nullable=False)
     file_url = Column(String, nullable=True)
     file_name = Column(String, nullable=True)
+    edited = Column(Boolean, default=False, nullable=False)
     channel = relationship("Channel", back_populates="messages")
+    quoted_message_id = Column(UUID(as_uuid=True), ForeignKey("messages.id", ondelete="SET NULL"), nullable=True)
 
-# Создание таблиц и миграция
+# Создание таблиц
+def create_tables():
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Таблицы успешно созданы или уже существуют.")
+    except Exception as e:
+        logger.error(f"Ошибка при создании таблиц: {e}")
+        raise
 
+create_tables()
 
 # -----------------------------
 # Pydantic схемы
@@ -104,12 +122,22 @@ class MessageResponse(BaseModel):
     is_read: bool
     file_url: Optional[str] = None
     file_name: Optional[str] = None
+    edited: bool
+    quoted_message_id: Optional[UUIDType] = None
 
 class MessageCreate(BaseModel):
     channel_id: UUIDType
     content: Optional[str] = Field(None, min_length=1, max_length=10000)
     file_url: Optional[str] = None
     file_name: Optional[str] = None
+    quoted_message_id: Optional[UUIDType] = None
+
+class EditMessageRequest(BaseModel):
+    message_id: UUIDType
+    content: str = Field(min_length=1, max_length=10000)
+
+class DeleteMessageRequest(BaseModel):
+    message_id: UUIDType
 
 class CreateGroupChatRequest(BaseModel):
     name: str = Field(min_length=1, max_length=255)
@@ -138,98 +166,202 @@ class Contact(BaseModel):
     sam_account_name: Optional[str] = None
 
 # -----------------------------
-# Active Directory утилиты
+# Утилиты ldap3
 # -----------------------------
-def validate_ad_user(username: str) -> bool:
-    if BYPASS_AD_VALIDATION:
-        logger.warning(f"Bypassing AD validation for {username} (BYPASS_AD_VALIDATION=true)")
-        return True
+
+def get_ldap_connection() -> Optional[Connection]:
+    """
+    Создает и возвращает подключение к LDAP серверу с использованием ldap3.
+    """
+    if not LDAP_SERVER:
+        logger.error("LDAP_SERVER environment variable is not set.")
+        raise HTTPException(status_code=500, detail="LDAP сервер не настроен")
+
     try:
-        logger.debug(f"Attempting to validate AD user: {username}, LDAP_SERVER={LDAP_SERVER}, LDAP_BASE_DN={LDAP_BASE_DN}")
-        conn = ldap.initialize(LDAP_SERVER)
-        conn.set_option(ldap.OPT_REFERRALS, 0)
-        conn.set_option(ldap.OPT_PROTOCOL_VERSION, 3)
-        logger.debug(f"Binding with LDAP_USER={LDAP_USER}")
-        conn.simple_bind_s(LDAP_USER, LDAP_PASSWORD)
+        # Настройка TLS/SSL
+        tls = None
+        if LDAP_SERVER.lower().startswith("ldaps://"):
+            import ssl
+            tls_kwargs = {}
+            if LDAP_VALIDATE_CERTS and LDAP_VALIDATE_CERTS.upper() in ("FALSE", "NEVER"):
+                tls_kwargs['validate'] = ssl.CERT_NONE
+                logger.warning("LDAPS certificate validation is disabled.")
+            elif LDAP_CA_CERT and os.path.isfile(LDAP_CA_CERT):
+                tls_kwargs['validate'] = ssl.CERT_REQUIRED
+                tls_kwargs['ca_certs_file'] = LDAP_CA_CERT
+                logger.debug(f"Using CA cert file for LDAPS: {LDAP_CA_CERT}")
+            else:
+                 # Если проверка включена, но сертификат не указан, используем системные
+                 tls_kwargs['validate'] = ssl.CERT_REQUIRED
+                 logger.debug("Using system CA certs for LDAPS validation.")
+            
+            tls = ldap3.Tls(**tls_kwargs)
+
+        # Создание сервера
+        server = Server(LDAP_SERVER, get_info=ALL_ATTRIBUTES, tls=tls)
+
+        # Создание подключения
+        conn = Connection(
+            server,
+            user=LDAP_USER,
+            password=LDAP_PASSWORD,
+            auto_bind=AUTO_BIND_NO_TLS, # AUTO_BIND_TLS_BEFORE_BIND если нужен StartTLS
+            receive_timeout=10
+        )
+        
+        logger.debug(f"Attempting to bind to LDAP server {LDAP_SERVER} as {LDAP_USER}")
+        if not conn.bind():
+            logger.error(f"LDAP bind failed for {LDAP_USER}: {conn.result}")
+            raise LDAPBindError(f"Bind failed: {conn.result}")
+            
+        logger.debug("LDAP connection and bind successful.")
+        return conn
+
+    except LDAPSocketOpenError as e:
+        logger.error(f"Cannot connect to LDAP server {LDAP_SERVER}: {e}")
+        raise HTTPException(status_code=500, detail="LDAP сервер недоступен")
+    except LDAPBindError as e:
+        logger.error(f"LDAP bind error for {LDAP_USER}: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка аутентификации в Active Directory")
+    except LDAPException as e:
+        logger.error(f"LDAP error during connection setup: {e}")
+        raise HTTPException(status_code=500, detail=f"Ошибка подключения к LDAP: {str(e)}")
+    except Exception as e:
+        logger.error(f"Unexpected error setting up LDAP connection: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Неожиданная ошибка подключения к LDAP: {str(e)}")
+
+
+def validate_ad_user(username: str) -> bool:
+    """
+    Проверяет существование пользователя в AD с помощью ldap3.
+    """
+    if BYPASS_AD_VALIDATION:
+        logger.warning(f"Bypassing AD validation for {username}")
+        return True
+        
+    conn = None
+    try:
+        logger.debug(f"Validating AD user: {username}")
+        conn = get_ldap_connection() # Получаем подключение через нашу функцию
+        
         search_filter = f"(sAMAccountName={username})"
-        logger.debug(f"Searching with filter: {search_filter}")
-        result = conn.search_s(LDAP_BASE_DN, ldap.SCOPE_SUBTREE, search_filter, ["sAMAccountName"])
-        conn.unbind_s()
-        found = len([r for r in result if r[0] is not None]) > 0
+        logger.debug(f"Searching with filter: {search_filter} in base {BASE_DN}")
+        
+        conn.search(
+            search_base=BASE_DN,
+            search_filter=search_filter,
+            search_scope=SUBTREE,
+            attributes=['sAMAccountName'] # Минимальные атрибуты для проверки
+        )
+        
+        found = len(conn.entries) > 0
         logger.debug(f"AD validation for {username}: {'Found' if found else 'Not found'}")
         return found
-    except ldap.INVALID_CREDENTIALS:
-        logger.error(f"LDAP bind failed for {LDAP_USER}: Invalid credentials")
-        raise HTTPException(status_code=500, detail="Ошибка аутентификации в Active Directory: неверные учетные данные")
-    except ldap.SERVER_DOWN:
-        logger.error(f"LDAP server {LDAP_SERVER} is down or unreachable")
-        raise HTTPException(status_code=500, detail=f"LDAP сервер {LDAP_SERVER} недоступен")
-    except ldap.LDAPError as e:
-        logger.error(f"LDAP error validating user {username}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Ошибка проверки пользователя в Active Directory: {str(e)}")
+        
+    except LDAPException as e:
+        logger.error(f"LDAP error validating user {username}: {e}")
+        raise HTTPException(status_code=500, detail=f"Ошибка проверки пользователя: {str(e)}")
     except Exception as e:
         logger.error(f"Unexpected error validating AD user {username}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Неожиданная ошибка при проверке пользователя: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Неожиданная ошибка: {str(e)}")
+    finally:
+        if conn and conn.bound:
+            conn.unbind()
+            logger.debug("LDAP connection closed after validation.")
 
-def search_ad_users(query: str) -> List[Dict[str, Any]]:
-    if BYPASS_AD_VALIDATION:
-        logger.warning(f"Bypassing AD search for query '{query}' (BYPASS_AD_VALIDATION=true)")
-        return [{"id": query, "displayName": query, "position": "", "department": "", "phone_internal": "", "email": ""}]
+
+def search_ad_users(search_term: str = "") -> List[Dict[str, Any]]:
+    """
+    Поиск пользователей в AD через LDAP с использованием ldap3.
+    """
+    logger.info(f"Начало поиска в AD (ldap3). Запрос: '{search_term}'")
+    conn = None
     try:
-        query = query.encode('utf-8').decode('utf-8')
-        logger.debug(f"Searching AD users with query: '{query}', LDAP_SERVER={LDAP_SERVER}, LDAP_BASE_DN={LDAP_BASE_DN}")
-        conn = ldap.initialize(LDAP_SERVER)
-        conn.set_option(ldap.OPT_REFERRALS, 0)
-        conn.set_option(ldap.OPT_PROTOCOL_VERSION, 3)
-        conn.simple_bind_s(LDAP_USER, LDAP_PASSWORD)
-        search_filter = f"(|(sAMAccountName=*{query}*)(displayName=*{query}*)(mail=*{query}*))"
-        logger.debug(f"LDAP search filter: {search_filter}")
-        results = conn.search_s(
-            LDAP_BASE_DN,
-            ldap.SCOPE_SUBTREE,
-            search_filter,
-            ["sAMAccountName", "displayName", "title", "department", "telephoneNumber", "mail"]
+        conn = get_ldap_connection() # Получаем подключение
+        
+        # Базовый фильтр для активных пользователей
+        base_filter = "(&(objectClass=user)(objectCategory=person)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+        
+        if search_term:
+            escaped_term = escape_filter_chars(search_term)
+            search_filter = f"(&{base_filter}(|(displayName=*{escaped_term}*)(sAMAccountName=*{escaped_term}*)(mail=*{escaped_term}*)))"
+        else:
+            search_filter = base_filter
+            
+        logger.debug(f"Searching with filter: {search_filter} in base {BASE_DN}")
+        
+        # Атрибуты для поиска
+        attributes = ['sAMAccountName', 'displayName', 'mail']
+        
+        conn.search(
+            search_base=BASE_DN,
+            search_filter=search_filter,
+            search_scope=SUBTREE,
+            attributes=attributes,
+            size_limit=1000 # Ограничение на количество результатов, если нужно
         )
+        
         users = []
-        for dn, entry in results:
-            if dn is None:
-                continue  # Skip None DN entries
-            user_dict = {
-                "id": entry.get("sAMAccountName", [b""])[0].decode("utf-8", errors="ignore") or "",
-                "displayName": entry.get("displayName", [b""])[0].decode("utf-8", errors="ignore") or "",
-                "position": entry.get("title", [b""])[0].decode("utf-8", errors="ignore") or "",
-                "department": entry.get("department", [b""])[0].decode("utf-8", errors="ignore") or "",
-                "phone_internal": entry.get("telephoneNumber", [b""])[0].decode("utf-8", errors="ignore") or "",
-                "email": entry.get("mail", [b""])[0].decode("utf-8", errors="ignore") or "",
-            }
-            logger.debug(f"Processed LDAP entry: DN={dn}, user={user_dict}")
-            users.append(user_dict)
-        conn.unbind_s()
-        logger.info(f"Found {len(users)} users in AD for query: '{query}'")
-        return users[:20]
-    except ldap.INVALID_CREDENTIALS:
-        logger.error(f"LDAP bind failed for {LDAP_USER}: Invalid credentials")
-        raise HTTPException(status_code=500, detail="Ошибка аутентификации в Active Directory: неверные учетные данные")
-    except ldap.SERVER_DOWN:
-        logger.error(f"LDAP server {LDAP_SERVER} is down or unreachable")
-        raise HTTPException(status_code=500, detail=f"LDAP сервер {LDAP_SERVER} недоступен")
-    except ldap.LDAPError as e:
-        logger.error(f"LDAP error searching users: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Ошибка поиска пользователей в Active Directory: {str(e)}")
+        logger.debug(f"Found {len(conn.entries)} raw entries")
+        
+        for entry in conn.entries:
+            logger.debug(f"Processing entry: {entry.entry_dn}")
+            try:
+                # Получаем атрибуты напрямую из entry
+                sam_account_name = entry.sAMAccountName.value if entry.sAMAccountName and entry.sAMAccountName.value else None
+                if not sam_account_name:
+                     logger.debug(f"Пропущена запись LDAP (нет sAMAccountName): dn={entry.entry_dn}")
+                     continue
+                
+                display_name = entry.displayName.value if entry.displayName and entry.displayName.value else None
+                email = entry.mail.value if entry.mail and entry.mail.value else None
+                
+                user_dict = {
+                    'id': sam_account_name,
+                    'displayName': display_name,
+                    'email': email,
+                    # Остальные поля остаются None как в оригинале
+                    'position': None,
+                    'department': None,
+                    'phone_internal': None,
+                    'phone_city': None,
+                    'phone_mobile': None,
+                }
+                users.append(user_dict)
+            except Exception as e:
+                 logger.warning(f"Error processing LDAP entry {entry.entry_dn}: {e}")
+                 continue # Пропускаем проблемные записи
+                 
+        logger.debug(f"Найдено пользователей в AD (ldap3): {len(users)}")
+        return users
+        
+    except LDAPSocketOpenError as e:
+        logger.error(f"LDAP сервер {LDAP_SERVER} недоступен: {e}")
+        raise HTTPException(status_code=500, detail="LDAP сервер недоступен")
+    except LDAPBindError as e:
+        logger.error(f"Неверные учетные данные LDAP для пользователя {LDAP_USER}: {e}")
+        raise HTTPException(status_code=500, detail="Неверные учетные данные LDAP")
+    except LDAPException as e:
+        logger.error(f"Ошибка LDAP при поиске: {e}")
+        raise HTTPException(status_code=500, detail=f"Ошибка поиска в LDAP: {e}")
     except Exception as e:
-        logger.error(f"Unexpected error searching AD users for query '{query}': {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Неожиданная ошибка при поиске пользователей: {str(e)}")
+        logger.error(f"Неизвестная ошибка при поиске в LDAP (ldap3): {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера при поиске контактов")
+    finally:
+        if conn and conn.bound:
+            try:
+                conn.unbind()
+                logger.debug("LDAP connection closed after search.")
+            except Exception as e:
+                logger.warning(f"Ошибка при закрытии LDAP соединения: {e}")
 
 # -----------------------------
 # DEPENDS
 # -----------------------------
 def get_db() -> Session:
     db = SessionLocal()
-    logger.debug(f"New DB session created: {id(db)}, in_transaction: {db.in_transaction()}")
+    logger.debug(f"New DB session created: {id(db)}")
     try:
-        if db.in_transaction():
-            logger.warning("Session already in transaction, rolling back")
-            db.rollback()
         yield db
     finally:
         db.close()
@@ -271,6 +403,7 @@ class ConnectionManager:
                 except Exception as e:
                     logger.error(f"WS send error to {uname}: {e}")
 
+# Инициализация менеджера WebSocket
 manager = ConnectionManager()
 
 # -----------------------------
@@ -293,6 +426,13 @@ def serialize_chat(db: Session, chat: Channel) -> ChatResponse:
         creator_username=chat.creator_username,
         members=chat.members
     )
+
+def sanitize_filename(filename: str) -> str:
+    """Sanitize filename to prevent path traversal and invalid characters."""
+    import re
+    filename = re.sub(r'[^a-zA-Z0-9._-]', '_', filename)
+    filename = filename.replace('..', '').replace('/', '').replace('\\', '')
+    return filename
 
 # -----------------------------
 # REST МАРШРУТЫ
@@ -355,18 +495,22 @@ def post_message(
     assert_membership(db, body.channel_id, username)
     if not body.content and not body.file_url:
         raise HTTPException(status_code=400, detail="Сообщение или файл обязательны")
+    
     msg = Message(
         channel_id=body.channel_id,
         sender=username,
         content=body.content,
         is_read=False,
         file_url=body.file_url,
-        file_name=body.file_name
+        file_name=body.file_name,
+        quoted_message_id=body.quoted_message_id
     )
+    
     try:
         db.add(msg)
         db.commit()
         db.refresh(msg)
+        
         payload = {
             "type": "new_message",
             "data": {
@@ -378,13 +522,18 @@ def post_message(
                 "is_read": msg.is_read,
                 "file_url": msg.file_url,
                 "file_name": msg.file_name,
+                "edited": msg.edited,
+                "quoted_message_id": str(msg.quoted_message_id) if msg.quoted_message_id else None,
+
             },
         }
         try:
             anyio.from_thread.run(manager.broadcast_to_channel_members, payload, msg.channel_id, db)
         except Exception as e:
             logger.warning(f"Failed to broadcast new_message: {e}")
+            
         return msg
+        
     except Exception as e:
         db.rollback()
         logger.error(f"Error posting message: {e}", exc_info=True)
@@ -436,17 +585,26 @@ async def upload_file(
 ):
     username = current_user["username"]
     logger.debug(f"Uploading file by {username}: {file.filename}")
+    allowed_extensions = {'.jpg', '.jpeg', '.png', '.pdf', '.txt', '.ogg'}
+    file_ext = os.path.splitext(file.filename)[1].lower()
+    if file_ext not in allowed_extensions:
+        raise HTTPException(status_code=400, detail="Недопустимый тип файла")
     max_size = 10 * 1024 * 1024  # 10MB
-    if file.size > max_size:
+    content = await file.read()
+    file_size = len(content)
+    if file_size > max_size:
         raise HTTPException(status_code=400, detail="Файл слишком большой (макс. 10 МБ)")
     try:
-        upload_dir = "uploads"
+        upload_dir = os.getenv("UPLOAD_DIR", "uploads")
         os.makedirs(upload_dir, exist_ok=True)
-        file_path = os.path.join(upload_dir, f"{uuid.uuid4()}_{file.filename}")
+        sanitized_filename = sanitize_filename(file.filename)
+        unique_filename = f"{uuid.uuid4()}_{sanitized_filename}"
+        file_path = os.path.join(upload_dir, unique_filename)
         with open(file_path, "wb") as buffer:
-            buffer.write(await file.read())
-        file_url = f"/static/{os.path.basename(file_path)}"
-        return {"url": file_url, "file_name": file.filename}
+            buffer.write(content)
+        file_url = f"/static/{unique_filename}"
+        logger.debug(f"File uploaded: {file_path}, URL: {file_url}")
+        return {"url": file_url, "file_name": sanitized_filename}
     except Exception as e:
         logger.error(f"Error uploading file: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Не удалось загрузить файл: {str(e)}")
@@ -566,7 +724,7 @@ def create_channel(
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     owner = current_user["username"]
-    logger.debug(f"Creating channel by {owner}: {body.name}, description: {body.description}")
+    logger.debug(f"Creating channel by {owner}: {body.name}")
     name = body.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="Имя канала обязательно")
@@ -618,25 +776,33 @@ def invite_to_channel(
     channel = db.query(Channel).filter(Channel.id == channel_id).first()
     if not channel:
         raise HTTPException(status_code=404, detail="Канал не найден")
-    if not channel.is_channel:
-        raise HTTPException(status_code=400, detail="Это не канал")
+    # if not channel.is_channel:
+    #     logger.error(f"Это не канал - {channel.is_channel}")
+    #     raise HTTPException(status_code=400, detail="Это не канал")
     if channel.creator_username != username:
         raise HTTPException(status_code=403, detail="Только создатель может приглашать пользователей")
+    
     existing_members = set(channel.members)
     valid_members = []
     invalid_members = []
-    for member in body.members:
+    for member in set(body.members):
         if member in existing_members:
+            logger.debug(f"User {member} already in channel {channel_id}")
             continue
         if validate_ad_user(member):
             valid_members.append(member)
         else:
             invalid_members.append(member)
+    
+    if not valid_members and not invalid_members:
+        raise HTTPException(status_code=400, detail="Нет новых пользователей для приглашения")
+    
     try:
         if valid_members:
-            channel.members.extend(valid_members)
+            channel.members = list(set(channel.members + valid_members))
             db.commit()
             db.refresh(channel)
+            logger.info(f"Successfully invited {valid_members} to channel {channel_id}. New members: {channel.members}")
             payload = {
                 "type": "channel_invite",
                 "data": {
@@ -646,14 +812,14 @@ def invite_to_channel(
                     "members": valid_members,
                 }
             }
-            logger.debug(f"Broadcasting channel_invite: {payload}")
+            logger.info(f"Broadcasting channel_invite: {payload}")
             try:
                 anyio.from_thread.run(manager.broadcast_to_channel_members, payload, channel_id, db)
             except Exception as e:
                 logger.warning(f"Failed to broadcast channel_invite: {e}")
         if invalid_members:
             logger.warning(f"Some users not invited to channel {channel_id}: {invalid_members}")
-        return {"status": "ok", "invited": len(valid_members), "not_found": invalid_members}
+        return {"status": "ok", "invited": valid_members, "not_found": invalid_members, "members": channel.members}
     except Exception as e:
         db.rollback()
         logger.error(f"Error inviting to channel {channel_id}: {e}", exc_info=True)
@@ -775,7 +941,43 @@ def delete_chat(
         db.rollback()
         logger.error(f"Error deleting channel {channel_id} by {username}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Не удалось удалить чат: {str(e)}")
+    
+@router.delete("/message/{message_id}")
+def delete_message(
+    message_id: UUIDType = Path(..., description="ID сообщения для удаления"),
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """
+    Удалить сообщение по его ID.
 
+    - **message_id**: UUID сообщения.
+    """
+    username = current_user["username"]
+    logger.debug(f"Попытка удаления сообщения {message_id} пользователем {username}")
+
+    try:
+        message = db.query(Message).filter(Message.id == message_id).first()
+
+        if not message:
+            logger.info(f"Сообщение {message_id} не найдено для пользователя {username}")
+            raise HTTPException(status_code=404, detail="Сообщение не найдено")
+        
+        if message.sender != username:
+            logger.warning(f"Пользователь {username} попытался удалить сообщение {message_id}, принадлежащее {message.sender}")
+            raise HTTPException(status_code=403, detail="Вы можете удалять только свои сообщения")
+        
+        assert_membership(db, message.channel_id, username)
+        db.delete(message)
+        db.commit()
+        logger.info(f"Сообщение {message_id} успешно удалено пользователем {username}")
+
+        return {"status": "ok"}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Неожиданная ошибка при удалении сообщения {message_id} пользователем {username}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Внутренняя ошибка сервера при удалении сообщения: {str(e)}")
+    
 @router.get("/contacts", response_model=List[Contact])
 def search_contacts(
     query: str = Query(..., min_length=1),
@@ -803,6 +1005,106 @@ def search_contacts(
         logger.error(f"Error searching contacts: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Не удалось найти контакты: {str(e)}")
 
+@router.get("/messages/{message_id}", response_model=MessageResponse)
+def get_message(
+    message_id: UUIDType = Path(..., description="ID сообщения"),
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """
+    Получить информацию о конкретном сообщении по его ID.
+    """
+    username = current_user["username"]
+    logger.debug(f"Fetching message {message_id} for user {username}")
+
+    try:
+        message = db.query(Message).filter(Message.id == message_id).first()
+        if not message:
+            logger.info(f"Message {message_id} not found")
+            raise HTTPException(status_code=404, detail="Сообщение не найдено")
+        try:
+            assert_membership(db, message.channel_id, username)
+        except HTTPException as e:
+            logger.warning(f"Access denied for user {username} to message {message_id} in channel {message.channel_id}: {e}")
+            raise HTTPException(status_code=404, detail="Сообщение не найдено")
+
+        logger.debug(f"Message {message_id} fetched successfully for user {username}")
+        return message
+
+    except Exception as e:
+        logger.error(f"Unexpected error fetching message {message_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
+@router.post("/messages/edit")
+async def edit_message(
+    body: EditMessageRequest,
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    username = current_user["username"]
+    logger.debug(f"Editing message {body.message_id} by {username}")
+    try:
+        message = db.query(Message).filter(Message.id == body.message_id).first()
+        if not message:
+            raise HTTPException(status_code=404, detail="Сообщение не найдено")
+        if message.sender != username:
+            raise HTTPException(status_code=403, detail="Вы можете редактировать только свои сообщения")
+        assert_membership(db, message.channel_id, username)
+        message.content = body.content
+        message.edited = True
+        db.commit()
+        db.refresh(message)
+        payload = {
+            "type": "message_edited",
+            "data": {
+                "id": str(message.id),
+                "channel_id": str(message.channel_id),
+                "content": message.content,
+                "edited": True,
+            },
+        }
+        await manager.broadcast_to_channel_members(payload, message.channel_id, db)
+        return {"status": "ok"}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error editing message {body.message_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Не удалось отредактировать сообщение: {str(e)}")
+
+@router.post("/messages/delete")
+async def delete_message(
+    body: DeleteMessageRequest,
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    username = current_user["username"]
+    logger.debug(f"Deleting message {body.message_id} by {username}")
+    try:
+        message = db.query(Message).filter(Message.id == body.message_id).first()
+        if not message:
+            raise HTTPException(status_code=404, detail="Сообщение не найдено")
+        if message.sender != username:
+            raise HTTPException(status_code=403, detail="Вы можете удалять только свои сообщения")
+        assert_membership(db, message.channel_id, username)
+        db.delete(message)
+        db.commit()
+        payload = {
+            "type": "message_deleted",
+            "data": {
+                "id": str(message.id),
+                "channel_id": str(message.channel_id),
+            },
+        }
+        await manager.broadcast_to_channel_members(payload, message.channel_id, db)
+        return {"status": "ok"}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting message {body.message_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Не удалось удалить сообщение: {str(e)}")
+
 # -----------------------------
 # WEBSOCKET
 # -----------------------------
@@ -814,17 +1116,19 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
         await websocket.send_json({"type": "error", "error": "Требуется токен"})
         await websocket.close(code=1008)
         return
+
     user_data = verify_token(token)
     if not user_data or "username" not in user_data:
         logger.error(f"Invalid or expired token for WebSocket: {token[:10]}...")
         await websocket.send_json({"type": "error", "error": "Недействительный или истекший токен"})
         await websocket.close(code=1008)
         return
+
     username: str = user_data["username"]
     await manager.connect(websocket, username)
     logger.info(f"WS connected: {username}")
-
     db = SessionLocal()
+
     try:
         while True:
             raw = await websocket.receive_text()
@@ -844,47 +1148,71 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
 
             if action == "send_message":
                 channel_id_str = payload.get("channel_id")
-                content = payload.get("content", "").strip()
-                if not channel_id_str or (not content and not payload.get("file_url")):
-                    await websocket.send_json({"type": "error", "error": "Пустое сообщение или неверный канал"})
+                content = payload.get("content", "").strip() if payload.get("content") else ""
+                
+                file_url = payload.get("file_url")
+                file_name = payload.get("file_name")
+                
+                quoted_message_id_str = payload.get("quoted_message_id")
+                quoted_message_id = None
+                if quoted_message_id_str:
+                    try:
+                        quoted_message_id = uuid.UUID(quoted_message_id_str)
+                        logger.debug(f"Quoted message ID received: {quoted_message_id}")
+                    except ValueError:
+                        logger.warning(f"Invalid quoted_message_id format received: {quoted_message_id_str}")
+                if not channel_id_str or (not content and not file_url):
+                    await websocket.send_json({"type": "error", "message": "Пустое сообщение или неверный канал"})
                     continue
+
                 try:
-                    channel_id = UUIDType(channel_id_str)
-                    assert_membership(db, channel_id, username)
-                except (ValueError, HTTPException):
-                    await websocket.send_json({"type": "error", "error": "Неверный канал или доступ запрещен"})
+                    channel_id = uuid.UUID(channel_id_str)
+                except (ValueError, HTTPException) as e:
+                    logger.warning(f"WS send_message validation error for {username}: {e}")
+                    await websocket.send_json({"type": "error", "message": "Неверный канал или доступ запрещен"})
                     continue
+
                 msg = Message(
                     id=uuid.uuid4(),
                     channel_id=channel_id,
                     sender=username,
                     content=content or None,
                     is_read=False,
-                    file_url=payload.get("file_url"),
-                    file_name=payload.get("file_name"),
+                    file_url=file_url,
+                    file_name=file_name,
+                    edited=False,
+                    quoted_message_id=quoted_message_id
                 )
+                
                 try:
                     db.add(msg)
                     db.commit()
                     db.refresh(msg)
-                    await manager.broadcast_to_channel_members({
+                    logger.debug(f"Message saved to DB: {msg.id}")
+
+                    payload_response = {
                         "type": "new_message",
                         "data": {
                             "id": str(msg.id),
                             "channel_id": str(msg.channel_id),
-                            "sender": username,
+                            "sender": msg.sender,
                             "content": msg.content,
-                            "timestamp": msg.timestamp.isoformat(),
-                            "is_read": False,
+                            "timestamp": msg.timestamp.isoformat(), 
+                            "is_read": msg.is_read,
                             "file_url": msg.file_url,
                             "file_name": msg.file_name,
+                            "edited": msg.edited,
+                            "quoted_message_id": str(msg.quoted_message_id) if msg.quoted_message_id else None,
+                           
                         },
-                    }, msg.channel_id, db)
+                    }
+                    await manager.broadcast_to_channel_members(payload_response, msg.channel_id, db)
+                    await websocket.send_json({"type": "message_sent", "status": "ok"})
+                    logger.debug(f"New message {msg.id} broadcasted and confirmation sent to {username}")
                 except Exception as e:
                     db.rollback()
-                    logger.error(f"Error sending message via WS: {e}", exc_info=True)
-                    await websocket.send_json({"type": "error", "error": f"Ошибка отправки сообщения: {str(e)}"})
-
+                    logger.error(f"Error saving message from WS for {username}: {e}", exc_info=True)
+                    await websocket.send_json({"type": "error", "message": "Не удалось сохранить сообщение"})
             elif action == "typing":
                 channel_id_str = payload.get("channel_id")
                 if channel_id_str:
@@ -897,6 +1225,39 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
                         }, channel_id, db)
                     except (ValueError, HTTPException):
                         await websocket.send_json({"type": "error", "error": "Неверный канал или доступ запрещен"})
+
+            elif action == "edit_message":
+                message_id_str = payload.get("message_id")
+                content = payload.get("content", "").strip()
+                if not message_id_str or not content:
+                    await websocket.send_json({"type": "error", "error": "Пустое содержимое или неверный ID"})
+                    continue
+                try:
+                    message_id = UUIDType(message_id_str)
+                    await edit_message(
+                        body=EditMessageRequest(message_id=message_id, content=content),
+                        db=db,
+                        current_user={"username": username}
+                    )
+                except Exception as e:
+                    logger.error(f"Error editing message via WS: {e}")
+                    await websocket.send_json({"type": "error", "error": f"Ошибка редактирования: {str(e)}"})
+
+            elif action == "delete_message":
+                message_id_str = payload.get("message_id")
+                if not message_id_str:
+                    await websocket.send_json({"type": "error", "error": "Неверный ID сообщения"})
+                    continue
+                try:
+                    message_id = UUIDType(message_id_str)
+                    await delete_message(
+                        body=DeleteMessageRequest(message_id=message_id),
+                        db=db,
+                        current_user={"username": username}
+                    )
+                except Exception as e:
+                    logger.error(f"Error deleting message via WS: {e}")
+                    await websocket.send_json({"type": "error", "error": f"Ошибка удаления: {str(e)}"})
 
     except WebSocketDisconnect:
         logger.info(f"WS disconnected: {username}")

@@ -1,41 +1,162 @@
 import logging
-from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import List, Optional, Any
-import ldap
-import os
 import re
+import os
+from typing import List, Optional, Any
+from fastapi import APIRouter, HTTPException, Depends, Query
+from pydantic import BaseModel, EmailStr, Field, ValidationError, model_validator, field_validator
+from ldap3 import Server, Connection, NTLM, Tls, ALL, SUBTREE, MODIFY_REPLACE, MODIFY_ADD, MODIFY_DELETE, SIMPLE
+from ldap3.core.exceptions import LDAPBindError, LDAPSocketOpenError, LDAPStartTLSError
+import ssl
+import certifi
 from dotenv import load_dotenv
-from services.jwt_utils import get_current_user
-from pydantic import BaseModel, EmailStr, Field, model_validator, field_validator, ValidationError
 from contextlib import contextmanager
 import signal
-# Настройка логирования
-logging.basicConfig(level=logging.INFO if os.getenv("ENV") == "production" else logging.DEBUG)
-logger = logging.getLogger(__name__)
+import time
+import socket
 from services.jwt_utils import get_current_user
-# Загрузка переменных окружения
-load_dotenv()
 
-# Роутер
+# Логирование
+logging.basicConfig(
+    level=logging.INFO if os.getenv("ENV") == "production" else logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    filename='contacts_api.log',
+    filemode='a'
+)
+logger = logging.getLogger(__name__)
+
+load_dotenv()
 router = APIRouter(tags=["contacts"])
 
-# Настройки AD
-LDAP_SERVER = os.getenv("LDAP_SERVER", "ldaps://192.1.3.6:636")
+# Настройки
+LDAP_SERVER = os.getenv("LDAP_SERVER", "ldaps://ns1.mhp.net:636")
 BASE_DN = os.getenv("BASE_DN", "DC=mhp,DC=net")
-LDAP_SEARCH_USER = os.getenv("LDAP_USER")
-LDAP_SEARCH_PASSWORD = os.getenv("LDAP_PASSWORD")
-AD_DOMAIN = os.getenv("AD_DOMAIN", "mhp.net")
-USER_CONTAINER = os.getenv("USER_CONTAINER", "CN=Users")
+LDAP_USER = os.getenv("LDAP_USER", "ServiceReader") 
+LDAP_PASSWORD = os.getenv("LDAP_PASSWORD", "Season24")
+AD_DOMAIN = str(os.getenv("AD_DOMAIN", "")).split('.')[0].upper()
 LDAP_CA_CERT = os.getenv("LDAP_CA_CERT")
+LDAP_VALIDATE_CERTS = os.getenv("LDAP_VALIDATE_CERTS", "true").lower() == "true"
+LDAP_USE_SSL = os.getenv("LDAP_USE_SSL", "true").lower() == "true"
+LDAP_CONNECTION_RETRIES = int(os.getenv("LDAP_CONNECTION_RETRIES", 3))
+LDAP_RETRY_DELAY = float(os.getenv("LDAP_RETRY_DELAY", 1.0))
+USER_CONTAINER = os.getenv("USER_CONTAINER", "CN=Users")
+LDAP_SEARCH_USER = os.getenv("LDAP_SEARCH_USER", "mhp\\ServiceReader")
+LDAP_SEARCH_PASSWORD = os.getenv("LDAP_SEARCH_PASSWORD", "Season24")
+
+full_user = rf"{AD_DOMAIN}\{LDAP_USER}"
+
+def get_ad_connection():
+    if not LDAP_USER or not LDAP_PASSWORD or not AD_DOMAIN:
+        logger.error("LDAP_USER, LDAP_PASSWORD или AD_DOMAIN не заданы")
+        raise HTTPException(status_code=500, detail="Ошибка конфигурации LDAP")
+
+    logger.debug(f"Попытка подключения к {LDAP_SERVER} как {full_user!r}")
+
+    tls_cfg = None
+    if LDAP_USE_SSL:
+        tls_cfg = Tls(
+            ca_certs_file=LDAP_CA_CERT or certifi.where(),
+            validate=ssl.CERT_REQUIRED if LDAP_VALIDATE_CERTS else ssl.CERT_NONE,
+            version=ssl.PROTOCOL_TLSv1_2
+        )
+    server = Server(LDAP_SERVER, use_ssl=LDAP_USE_SSL, get_info=ALL, tls=tls_cfg)
+
+    for attempt in range(1, LDAP_CONNECTION_RETRIES + 1):
+        try:
+            conn = Connection(
+                server,
+                user=full_user,
+                password=LDAP_PASSWORD,
+                authentication=SIMPLE,
+                auto_bind=True
+            )
+            logger.info(f"Успешная привязка к LDAP (NTLM) на попытке {attempt}")
+            yield conn
+            conn.unbind()
+            return
+        except LDAPBindError as e:
+            logger.error(f"[{attempt}] Ошибка аутентификации NTLM: {e}")
+        except (LDAPSocketOpenError, LDAPStartTLSError) as e:
+            logger.error(f"[{attempt}] Ошибка соединения/TLS: {e}")
+        except Exception as e:
+            logger.error(f"[{attempt}] Общая ошибка LDAP-подключения: {e}")
+        time.sleep(LDAP_RETRY_DELAY)
+
+    logger.critical("Не удалось подключиться к LDAP после нескольких попыток")
+    raise HTTPException(status_code=500, detail="LDAP bind (NTLM) не удался")
+# Проверка сертификата
+def validate_ca_cert() -> None:
+    """Проверка существования и валидности файла сертификата."""
+    if not LDAP_VALIDATE_CERTS or not LDAP_USE_SSL:
+        logger.warning("Проверка сертификатов отключена или используется LDAP без SSL")
+        return
+    if not LDAP_CA_CERT:
+        logger.critical("Переменная LDAP_CA_CERT не задана")
+        raise HTTPException(status_code=500, detail="Переменная LDAP_CA_CERT не задана")
+    if not os.path.isfile(LDAP_CA_CERT):
+        logger.critical(f"Файл сертификата {LDAP_CA_CERT} не найден")
+        raise HTTPException(status_code=500, detail=f"Файл сертификата {LDAP_CA_CERT} не найден")
+    try:
+        with open(LDAP_CA_CERT, 'r') as f:
+            cert_data = f.read()
+        if not cert_data.startswith("-----BEGIN CERTIFICATE-----"):
+            logger.critical(f"Файл {LDAP_CA_CERT} не является валидным PEM-сертификатом")
+            raise HTTPException(status_code=500, detail="Файл сертификата не в формате PEM")
+        logger.debug(f"Файл сертификата {LDAP_CA_CERT} успешно проверен")
+    except Exception as e:
+        logger.critical(f"Ошибка чтения файла сертификата {LDAP_CA_CERT}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ошибка чтения сертификата: {str(e)}")
+
+# Проверка доступности сервера
+def validate_ldap_server_address(hostname: str, port: int) -> List[str]:
+    """Проверка доступности IP-адресов для хоста LDAP."""
+    try:
+        logger.debug(f"Проверка доступности сервера {hostname}:{port}")
+        ip_addresses = [addr[4][0] for addr in socket.getaddrinfo(hostname, port, socket.AF_INET, socket.SOCK_STREAM)]
+        logger.debug(f"DNS-разрешение для {hostname}:{port}: {ip_addresses}")
+        valid_ips = []
+        
+        for ip in ip_addresses:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)
+            try:
+                result = sock.connect_ex((ip, port))
+                if result != 0:
+                    logger.warning(f"IP {ip}:{port} недоступен, код ошибки: {result}")
+                    continue
+                if LDAP_USE_SSL and LDAP_VALIDATE_CERTS:
+                    context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+                    context.verify_mode = ssl.CERT_REQUIRED
+                    context.load_verify_locations(cafile=LDAP_CA_CERT or certifi.where())
+                    ssl_sock = context.wrap_socket(socket.socket(socket.AF_INET), server_hostname=hostname)
+                    ssl_sock.settimeout(2)
+                    ssl_sock.connect((ip, port))
+                    ssl_sock.close()
+                    logger.debug(f"Сертификат для {ip}:{port} (имя хоста: {hostname}) успешно проверен")
+                valid_ips.append(ip)
+            except ssl.SSLError as e:
+                logger.warning(f"Ошибка SSL для {ip}:{port}: {str(e)}")
+            except Exception as e:
+                logger.warning(f"Ошибка проверки IP {ip}:{port}: {str(e)}")
+            finally:
+                sock.close()
+        
+        if not valid_ips:
+            logger.error(f"Ни один IP для {hostname}:{port} не доступен")
+            raise HTTPException(status_code=500, detail=f"Ни один IP для {hostname}:{port} не доступен")
+        return valid_ips
+    except socket.gaierror as e:
+        logger.error(f"Ошибка разрешения DNS для {hostname}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ошибка разрешения DNS: {str(e)}")
 
 # Модель контакта
 class Contact(BaseModel):
     id: Optional[str] = None
     displayName: Optional[str] = None
     email: Optional[EmailStr] = None
+    organizational_unit: Optional[str] = Field(None)
     phone_internal: Optional[str] = Field(None, pattern=r'^\d{4,}$|^(\+\d{1,3}\s?\(?[0-9]{3}\)?\s?[0-9]{3}-[0-9]{2}-[0-9]{1,2})$')
     phone_city: Optional[str] = Field(None, pattern=r'^\d{4,}$|^(\+\d{1,3}\s?\(?[0-9]{3}\)?\s?[0-9]{3}-[0-9]{2}-[0-9]{1,2})$')
-    phone_mobile: Optional[str] = Field(None, pattern=r'^\d{4,}$|^(\+\d{1,3}\s?\(?[0-9]{3}\)?\s?[0-9]{3}-[0-9]{2}-[0-9]{1,2})$|^(\+\d{1,3}[0-9]{9})$')
+    phone_mobile: Optional[str] = Field(None, pattern=r'^\d{4,}$|^(\+\d{1,3}\s?\(?[0-9]{2,3}\)?\s?[0-9]{3}-[0-9]{2}-[0-9]{1,2})$|^(\+\d{1,3}[0-9]{9})$')
     department: Optional[str] = None
     position: Optional[str] = None
     password: Optional[str] = None
@@ -51,7 +172,7 @@ class Contact(BaseModel):
         patterns = {
             'phone_internal': r'^\d{4,}$|^(\+\d{1,3}\s?\(?[0-9]{3}\)?\s?[0-9]{3}-[0-9]{2}-[0-9]{1,2})$',
             'phone_city': r'^\d{4,}$|^(\+\d{1,3}\s?\(?[0-9]{3}\)?\s?[0-9]{3}-[0-9]{2}-[0-9]{1,2})$',
-            'phone_mobile': r'^\d{4,}$|^(\+\d{1,3}\s?\(?[0-9]{3}\)?\s?[0-9]{3}-[0-9]{2}-[0-9]{1,2})$|^(\+\d{1,3}[0-9]{9})$'
+            'phone_mobile': r'^\d{4,}$|^(\+\d{1,3}\s?\(?[0-9]{2,3}\)?\s?[0-9]{3}-[0-9]{2}-[0-9]{1,2})$|^(\+\d{1,3}[0-9]{9})$'
         }
         for field, pattern in patterns.items():
             value = getattr(self, field)
@@ -59,11 +180,20 @@ class Contact(BaseModel):
                 setattr(self, field, None)
         return self
 
+    @field_validator('organizational_unit')
+    @classmethod
+    def validate_ou(cls, v):
+        if v and not v.upper().startswith("OU="):
+            raise ValueError("Путь OU должен начинаться с 'OU='")
+        return v
+
     @field_validator('displayName')
     @classmethod
     def validate_display_name(cls, v: str) -> str:
-        if v and not re.match(r'^[A-Za-zА-Яа-яЁё\s\-]+$', v):
-            raise ValueError("Отображаемое имя должно содержать только буквы, пробелы или дефисы")
+        # Разрешаем буквы, пробелы, дефисы, точки и подчеркивания
+        if v and not re.fullmatch(r'[a-zA-Zа-яА-ЯёЁ0-9\s\.\-_()]+', v):
+            # re.fullmatch требует совпадения всей строки
+            raise ValueError("Отображаемое имя должно содержать только буквы, цифры, пробелы, точки, дефисы, подчеркивания и скобки")
         return v
 
     @field_validator('password')
@@ -86,6 +216,7 @@ class FreezeRequest(BaseModel):
 
 @contextmanager
 def timeout(seconds):
+    """Контекстный менеджер для установки таймаута операций."""
     def signal_handler(signum, frame):
         raise TimeoutError("LDAP operation timed out")
     signal.signal(signal.SIGALRM, signal_handler)
@@ -95,20 +226,8 @@ def timeout(seconds):
     finally:
         signal.alarm(0)
 
-@router.get("/groups", response_model=List[str])
-async def get_groups_endpoint(current_user: dict = Depends(get_current_user)):
-    logger.info("Обработка запроса на /contacts/groups")
-    try:
-        groups = get_all_groups()
-        logger.debug(f"Возвращены группы: {groups}")
-        return groups
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Ошибка в /groups: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Ошибка сервера при получении групп")
-
 def safe_decode_attr(attr_value: Any, attr_name: str = "") -> Optional[str]:
+    """Безопасное декодирование атрибута LDAP."""
     if not attr_value:
         return None
     try:
@@ -120,81 +239,30 @@ def safe_decode_attr(attr_value: Any, attr_name: str = "") -> Optional[str]:
                     return attr_value.decode(encoding)
                 except UnicodeDecodeError:
                     continue
-            logger.error(f"Не удалось декодировать атрибут {attr_name} с известными кодировками")
+            logger.error(f"Не удалось декодировать атрибут {attr_name}")
             return None
         return str(attr_value)
     except Exception as e:
-        logger.error(f"Ошибка при преобразовании атрибута {attr_name} ({attr_value}): {e}")
+        logger.error(f"Ошибка при преобразовании атрибута {attr_name}: {e}")
         return None
 
 def encode_password(password: str) -> bytes:
-    """Кодирует пароль в формат unicodePwd для Active Directory."""
-    if not password:
-        return None
-    quoted_password = f'"{password}"'.encode('utf-16-le')
-    return quoted_password
+    """Кодирование пароля для Active Directory."""
+    if not isinstance(password, str) or not password:
+        raise ValueError("Пароль должен быть непустой строкой")
+    quoted_password = f'"{password}"'
+    return quoted_password.encode('utf-16-le')
 
-def validate_password(password: str, displayName: str = "") -> bool:
-    """Проверяет пароль на соответствие требованиям AD."""
-    if len(password) < 8:
-        return False
-    if not re.search(r'[A-Z]', password):
-        return False
-    if not re.search(r'[0-9]', password):
-        return False
-    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
-        return False
-    if displayName and displayName.lower() in password.lower():
+def validate_password(password: str, display_name: str = "") -> bool:
+    """Проверка пароля на соответствие политике AD."""
+    if len(password) < 8 or not re.search(r'[A-Z]', password) or \
+       not re.search(r'[0-9]', password) or not re.search(r'[!@#$%^&*(),.?":{}|<>]', password) or \
+       (display_name and display_name.lower() in password.lower()):
         return False
     return True
 
-def get_ad_search_connection():
-    if not LDAP_SEARCH_USER or not LDAP_SEARCH_PASSWORD:
-        logger.error("Не настроены LDAP_USER и LDAP_PASSWORD")
-        raise HTTPException(status_code=500, detail="Ошибка конфигурации LDAP")
-    try:
-        with timeout(15):
-            conn = ldap.initialize(LDAP_SERVER)
-            conn.set_option(ldap.OPT_REFERRALS, 0)
-            conn.set_option(ldap.OPT_NETWORK_TIMEOUT, 15.0)
-            conn.set_option(ldap.OPT_TIMEOUT, 15.0)
-            conn.protocol_version = ldap.VERSION3
-            if LDAP_SERVER.startswith("ldaps://"):
-                if LDAP_CA_CERT and os.path.exists(LDAP_CA_CERT):
-                    conn.set_option(ldap.OPT_X_TLS_CACERTFILE, LDAP_CA_CERT)
-                    conn.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_DEMAND)
-                else:
-                    logger.warning("LDAP_CA_CERT не указан или файл отсутствует, отключаем проверку сертификата")
-                    conn.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
-            conn.simple_bind_s(LDAP_SEARCH_USER, LDAP_SEARCH_PASSWORD)
-            conn.search_s(f"{USER_CONTAINER},{BASE_DN}", ldap.SCOPE_BASE, "(objectClass=container)")
-            return conn
-    except TimeoutError:
-        logger.error("Превышен таймаут подключения к LDAP")
-        raise HTTPException(status_code=500, detail="Таймаут подключения к LDAP")
-    except ldap.INVALID_CREDENTIALS:
-        logger.error(f"Неверные учетные данные: {LDAP_SEARCH_USER}")
-        raise HTTPException(status_code=500, detail="Ошибка аутентификации LDAP")
-    except ldap.SERVER_DOWN as e:
-        logger.error(f"Сервер LDAP недоступен: {e}")
-        raise HTTPException(status_code=500, detail=f"Сервер LDAP недоступен: {str(e)}")
-    except ldap.LDAPError as e:
-        logger.error(f"Ошибка LDAP: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Ошибка подключения к LDAP: {str(e)}")
-    except Exception as e:
-        logger.error(f"Неизвестная ошибка подключения к LDAP: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Ошибка подключения к LDAP: {str(e)}")
-
-def escape_ldap_filter_chars(search_term: str) -> str:
-    if not search_term or not search_term.strip():
-        return ""
-    search_term = search_term.strip()
-    special_chars = r'([*()\\\x00])'
-    def escape_match(match):
-        return '\\' + match.group(1)
-    return re.sub(special_chars, escape_match, search_term)
-
 def normalize_phone_number(phone: Optional[str]) -> Optional[str]:
+    """Нормализация телефонного номера."""
     if not phone:
         return None
     cleaned = re.sub(r'[^\d+]', '', phone)
@@ -203,8 +271,7 @@ def normalize_phone_number(phone: Optional[str]) -> Optional[str]:
     digits = re.sub(r'^\+?(\d+)', r'\1', cleaned)
     if not digits or len(digits) < 4:
         return None
-    if re.match(r'^\+\d{1,3}\s*\(\d{3}\)\s*\d{3}-\d{2}-\d{1,2}$', phone):
-        logger.info(f"rematch - {cleaned}")
+    if re.match(r'^\+\d{1,3}\s*\(\d{2,3}\)\s*\d{3}-\d{2}-\d{1,2}$', phone):
         return phone
     if len(digits) == 4:
         return digits
@@ -215,187 +282,250 @@ def normalize_phone_number(phone: Optional[str]) -> Optional[str]:
     return digits
 
 def normalize_ldap_phone(phone: str) -> list:
-    logger.info(f"Телефон - {phone}")
+    """Нормализация телефона для LDAP."""
     if not phone:
         return []
     digits = re.sub(r'[^\d]', '', phone)
     if not digits:
         return []
-    if len(digits) == 3:
+    if len(digits) <= 4:
         return [digits]
-    return [digits]
+    return [normalize_phone_number(phone) or digits]
+
+@contextmanager
+def get_ad_connection():
+    """Создание защищённого соединения с Active Directory."""
+    if not LDAP_SEARCH_USER or not LDAP_SEARCH_PASSWORD:
+        logger.error("Не настроены LDAP_SEARCH_USER и LDAP_SEARCH_PASSWORD")
+        raise HTTPException(status_code=500, detail="Ошибка конфигурации LDAP")
+    
+    logger.debug(f"Конфигурация LDAP: server={LDAP_SERVER}, user={LDAP_SEARCH_USER}, use_ssl={LDAP_USE_SSL}, validate_certs={LDAP_VALIDATE_CERTS}, ca_cert={LDAP_CA_CERT}")
+    
+    if LDAP_USE_SSL and LDAP_VALIDATE_CERTS:
+        validate_ca_cert()
+
+    hostname = LDAP_SERVER.replace("ldaps://", "").replace("ldap://", "").split(":")[0]
+    port = int(LDAP_SERVER.split(":")[-1]) if ":" in LDAP_SERVER else (636 if LDAP_USE_SSL else 389)
+    valid_ips = validate_ldap_server_address(hostname, port)
+    
+    tls_config = None
+    if LDAP_USE_SSL and LDAP_VALIDATE_CERTS:
+        try:
+            tls_config = Tls(
+                validate=ssl.CERT_REQUIRED,
+                version=ssl.PROTOCOL_TLSv1_2,
+                ca_certs_file=LDAP_CA_CERT or certifi.where(),
+                ciphers='ALL:@SECLEVEL=2'
+            )
+            logger.debug("TLS настроен с проверкой сертификатов")
+        except Exception as e:
+            logger.error(f"Ошибка настройки TLS: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Ошибка настройки TLS: {str(e)}")
+    elif LDAP_USE_SSL:
+        tls_config = Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1_2)
+        logger.warning("TLS используется без проверки сертификатов")
+
+    server_url = LDAP_SERVER
+    server = Server(server_url, use_ssl=LDAP_USE_SSL, get_info=ALL, tls=tls_config)
+    
+    for attempt in range(LDAP_CONNECTION_RETRIES):
+        try:
+            logger.debug(f"Попытка подключения к {server_url}, попытка {attempt + 1}/{LDAP_CONNECTION_RETRIES}")
+            with Connection(
+                server,
+                user=LDAP_SEARCH_USER,
+                password=LDAP_SEARCH_PASSWORD,
+                authentication=SIMPLE,
+                auto_bind=True
+            ) as conn:
+                logger.info(f"Успешное подключение к {server_url}")
+                yield conn
+            return
+        except LDAPBindError as e:
+            logger.error(f"Ошибка аутентификации LDAP для {server_url}: {str(e)}")
+            if attempt == LDAP_CONNECTION_RETRIES - 1:
+                raise HTTPException(status_code=500, detail=f"Ошибка аутентификации LDAP: {str(e)}")
+        except LDAPSocketOpenError as e:
+            logger.error(f"Ошибка соединения с LDAP-сервером {server_url}: {str(e)}")
+            if attempt == LDAP_CONNECTION_RETRIES - 1:
+                raise HTTPException(status_code=500, detail=f"Ошибка соединения с LDAP: {str(e)}")
+        except LDAPStartTLSError as e:
+            logger.error(f"Ошибка TLS при подключении к {server_url}: {str(e)}")
+            if attempt == LDAP_CONNECTION_RETRIES - 1:
+                raise HTTPException(status_code=500, detail=f"Ошибка TLS: {str(e)}")
+        except Exception as e:
+            logger.error(f"Общая ошибка при подключении к {server_url}: {str(e)}")
+            if attempt == LDAP_CONNECTION_RETRIES - 1:
+                raise HTTPException(status_code=500, detail=f"Ошибка подключения к LDAP: {str(e)}")
+        time.sleep(LDAP_RETRY_DELAY)
+    logger.error(f"Не удалось подключиться к LDAP после {LDAP_CONNECTION_RETRIES} попыток")
+    raise HTTPException(status_code=500, detail="Не удалось установить соединение с LDAP после нескольких попыток")
+
+def escape_ldap_filter_chars(search_term: str) -> str:
+    """Экранирование специальных символов для LDAP-фильтров."""
+    if not search_term or not search_term.strip():
+        return ""
+    search_term = search_term.strip()
+    special_chars = r'([*()\\\x00])'
+    return re.sub(special_chars, r'\\\1', search_term)
 
 def search_ad_users(search_term: str = "", limit: int = 250) -> List[Contact]:
-    logger.info(f"Начало поиска в AD. Запрос: '{search_term}', Лимит: {limit}")
-    conn = get_ad_search_connection()
+    """Поиск пользователей в Active Directory."""
+    logger.info(f"Поиск в AD: запрос='{search_term}', лимит={limit}")
     try:
-        base_filter = "(&(objectClass=user)(objectCategory=person)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
-        if search_term and search_term.strip() != "*":
-            escaped_term = escape_ldap_filter_chars(search_term.strip())
-            search_filter = f"(&{base_filter}(|(displayName=*{escaped_term}*)(sAMAccountName=*{escaped_term}*)(mail=*{escaped_term}*)(telephoneNumber=*{escaped_term}*)(otherTelephone=*{escaped_term}*)(mobile=*{escaped_term}*)))"
-        else:
-            search_filter = base_filter
-        
-        logger.debug(f"Используемый фильтр: {search_filter}")
-        attributes = [
-            'sAMAccountName', 'displayName', 'mail', 'telephoneNumber',
-            'department', 'title', 'otherTelephone', 'mobile',
-            'userAccountControl', 'memberOf'
-        ]
-        with timeout(15):
-            result = conn.search_s(BASE_DN, ldap.SCOPE_SUBTREE, search_filter, attributes)
-        logger.debug(f"Найдено записей: {len(result)}")
-
-        contacts = process_ldap_search_results(result[:limit])
-        logger.info(f"Поиск завершен. Найдено {len(contacts)} контактов")
-        return contacts
+        with get_ad_connection() as conn:
+            with timeout(15):
+                base_filter = "(&(objectClass=user)(objectCategory=person)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
+                if search_term and search_term.strip() != "*":
+                    escaped_term = escape_ldap_filter_chars(search_term)
+                    search_filter = f"(&{base_filter}(|(displayName=*{escaped_term}*)(sAMAccountName=*{escaped_term}*)(mail=*{escaped_term}*)(telephoneNumber=*{escaped_term}*)(otherTelephone=*{escaped_term}*)(mobile=*{escaped_term}*)))"
+                else:
+                    search_filter = base_filter
+                
+                attributes = [
+                    'sAMAccountName', 'displayName', 'mail', 'telephoneNumber',
+                    'department', 'title', 'otherTelephone', 'mobile',
+                    'userAccountControl', 'memberOf'
+                ]
+                conn.search(BASE_DN, search_filter, search_scope=SUBTREE, attributes=attributes)
+                contacts = process_ldap_search_results(conn.entries[:limit])
+                logger.info(f"Найдено {len(contacts)} контактов")
+                return contacts
     except TimeoutError:
         logger.error("Превышен таймаут поиска LDAP")
-        raise HTTPException(status_code=500, detail="Таймаут поиска в LDAP")
-    except ldap.LDAPError as e:
-        logger.error(f"Ошибка LDAP: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Ошибка поиска в Active Directory: {str(e)}")
-    finally:
-        try:
-            conn.unbind()
-        except Exception as e:
-            logger.warning(f"Ошибка при отключении от LDAP: {e}")
+        return []
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка поиска в AD: {str(e)}")
+        return []
 
 def get_all_groups() -> List[str]:
-    logger.info("Начало получения списка групп из AD")
-    conn = get_ad_search_connection()
+    """Получение списка групп из Active Directory."""
+    logger.info("Получение списка групп из AD")
     try:
-        search_filter = "(objectClass=group)"
-        attributes = ['cn']
-        with timeout(15):
-            result = conn.search_s(BASE_DN, ldap.SCOPE_SUBTREE, search_filter, attributes)
-        groups = set()
-        for dn, attrs in result:
-            if not isinstance(attrs, dict):
-                continue
-            cn = attrs.get('cn', [None])[0]
-            if cn:
-                cn = cn.decode('utf-8') if isinstance(cn, bytes) else cn
-                if cn not in {'Guests'}:
-                    groups.add(cn)
-        logger.info(f"Получено групп: {len(groups)}")
-        return sorted(list(groups))
+        with get_ad_connection() as conn:
+            with timeout(15):
+                search_filter = "(objectClass=group)"
+                conn.search(BASE_DN, search_filter, search_scope=SUBTREE, attributes=['cn'])
+                groups = {safe_decode_attr(entry.cn) for entry in conn.entries if entry.cn and safe_decode_attr(entry.cn) != 'Guests'}
+                return sorted(list(groups))
+    except TimeoutError:
+        logger.error("Превышен таймаут получения групп")
+        return []
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Ошибка при получении групп: {e}", exc_info=True)
-        raise  
-    finally:
-        try:
-            conn.unbind()
-        except Exception as e:
-            logger.warning(f"Ошибка при отключении от LDAP: {e}")
+        logger.error(f"Ошибка получения групп: {str(e)}")
+        return []
+
+@router.get("/groups", response_model=List[str])
+async def get_groups_endpoint(current_user: dict = Depends(get_current_user)):
+    """Эндпоинт для получения списка групп."""
+    logger.info("Обработка запроса на /contacts/groups")
+    try:
+        return get_all_groups()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка в /groups: {str(e)}")
+        return []
 
 @router.get("/check-username")
 async def check_username_unique(
     username: str = Query(..., description="sAMAccountName для проверки"),
     current_user: dict = Depends(get_current_user)
 ):
-    conn = None
+    """Проверка уникальности имени пользователя."""
+    logger.info(f"Проверка уникальности имени пользователя: {username}")
     try:
-        conn = get_ad_search_connection()
-        search_filter = f"(sAMAccountName={escape_ldap_filter_chars(username)})"
-        with timeout(15):
-            result = conn.search_s(BASE_DN, ldap.SCOPE_SUBTREE, search_filter)
-        return {"available": not bool(result)}
+        with get_ad_connection() as conn:
+            with timeout(15):
+                search_filter = f"(sAMAccountName={escape_ldap_filter_chars(username)})"
+                conn.search(BASE_DN, search_filter, search_scope=SUBTREE, attributes=['sAMAccountName'])
+                user_exists = bool(conn.entries)
+                return {"available": not user_exists}
     except TimeoutError:
         logger.error("Превышен таймаут проверки имени пользователя")
         raise HTTPException(status_code=500, detail="Таймаут проверки имени пользователя")
-    except ldap.LDAPError as e:
-        logger.error(f"Ошибка LDAP при проверке имени пользователя: {e}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка проверки имени пользователя: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Ошибка проверки имени пользователя: {str(e)}")
-    finally:
-        if conn:
-            try:
-                conn.unbind()
-            except Exception as e:
-                logger.warning(f"Ошибка при отключении от LDAP: {e}")
 
 def get_departments() -> List[str]:
-    logger.info("Начало получения списка организационных подразделений и групп из AD")
-    conn = get_ad_search_connection()
+    """Получение списка департаментов и групп из Active Directory."""
+    logger.info("Получение списка департаментов и групп из AD")
     try:
-        departments = set()
-
-        ou_filter = "(objectClass=organizationalUnit)"
-        ou_attributes = ['ou']
-        with timeout(15):
-            result = conn.search_s(BASE_DN, ldap.SCOPE_SUBTREE, ou_filter, ou_attributes)
-        
-        for dn, attrs in result:
-            if not attrs or not isinstance(attrs, dict):
-                continue
-            ou = safe_decode_attr(attrs.get('ou', [None])[0])
-            if ou:
-                departments.add(ou)
-
-        group_filter = "(&(objectClass=group)(!(groupType:1.2.840.113556.1.4.803:=2147483648)))"
-        group_attributes = ['cn']
-        with timeout(15):
-            result = conn.search_s(BASE_DN, ldap.SCOPE_SUBTREE, group_filter, group_attributes)
-        
-        builtin_groups = {'Users', 'Domain Users', 'Administrators', 'Guests'}
-        for dn, attrs in result:
-            if not attrs or not isinstance(attrs, dict):
-                continue
-            cn = safe_decode_attr(attrs.get('cn', [None])[0])
-            if cn and cn not in builtin_groups:
-                departments.add(cn)
-
-        user_filter = "(objectClass=user)"
-        user_attributes = ['department']
-        with timeout(15):
-            result = conn.search_s(BASE_DN, ldap.SCOPE_SUBTREE, user_filter, user_attributes)
-        
-        for dn, attrs in result:
-            if not attrs or not isinstance(attrs, dict):
-                continue
-            dept = safe_decode_attr(attrs.get('department', [None])[0])
-            if dept:
-                departments.add(dept)
-
-        logger.info(f"Получено организационных единиц: {len(departments)}")
-        return sorted(list(departments))
+        with get_ad_connection() as conn:
+            departments = set()
+            
+            # Поиск organizationalUnit
+            with timeout(15):
+                conn.search(BASE_DN, "(objectClass=organizationalUnit)", search_scope=SUBTREE, attributes=['ou'])
+                for entry in conn.entries:
+                    if entry.ou:
+                        departments.add(safe_decode_attr(entry.ou))
+            
+            # Поиск групп
+            with timeout(15):
+                conn.search(BASE_DN, "(&(objectClass=group)(!(groupType:1.2.840.113556.1.4.803:=2147483648)))", 
+                           search_scope=SUBTREE, attributes=['cn'])
+                builtin_groups = {'Users', 'Domain Users', 'Administrators', 'Guests'}
+                for entry in conn.entries:
+                    if entry.cn and safe_decode_attr(entry.cn) not in builtin_groups:
+                        departments.add(safe_decode_attr(entry.cn))
+            
+            # Поиск пользовательских департаментов
+            with timeout(15):
+                conn.search(BASE_DN, "(objectClass=user)", search_scope=SUBTREE, attributes=['department'])
+                for entry in conn.entries:
+                    if entry.department:
+                        departments.add(safe_decode_attr(entry.department))
+            
+            return sorted(list(departments))
     except TimeoutError:
-        logger.error("Превышен таймаут получения подразделений LDAP")
-        raise HTTPException(status_code=500, detail="Таймаут получения подразделений")
-    except ldap.LDAPError as e:
-        logger.error(f"Ошибка LDAP при получении подразделений: {e}", exc_info=True)
+        logger.error("Превышен таймаут получения департаментов")
         return sorted([
             'АСУП', 'ТЭРиОВТ', 'Бухгалтерия', 'Отдел кадров',
             'Коммерческая служба', 'Отдел закупок', 'Юридический отдел',
             'Отдел труда и заработной платы', 'Отдел главного технолога'
         ])
-    finally:
-        try:
-            conn.unbind()
-        except Exception as e:
-            logger.warning(f"Ошибка при отключении от LDAP: {e}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка получения департаментов: {str(e)}")
+        return sorted([
+            'АСУП', 'ТЭРиОВТ', 'Бухгалтерия', 'Отдел кадров',
+            'Коммерческая служба', 'Отдел закупок', 'Юридический отдел',
+            'Отдел труда и заработной платы', 'Отдел главного технолога'
+        ])
 
 @router.get("/departments", response_model=List[str])
 async def get_departments_endpoint(current_user: dict = Depends(get_current_user)):
+    """Эндпоинт для получения списка департаментов."""
     logger.info("Обработка запроса на /contacts/departments")
     try:
-        departments = get_departments()
-        logger.info(f"Департаменты: {departments}")
-        return departments
-    except HTTPException as e:
-        logger.error(f"HTTP ошибка в /departments: {e.detail}")
+        return get_departments()
+    except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Ошибка в /departments: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Ошибка сервера")
+        logger.error(f"Ошибка в /departments: {str(e)}")
+        return sorted([
+            'АСУП', 'ТЭРиОВТ', 'Бухгалтерия', 'Отдел кадров',
+            'Коммерческая служба', 'Отдел закупок', 'Юридический отдел',
+            'Отдел труда и заработной платы', 'Отдел главного технолога'
+        ])
 
 @router.get("/{contact_id}", response_model=Contact)
 async def get_contact(
     contact_id: str,
     current_user: dict = Depends(get_current_user)
 ):
+    """Получение информации о контакте по ID."""
+    logger.info(f"Запрос контакта с ID: {contact_id}")
     try:
-        logger.info(f"Запрос контакта с ID: {contact_id}")
         contacts = search_ad_users(search_term=contact_id, limit=10)
         if not contacts:
             raise HTTPException(status_code=404, detail="Контакт не найден")
@@ -403,7 +533,7 @@ async def get_contact(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Ошибка при получении контакта: {e}", exc_info=True)
+        logger.error(f"Ошибка при получении контакта: {str(e)}")
         raise HTTPException(status_code=500, detail="Ошибка при получении контакта")
 
 @router.put("/{contact_id}", response_model=Contact)
@@ -412,120 +542,82 @@ async def update_contact(
     contact_data: Contact,
     current_user: dict = Depends(get_current_user)
 ):
-    conn = None
+    """Обновление данных контакта."""
+    logger.info(f"Обновление контакта {contact_id} с данными: {contact_data.dict(exclude_unset=True)}")
+    if not current_user.get("isAdmin"):
+        raise HTTPException(status_code=403, detail="Только администратор может обновлять контакты")
+    
     try:
-        logger.info(f"Обновление контакта {contact_id} с данными: {contact_data.dict(exclude_unset=True)}")
-        
-        if not current_user.get("isAdmin"):
-            raise HTTPException(status_code=403, detail="Только администратор может обновлять контакты")
-        
-        conn = get_ad_search_connection()
-        
-        search_filter = f"(sAMAccountName={escape_ldap_filter_chars(contact_id)})"
-        with timeout(15):
-            result = conn.search_s(BASE_DN, ldap.SCOPE_SUBTREE, search_filter)
-        
-        if not result or not result[0][0]:
-            raise HTTPException(status_code=404, detail="Контакт не найден в AD")
-        
-        dn = result[0][0]
+        with get_ad_connection() as conn:
+            with timeout(15):
+                search_filter = f"(sAMAccountName={escape_ldap_filter_chars(contact_id)})"
+                conn.search(BASE_DN, search_filter, search_scope=SUBTREE, attributes=['distinguishedName'])
+                if not conn.entries:
+                    raise HTTPException(status_code=404, detail="Контакт не найден в AD")
+                # dn = conn.entries[0].distinguishedName.value
+                dn = conn.entries[0].entry_dn
 
-        mod_attrs = []
-        
-        field_mapping = {
-            'displayName': ('displayName', lambda x: [x.encode('utf-8')] if x else []),
-            'email': ('mail', lambda x: [x.encode('utf-8')] if x else []),
-            'phone_internal': ('telephoneNumber', lambda x: [p.encode('utf-8') for p in normalize_ldap_phone(x)]),
-            'phone_city': ('otherTelephone', lambda x: [p.encode('utf-8') for p in normalize_ldap_phone(x)]),
-            'phone_mobile': ('mobile', lambda x: [normalize_ldap_phone(x)[0].encode('utf-8')] if normalize_ldap_phone(x) else []),
-            'department': ('department', lambda x: [x.encode('utf-8')] if x else []),
-            'position': ('title', lambda x: [x.encode('utf-8')] if x else [])
-        }
-        
-        if contact_data.groups is not None:
-            current_groups = get_current_groups(conn, dn)
-            group_changes = process_group_changes(conn, dn, current_groups, contact_data.groups)
-            if group_changes:
-                try:
-                    with timeout(15):
-                        for change in group_changes:
-                            group_dn = change[2][0].decode('utf-8') if isinstance(change[2][0], bytes) else change[2][0]
-                            conn.modify_s(group_dn, [change])
-                except ldap.LDAPError as e:
-                    logger.error(f"Ошибка обновления групп для {dn}: {e}")
-                    raise HTTPException(status_code=500, detail=f"Ошибка обновления групп: {str(e)}")
-        
-        for field, (attr, transformer) in field_mapping.items():
-            if field in contact_data.dict(exclude_unset=True):
-                value = getattr(contact_data, field)
-                transformed = transformer(value)
-                if transformed:
-                    mod_attrs.append((ldap.MOD_REPLACE, attr, transformed))
-                else:
-                    mod_attrs.append((ldap.MOD_REPLACE, attr, []))
-        
-        if contact_data.password:
-            if not validate_password(contact_data.password, contact_data.displayName or ""):
-                logger.error("Пароль не соответствует требованиям политики безопасности AD")
-                raise HTTPException(status_code=400, detail="Пароль должен быть не менее 8 символов, содержать заглавные буквы, цифры, специальные символы и не содержать отображаемое имя")
-            try:
-                with timeout(15):
-                    conn.passwd_s(dn, None, encode_password(contact_data.password))
-            except ldap.UNWILLING_TO_PERFORM as e:
-                logger.error(f"Ошибка установки пароля для {dn}: {e}")
-                raise HTTPException(status_code=500, detail="Сервер AD требует защищённое соединение для установки пароля")
-        
-        if mod_attrs:
-            try:
-                with timeout(15):
-                    conn.modify_s(dn, mod_attrs)
-            except ldap.LDAPError as e:
-                logger.error(f"Ошибка LDAP при обновлении {dn}: {e}")
-                raise HTTPException(status_code=500, detail=f"Ошибка обновления в AD: {str(e)}")
-        logger.info(f"Контакт {contact_id} успешно обновлён в AD")
-        
-        return Contact(**{**contact_data.dict(exclude_unset=True), "id": contact_id})
+                mod_attrs = {}
+                field_mapping = {
+                    'displayName': ('displayName', lambda x: x.encode('utf-8') if x else None),
+                    'email': ('mail', lambda x: x.encode('utf-8') if x else None),
+                    'phone_internal': ('telephoneNumber', lambda x: normalize_ldap_phone(x)[0].encode('utf-8') if normalize_ldap_phone(x) else None),
+                    'phone_city': ('otherTelephone', lambda x: normalize_ldap_phone(x)[0].encode('utf-8') if normalize_ldap_phone(x) else None),
+                    'phone_mobile': ('mobile', lambda x: normalize_ldap_phone(x)[0].encode('utf-8') if normalize_ldap_phone(x) else None),
+                    'department': ('department', lambda x: x.encode('utf-8') if x else None),
+                    'position': ('title', lambda x: x.encode('utf-8') if x else None)
+                }
+
+                for field, (attr, transformer) in field_mapping.items():
+                    if field in contact_data.dict(exclude_unset=True):
+                        value = transformer(getattr(contact_data, field))
+                        if value:
+                            mod_attrs[attr] = [(MODIFY_REPLACE, [value])]
+                        else:
+                            mod_attrs[attr] = [(MODIFY_REPLACE, [])]
+
+                if contact_data.groups is not None:
+                    current_groups = get_current_groups(conn, dn)
+                    group_changes = process_group_changes(conn, dn, current_groups, contact_data.groups)
+                    for change in group_changes:
+                        conn.modify(change['group_dn'], {'member': [change['operation']]})
+                
+                if contact_data.password:
+                    if not validate_password(contact_data.password, contact_data.displayName or ""):
+                        logger.error("Пароль не соответствует требованиям AD")
+                        raise HTTPException(status_code=400, detail="Пароль должен быть >=8 символов, содержать заглавные буквы, цифры, спецсимволы и не содержать имя")
+                    conn.modify(dn, {'unicodePwd': [(MODIFY_REPLACE, [encode_password(contact_data.password)])]})
+
+                if mod_attrs:
+                    conn.modify(dn, mod_attrs)
+                
+                logger.info(f"Контакт {contact_id} успешно обновлён")
+                return Contact(**{**contact_data.dict(exclude_unset=True), "id": contact_id})
     except TimeoutError:
         logger.error("Превышен таймаут обновления контакта")
         raise HTTPException(status_code=500, detail="Таймаут обновления в LDAP")
-    except ldap.LDAPError as e:
-        logger.error(f"Ошибка LDAP: {e}", exc_info=True)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка обновления в AD: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Ошибка обновления в AD: {str(e)}")
-    finally:
-        if conn:
-            try:
-                conn.unbind()
-            except Exception as e:
-                logger.warning(f"Ошибка при отключении от LDAP: {e}")
 
-def get_current_groups(conn, user_dn: str) -> List[str]:
+def get_current_groups(conn: Connection, user_dn: str) -> List[str]:
+    """Получение текущих групп пользователя."""
     try:
-        search_filter = f"(member={escape_ldap_filter_chars(user_dn)})"
         with timeout(15):
-            result = conn.search_s(
-                BASE_DN,
-                ldap.SCOPE_SUBTREE,
-                search_filter,
-                ['cn']
-            )
-        
-        groups = []
-        for entry in result:
-            if isinstance(entry, tuple) and len(entry) == 2:
-                dn, attrs = entry
-                if isinstance(attrs, dict):
-                    cn = safe_decode_attr(attrs.get('cn', [None])[0])
-                    if cn:
-                        groups.append(cn)
-        return groups
+            search_filter = f"(member={escape_ldap_filter_chars(user_dn)})"
+            conn.search(BASE_DN, search_filter, search_scope=SUBTREE, attributes=['cn'])
+            return [safe_decode_attr(entry.cn) for entry in conn.entries if entry.cn]
     except TimeoutError:
         logger.error("Превышен таймаут получения групп пользователя")
         return []
-    except ldap.LDAPError as e:
-        logger.error(f"Ошибка получения групп пользователя: {e}", exc_info=True)
+    except Exception as e:
+        logger.error(f"Ошибка получения групп пользователя: {str(e)}")
         return []
 
-def process_group_changes(conn, user_dn: str, current_groups: List[str], new_groups: List[str]) -> list:
+def process_group_changes(conn: Connection, user_dn: str, current_groups: List[str], new_groups: List[str]) -> List[dict]:
+    """Обработка изменений в членстве групп."""
     changes = []
     current_set = set(current_groups)
     new_set = set(new_groups or [])
@@ -533,55 +625,51 @@ def process_group_changes(conn, user_dn: str, current_groups: List[str], new_gro
     for group in new_set - current_set:
         group_dn = find_group_dn(conn, group)
         if group_dn:
-            try:
-                members = get_group_members(conn, group_dn)
-                if user_dn not in members:
-                    changes.append((ldap.MOD_ADD, 'member', [user_dn.encode('utf-8')]))
-            except ldap.LDAPError as e:
-                logger.warning(f"Ошибка проверки членства в группе {group}: {e}")
+            members = get_group_members(conn, group_dn)
+            if user_dn not in members:
+                changes.append({'group_dn': group_dn, 'operation': (MODIFY_ADD, [user_dn])})
     
     for group in current_set - new_set:
         group_dn = find_group_dn(conn, group)
         if group_dn:
-            try:
-                members = get_group_members(conn, group_dn)
-                if user_dn in members:
-                    changes.append((ldap.MOD_DELETE, 'member', [user_dn.encode('utf-8')]))
-            except ldap.LDAPError as e:
-                logger.warning(f"Ошибка проверки членства в группе {group}: {e}")
+            members = get_group_members(conn, group_dn)
+            if user_dn in members:
+                changes.append({'group_dn': group_dn, 'operation': (MODIFY_DELETE, [user_dn])})
     
     return changes
 
-def get_group_members(conn, group_dn: str) -> List[str]:
+def get_group_members(conn: Connection, group_dn: str) -> List[str]:
+    """Получение членов группы."""
     try:
         with timeout(15):
-            result = conn.search_s(
-                group_dn,
-                ldap.SCOPE_BASE,
-                "(objectClass=group)",
-                ['member']
-            )
-        if result and result[0][1]:
-            return [safe_decode_attr(m) for m in result[0][1].get('member', [])]
-        return []
+            conn.search(group_dn, "(objectClass=group)", search_scope=SUBTREE, attributes=['member'])
+            return [safe_decode_attr(m) for m in conn.entries[0].member] if conn.entries else []
     except TimeoutError:
         logger.error(f"Превышен таймаут получения членов группы {group_dn}")
         return []
-    except ldap.LDAPError as e:
-        logger.error(f"Ошибка получения членов группы {group_dn}: {e}")
+    except Exception as e:
+        logger.error(f"Ошибка получения членов группы {group_dn}: {str(e)}")
         return []
 
-def find_group_dn(conn, group_name: str) -> Optional[str]:
+def find_group_dn(conn: Connection, group_name: str) -> Optional[str]:
+    """Поиск DN группы по имени."""
     try:
-        search_filter = f"(&(objectClass=group)(cn={escape_ldap_filter_chars(group_name)}))"
         with timeout(15):
-            result = conn.search_s(BASE_DN, ldap.SCOPE_SUBTREE, search_filter)
-        return result[0][0] if result else None
+            search_filter = f"(&(objectClass=group)(cn={group_name}))"
+            logger.debug(f"Поиск группы с фильтром: {search_filter}")
+            conn.search(BASE_DN, search_filter, search_scope=SUBTREE, attributes=['distinguishedName'])
+            if conn.entries:
+                dn = conn.entries[0].entry_dn # или entry['distinguishedName'][0] 
+                logger.debug(f"Найдена группа '{group_name}' с DN: {dn}")
+                return dn
+            else:
+                 logger.info(f"Группа с именем '{group_name}' не найдена в AD.")
+                 return None
     except TimeoutError:
         logger.error(f"Превышен таймаут поиска группы {group_name}")
         return None
-    except ldap.LDAPError as e:
-        logger.error(f"Ошибка поиска группы {group_name}: {e}")
+    except Exception as e:
+        logger.error(f"Ошибка поиска группы {group_name}: {str(e)}", exc_info=True)
         return None
 
 @router.post("/", response_model=Contact)
@@ -589,115 +677,100 @@ async def create_contact(
     contact_data: Contact,
     current_user: dict = Depends(get_current_user)
 ):
-    conn = None
+    """Создание нового контакта в Active Directory."""
+    logger.info(f"Создание контакта с данными: {contact_data.dict(exclude_unset=True)}")
+    if not current_user.get("isAdmin"):
+        raise HTTPException(status_code=403, detail="Только администратор может создавать контакты")
+    
+    if not contact_data.displayName or not contact_data.password or not contact_data.sam_account_name:
+        raise HTTPException(status_code=400, detail="Требуются displayName, password и sam_account_name")
+    
+    if not validate_password(contact_data.password, contact_data.displayName):
+        raise HTTPException(status_code=400, detail="Пароль должен быть >=8 символов, содержащий заглавные буквы, цифры, спецсимволы и не содержать имя")
+
     try:
-        if not current_user.get("isAdmin"):
-            raise HTTPException(status_code=403, detail="Только администратор может создавать контакты")
-        
-        if not contact_data.displayName or not contact_data.password or not contact_data.sam_account_name:
-            raise HTTPException(status_code=400, detail="Требуются displayName, password и sam_account_name")
-        
-        if not validate_password(contact_data.password, contact_data.displayName or ""):
-            logger.error("Пароль не соответствует требованиям политики безопасности AD")
-            raise HTTPException(status_code=400, detail="Пароль должен быть не менее 8 символов, содержать заглавные буквы, цифры, специальные символы и не содержать отображаемое имя")
-
-        conn = get_ad_search_connection()
-        
-        # Проверка уникальности sAMAccountName
-        search_filter = f"(sAMAccountName={escape_ldap_filter_chars(contact_data.sam_account_name)})"
-        with timeout(15):
-            result = conn.search_s(BASE_DN, ldap.SCOPE_SUBTREE, search_filter)
-        if result:
-            raise HTTPException(status_code=409, detail="Имя входа уже занято. Выберите другое.")
-
-        display_name = contact_data.displayName.strip()
-        if not display_name:
-            raise HTTPException(status_code=400, detail="Отображаемое имя не может быть пустым")
-        
-        dn = f"CN={display_name},{USER_CONTAINER},{BASE_DN}"
-
-        attrs = {
-            'objectClass': [b'top', b'person', b'organizationalPerson', b'user'],
-            'sAMAccountName': contact_data.sam_account_name.encode('utf-8'),
-            'userPrincipalName': f"{contact_data.sam_account_name}@{AD_DOMAIN}".encode('utf-8'),
-            'displayName': display_name.encode('utf-8'),
-            'cn': display_name.encode('utf-8'),
-            'name': display_name.encode('utf-8'),
-            'mail': contact_data.email.encode('utf-8') if contact_data.email else None,
-            'telephoneNumber': normalize_ldap_phone(contact_data.phone_internal)[0].encode('utf-8') if contact_data.phone_internal else None,
-            'department': contact_data.department.encode('utf-8') if contact_data.department else None,
-            'title': contact_data.position.encode('utf-8') if contact_data.position else None,
-            'userAccountControl': str(512).encode('utf-8')
-        }
-        
-        attrs = {k: v for k, v in attrs.items() if v is not None}
-        
-        logger.debug(f"Создание пользователя с DN: {dn}, атрибуты: {attrs}")
-        try:
+        with get_ad_connection() as conn:
             with timeout(15):
-                conn.add_s(dn, list(attrs.items()))
-        except ldap.LDAPError as e:
-            logger.error(f"Ошибка LDAP при создании пользователя {dn}: {e}")
-            raise HTTPException(status_code=500, detail=f"Ошибка создания пользователя в AD: {str(e)}")
-        
-        try:
-            with timeout(15):
-                conn.passwd_s(dn, None, encode_password(contact_data.password))
-        except ldap.UNWILLING_TO_PERFORM as e:
-            logger.error(f"Ошибка установки пароля для {dn}: {e}")
-            try:
-                conn.delete_s(dn)
-            except Exception as cleanup_err:
-                logger.warning(f"Не удалось удалить пользователя {dn} после ошибки: {cleanup_err}")
-            raise HTTPException(status_code=500, detail="Сервер AD требует защищённое соединение для установки пароля")
-        except ldap.LDAPError as e:
-            logger.error(f"Ошибка LDAP при установке пароля для {dn}: {e}")
-            try:
-                conn.delete_s(dn)
-            except Exception as cleanup_err:
-                logger.warning(f"Не удалось удалить пользователя {dn} после ошибки: {cleanup_err}")
-            raise HTTPException(status_code=500, detail=f"Ошибка установки пароля в AD: {str(e)}")
-        
-        valid_groups = []
-        if contact_data.groups:
-            for group in contact_data.groups:
-                group_dn = find_group_dn(conn, group)
-                if not group_dn:
-                    logger.warning(f"Группа {group} не найдена в AD, пропускается")
-                    continue
-                try:
-                    with timeout(15):
-                        conn.modify_s(group_dn, [(ldap.MOD_ADD, 'member', [dn.encode('utf-8')])])
-                    valid_groups.append(group)
-                except ldap.LDAPError as e:
-                    logger.warning(f"Ошибка добавления в группу {group}: {e}")
-        
-        logger.info(f"Создан новый пользователь в AD: {dn}, sAMAccountName: {contact_data.sam_account_name}")
-        
-        return Contact(
-            id=contact_data.sam_account_name,
-            displayName=display_name,
-            email=contact_data.email,
-            phone_internal=contact_data.phone_internal,
-            phone_city=contact_data.phone_city,
-            phone_mobile=contact_data.phone_mobile,
-            department=contact_data.department,
-            position=contact_data.position,
-            isFrozen=False,
-            groups=valid_groups
-        )
+                search_filter = f"(sAMAccountName={escape_ldap_filter_chars(contact_data.sam_account_name)})"
+                conn.search(BASE_DN, search_filter, search_scope=SUBTREE, attributes=['sAMAccountName'])
+                if conn.entries:
+                    raise HTTPException(status_code=409, detail="Имя входа уже занято")
+                
+
+                dn = f"CN={escape_ldap_filter_chars(contact_data.displayName)},OU={contact_data.department},{BASE_DN}"
+                attributes = {
+                    'objectClass': ['top', 'person', 'organizationalPerson', 'user'],
+                    'sAMAccountName': contact_data.sam_account_name,
+                    'userPrincipalName': f"{contact_data.sam_account_name}@{AD_DOMAIN}",
+                    'displayName': contact_data.displayName,
+                    'cn': contact_data.displayName,
+                    'name': contact_data.displayName,
+                    'mail': contact_data.email,
+                    'telephoneNumber': normalize_ldap_phone(contact_data.phone_internal)[0] if contact_data.phone_internal else None,
+                    'otherTelephone': normalize_ldap_phone(contact_data.phone_city)[0] if contact_data.phone_city else None,
+                    'mobile': normalize_ldap_phone(contact_data.phone_mobile)[0] if contact_data.phone_mobile else None,
+                    'department': contact_data.department,
+                    'title': contact_data.position,
+                    'userAccountControl': 544,
+                    'pwdLastSet': -1,
+                }
+                attributes = {k: v for k, v in attributes.items() if v is not None}
+
+                conn.add(dn, attributes=attributes)
+                if not conn.result['result'] == 0:
+                    logger.error(f"Ошибка создания пользователя {dn}: {conn.result}")
+                    raise HTTPException(status_code=500, detail=f"Ошибка создания пользователя: {conn.result['description']}")
+
+                conn.modify(dn, {'unicodePwd': [(MODIFY_REPLACE, [encode_password(contact_data.password)])]})
+                if not conn.result['result'] == 0:
+                    try:
+                        conn.delete(dn)
+                        logger.info(f"Пользователь {dn} удален из-за ошибки установки пароля.")
+                    except Exception as del_err:
+                        logger.warning(f"Не удалось удалить пользователя {dn} после ошибки установки пароля: {del_err}")
+                    
+                    logger.error(f"Ошибка установки пароля для {dn}: {conn.result}")
+                    error_msg = conn.result['message'] or conn.result['description'] or str(conn.result)
+                    # Проверяем специфичную ошибку
+                    if "0000052D" in error_msg:
+                        raise HTTPException(
+                            status_code=400,
+                            detail="Ошибка установки пароля. Проверьте требования к сложности пароля в AD (должен содержать символы минимум из 3 категорий: заглавные/строчные буквы, цифры, специальные символы) или попробуйте другой пароль."
+                        )
+                    raise HTTPException(status_code=500, detail=f"Ошибка установки пароля: {error_msg}")
+
+                valid_groups = []
+                if contact_data.groups:
+                    for group in contact_data.groups:
+                        group_dn = find_group_dn(conn, group)
+                        if group_dn:
+                            conn.modify(group_dn, {'member': [(MODIFY_ADD, [dn])]})
+                            if conn.result['result'] == 0:
+                                valid_groups.append(group)
+                            else:
+                                logger.warning(f"Ошибка добавления в группу {group}: {conn.result}")
+                
+                logger.info(f"Создан пользователь {dn}, sAMAccountName: {contact_data.sam_account_name}")
+                return Contact(
+                    id=contact_data.sam_account_name,
+                    displayName=contact_data.displayName,
+                    email=contact_data.email,
+                    phone_internal=contact_data.phone_internal,
+                    phone_city=contact_data.phone_city,
+                    phone_mobile=contact_data.phone_mobile,
+                    department=contact_data.department,
+                    position=contact_data.position,
+                    isFrozen=False,
+                    groups=valid_groups
+                )
     except TimeoutError:
         logger.error("Превышен таймаут создания контакта")
         raise HTTPException(status_code=500, detail="Таймаут создания в LDAP")
-    except ldap.LDAPError as e:
-        logger.error(f"Ошибка LDAP при создании: {e}", exc_info=True)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка создания в AD: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Ошибка создания в AD: {str(e)}")
-    finally:
-        if conn:
-            try:
-                conn.unbind()
-            except Exception as e:
-                logger.warning(f"Ошибка при отключении от LDAP: {e}")
 
 @router.patch("/{contact_id}")
 async def freeze_contact(
@@ -705,156 +778,197 @@ async def freeze_contact(
     freeze_request: FreezeRequest,
     current_user: dict = Depends(get_current_user)
 ):
-    conn = None
+    """Заморозка/разморозка контакта."""
+    logger.info(f"Изменение статуса контакта {contact_id} на {'заморожен' if freeze_request.is_frozen else 'активен'}")
+    if not current_user.get("isAdmin"):
+        raise HTTPException(status_code=403, detail="Только администратор может управлять заморозкой")
+    
     try:
-        if not current_user.get("isAdmin"):
-            raise HTTPException(status_code=403, detail="Только администратор может управлять заморозкой")
-        
-        conn = get_ad_search_connection()
-        
-        search_filter = f"(sAMAccountName={escape_ldap_filter_chars(contact_id)})"
-        with timeout(15):
-            result = conn.search_s(BASE_DN, ldap.SCOPE_SUBTREE, search_filter)
-        
-        if not result or not result[0][0]:
-            raise HTTPException(status_code=404, detail="Контакт не найден в AD")
-        
-        dn = result[0][0]
-        
-        user_account_control = 514 if freeze_request.is_frozen else 512
-        
-        try:
+        with get_ad_connection() as conn:
             with timeout(15):
-                conn.modify_s(dn, [(ldap.MOD_REPLACE, 'userAccountControl', [str(user_account_control).encode('utf-8')])])
-        except ldap.LDAPError as e:
-            logger.error(f"Ошибка LDAP при изменении статуса {dn}: {e}")
-            raise HTTPException(status_code=500, detail=f"Ошибка изменения статуса в AD: {str(e)}")
-        
-        logger.info(f"Статус контакта {contact_id} изменён на {'заморожен' if freeze_request.is_frozen else 'активен'}")
-        
-        return {"status": "success", "isFrozen": freeze_request.is_frozen}
+                search_filter = f"(sAMAccountName={escape_ldap_filter_chars(contact_id)})"
+                conn.search(BASE_DN, search_filter, search_scope=SUBTREE, attributes=['distinguishedName'])
+                if not conn.entries:
+                    raise HTTPException(status_code=404, detail="Контакт не найден в AD")
+                # dn = conn.entries[0].distinguishedName.value
+                dn = conn.entries[0].entry_dn
+                
+                user_account_control = 514 if freeze_request.is_frozen else 512
+                conn.modify(dn, {'userAccountControl': [(MODIFY_REPLACE, [user_account_control])]})
+                if conn.result['result'] != 0:
+                    logger.error(f"Ошибка изменения статуса {dn}: {conn.result}")
+                    raise HTTPException(status_code=500, detail=f"Ошибка изменения статуса: {conn.result['description']}")
+                
+                return {"status": "success", "isFrozen": freeze_request.is_frozen}
     except TimeoutError:
         logger.error("Превышен таймаут изменения статуса")
         raise HTTPException(status_code=500, detail="Таймаут изменения статуса в LDAP")
-    except ldap.LDAPError as e:
-        logger.error(f"Ошибка LDAP при изменении статуса: {e}", exc_info=True)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка изменения статуса в AD: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Ошибка изменения статуса в AD: {str(e)}")
-    finally:
-        if conn:
-            try:
-                conn.unbind()
-            except Exception as e:
-                logger.warning(f"Ошибка при отключении от LDAP: {e}")
 
-def process_ldap_search_results(ldap_results: list) -> List[Contact]:
+def process_ldap_search_results(entries: List[Any]) -> List[Contact]:
+    """Обработка результатов поиска LDAP."""
     contacts = []
-    for dn, attrs in ldap_results:
-        if not attrs or not isinstance(attrs, dict):
-            logger.warning(f"Пропущена пустая или некорректная запись для DN: {dn}")
-            continue
-
+    for entry in entries:
         try:
-            sam_account = safe_decode_attr(attrs.get('sAMAccountName', [None])[0])
+            # Проверка существования entry и его атрибутов
+            if not entry or not hasattr(entry, 'entry_attributes_as_dict'):
+                 logger.warning(f"Пропущена некорректная запись: {entry}")
+                 continue
+
+            # Получение атрибутов через entry_attributes_as_dict
+            attrs = entry.entry_attributes_as_dict
+            raw_attrs = entry  # Для доступа через entry['attr_name']
+
+            # sAMAccountName - обязательный атрибут
+            sam_account_list = attrs.get('sAMAccountName')
+            sam_account = safe_decode_attr(sam_account_list[0] if sam_account_list else None) if sam_account_list else None
             if not sam_account:
-                logger.warning(f"Пропущена запись без sAMAccountName для DN: {dn}")
+                logger.warning(f"Пропущена запись без sAMAccountName: {getattr(entry, 'entry_dn', 'Unknown DN')}")
                 continue
 
-            display_name = safe_decode_attr(attrs.get('displayName', [None])[0])
-            mail = safe_decode_attr(attrs.get('mail', [None])[0])
-            telephone = safe_decode_attr(attrs.get('telephoneNumber', [None])[0])
-            other_phone = safe_decode_attr(attrs.get('otherTelephone', [None])[0])
-            mobile = safe_decode_attr(attrs.get('mobile', [None])[0])
-            department = safe_decode_attr(attrs.get('department', [None])[0])
-            title = safe_decode_attr(attrs.get('title', [None])[0])
-            user_account_control = safe_decode_attr(attrs.get('userAccountControl', [None])[0])
-            is_frozen = False
-            if user_account_control:
-                try:
-                    is_frozen = int(user_account_control) & 2 == 2
-                except (ValueError, TypeError):
-                    logger.warning(f"Некорректное значение userAccountControl для DN: {dn}")
-                    is_frozen = False
+            # userAccountControl для определения статуса
+            uac_list = attrs.get('userAccountControl')
+            uac_value = safe_decode_attr(uac_list[0] if uac_list else None) if uac_list else None
+            is_frozen = bool(int(uac_value) & 2 == 2) if uac_value else False
 
+            # Группы из memberOf
+            member_of_list = attrs.get('memberOf', [])
             groups = []
-            member_of = attrs.get('memberOf', [])
-            for group_dn in member_of:
-                group_name = safe_decode_attr(group_dn)
-                if group_name:
-                    cn_match = re.match(r'CN=([^,]+)', group_name)
+            for group_dn_bytes in member_of_list:
+                group_dn_str = safe_decode_attr(group_dn_bytes)
+                if group_dn_str:
+                    cn_match = re.search(r'CN=([^,]+)', group_dn_str)
                     if cn_match:
                         groups.append(cn_match.group(1))
 
+            # Формирование данных пользователя
             user_data = {
                 "id": sam_account,
-                "displayName": display_name,
-                "email": mail,
-                "phone_internal": normalize_phone_number(telephone),
-                "phone_city": normalize_phone_number(other_phone),
-                "phone_mobile": normalize_phone_number(mobile),
-                "department": department,
-                "position": title,
+                "displayName": safe_decode_attr((attrs.get('displayName', [None]))[0] if attrs.get('displayName') else None),
+                "email": safe_decode_attr((attrs.get('mail', [None]))[0] if attrs.get('mail') else None),
+                # Телефоны
+                "phone_internal": normalize_phone_number(safe_decode_attr((attrs.get('telephoneNumber', [None]))[0] if attrs.get('telephoneNumber') else None)),
+                "phone_city": normalize_phone_number(safe_decode_attr((attrs.get('otherTelephone', [None]))[0] if attrs.get('otherTelephone') else None)),
+                "phone_mobile": normalize_phone_number(safe_decode_attr((attrs.get('mobile', [None]))[0] if attrs.get('mobile') else None)),
+                # Другая информация
+                "department": safe_decode_attr((attrs.get('department', [None]))[0] if attrs.get('department') else None),
+                "position": safe_decode_attr((attrs.get('title', [None]))[0] if attrs.get('title') else None),
                 "isFrozen": is_frozen,
                 "groups": groups
             }
 
-            if user_data["id"]:
-                try:
-                    contacts.append(Contact(**user_data))
-                except ValidationError as e:
-                    logger.warning(f"Ошибка обработки записи {dn}: {e.errors()}")
-                    continue
-        except Exception as e:
-            logger.warning(f"Ошибка обработки записи {dn}: {e}")
+            contacts.append(Contact(**{k: v for k, v in user_data.items() if v is not None}))
+        except ValidationError as e:
+            logger.warning(f"Ошибка валидации записи {getattr(entry, 'entry_dn', 'Unknown DN')}: {e}")
             continue
-
+        except Exception as e:
+            logger.warning(f"Ошибка обработки записи {getattr(entry, 'entry_dn', 'Unknown DN')}: {str(e)}", exc_info=True) # Добавлен exc_info для лучшей диагностики
+            continue
     return contacts
 
-@router.get("/", response_model=List[Contact])
+@router.get("/", response_model=List[Contact], include_in_schema=True)
 async def get_contacts(
-    query: str = Query("", description="Поисковый запрос (имя, email, телефон и т.д.)", max_length=100),
+    query: str = Query("", description="Поисковый запрос", max_length=100),
     department: Optional[str] = Query(None, description="Фильтр по департаменту"),
     current_user: dict = Depends(get_current_user)
 ):
+    """Получение списка контактов с фильтрацией."""
+    logger.info(f"Запрос контактов: query='{query}', department='{department}'")
     try:
-        logger.info(f"Запрос контактов с фильтром: '{query}', department: '{department}'")
-        
-        base_filter = "(&(objectClass=user)(objectCategory=person))"
-        
-        if query and query.strip() != "*":
-            escaped_term = escape_ldap_filter_chars(query.strip())
-            search_filter = f"(&{base_filter}(|(displayName=*{escaped_term}*)(sAMAccountName=*{escaped_term}*)(mail=*{escaped_term}*)(telephoneNumber=*{escaped_term}*)(otherTelephone=*{escaped_term}*)(mobile=*{escaped_term}*)(department=*{escaped_term}*)))"
-        else:
-            search_filter = base_filter
-        
+        contacts = search_ad_users(query, limit=250)
         if department:
-            search_filter = f"(&{search_filter}(department={escape_ldap_filter_chars(department)}))"
-        
-        conn = get_ad_search_connection()
-        attributes = [
-            'sAMAccountName', 'displayName', 'mail',
-            'telephoneNumber', 'department', 'title',
-            'otherTelephone', 'mobile', 'userAccountControl',
-            'memberOf'
-        ]
-        
-        try:
-            with timeout(15):
-                result = conn.search_s(BASE_DN, ldap.SCOPE_SUBTREE, search_filter, attributes)
-            contacts = process_ldap_search_results(result)
-            logger.info(f"Найдено {len(contacts)} контактов")
-            return contacts
-        except ldap.LDAPError as e:
-            logger.error(f"Ошибка LDAP при получении контактов: {e}")
-            raise HTTPException(status_code=500, detail=f"Ошибка получения контактов: {str(e)}")
-    except TimeoutError:
-        logger.error("Превышен таймаут получения контактов")
-        raise HTTPException(status_code=500, detail="Таймаут получения контактов")
+            contacts = [contact for contact in contacts if contact.department == department]
+        logger.info(f"Найдено {len(contacts)} контактов")
+        return contacts
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Ошибка при обработке запроса: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Ошибка при получении контактов: {str(e)}")
-    finally:
-        if conn:
-            try:
-                conn.unbind()
-            except Exception as e:
-                logger.warning(f"Ошибка при отключении от LDAP: {e}")
+        logger.error(f"Ошибка получения контактов: {str(e)}")
+        raise HTTPException(status_code=500, detail="Ошибка получения контактов")
+
+@router.delete("/{contact_id}")
+async def delete_contact(
+    contact_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Удаление контакта (пользователя) из Active Directory по sAMAccountName.
+    """
+    logger.info(f"Запрос на удаление контакта с ID (sAMAccountName): {contact_id}")
+    
+    if not current_user.get("isAdmin"):
+        logger.warning(f"Пользователь {current_user.get('username')} без прав администратора пытался удалить контакт {contact_id}")
+        raise HTTPException(status_code=403, detail="Только администратор может удалять контакты")
+
+    conn = None
+    try:
+        with get_ad_connection() as conn:
+            with timeout(15):
+                # 1. Найти DN пользователя по sAMAccountName
+                search_filter = f"(sAMAccountName={escape_ldap_filter_chars(contact_id)})"
+                logger.debug(f"Поиск пользователя для удаления с фильтром: {search_filter}")
+                
+                conn.search(
+                    search_base=BASE_DN,
+                    search_filter=search_filter,
+                    search_scope=SUBTREE,
+                    attributes=['distinguishedName'] # Нам нужен DN для удаления
+                )
+
+                if not conn.entries:
+                    logger.info(f"Контакт с sAMAccountName '{contact_id}' не найден в AD для удаления")
+                    raise HTTPException(status_code=404, detail="Контакт не найден в AD")
+
+                user_dn = conn.entries[0].entry_dn
+                logger.info(f"Найден DN пользователя для удаления: {user_dn}")
+
+                # 2. Удалить пользователя по DN
+                logger.debug(f"Попытка удаления пользователя с DN: {user_dn}")
+                conn.delete(user_dn)
+
+                # 3. Проверить результат операции удаления
+                if conn.result['result'] == 0: # 0 означает успех
+                    logger.info(f"Контакт {contact_id} (DN: {user_dn}) успешно удален из AD")
+                    # FastAPI автоматически вернет 204 No Content, если функция ничего не возвращает и status_code=204
+                    return # Успешное удаление, возвращаем пустое тело с кодом 204
+                else:
+                    error_code = conn.result['result']
+                    error_desc = conn.result.get('description', 'Unknown error')
+                    error_msg = conn.result.get('message', '')
+                    logger.error(f"Ошибка удаления пользователя {user_dn} из AD: "
+                                 f"Код {error_code}, Описание: {error_desc}, Сообщение: {error_msg}")
+                    
+                    # Примеры кодов ошибок:
+                    # 50 - unwillingToPerform (например, не хватает прав, объект защищен)
+                    # 32 - noSuchObject (объект не найден - маловероятен тут, так как мы его только что нашли)
+                    # 19 - constraintViolation (нарушение ограничений)
+                    
+                    if error_code == 50: # unwillingToPerform
+                         raise HTTPException(
+                            status_code=500,
+                            detail="Недостаточно прав для удаления пользователя или операция запрещена политикой AD."
+                        )
+                    elif error_code == 19: # constraintViolation
+                         raise HTTPException(
+                            status_code=500,
+                            detail="Нарушение ограничений при удалении пользователя (constraint violation)."
+                        )
+                    else:
+                         raise HTTPException(
+                            status_code=500,
+                            detail=f"Ошибка удаления пользователя из AD: {error_desc}. Код ошибки: {error_code}"
+                        )
+
+    except TimeoutError:
+        logger.error("Превышен таймаут удаления контакта")
+        raise HTTPException(status_code=500, detail="Таймаут удаления из LDAP")
+    except HTTPException:
+        # Пробрасываем HTTPException от поиска (404) или от обработки результата удаления (500)
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка удаления контакта {contact_id} из AD: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Ошибка удаления контакта из AD: {str(e)}")

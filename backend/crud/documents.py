@@ -43,6 +43,15 @@ def get_sended_documents(db: Session, username: str, search: str = None):
         query = query.filter(SharedDocument.title.ilike(f"%{search}%"))
     return query.all()
 
+def get_status_documents(db: Session, username: str, search: str):
+    query = db.query(DocumentStatusModel).filter(DocumentStatusModel.recipient_username == username)
+    if search:
+        query = query.filter(DocumentStatusModel.document_id.ilike(f"%{search}%"))
+    
+    results = query.all()
+    # Преобразуем в словарь {document_id: status}
+    return {str(doc.document_id): doc.status for doc in results}
+
 def update_shared_document_status(db: Session, document_id: str, username: str, status: DocumentStatus):
     shared_doc = db.query(DocumentStatusModel).filter(
         DocumentStatusModel.document_id == document_id,

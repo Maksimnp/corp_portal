@@ -18,7 +18,7 @@ from api.admin import router as admin_router
 from api.request_list import router as request_list_router
 from api.vpn import router as vpn_router
 from api.chat import router as chat_router  
-
+from api.serverstats import router as serverstats_router
 load_dotenv()
 
 # Настройка логирования
@@ -97,7 +97,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=get_cors_origins(),
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["*"],
 )
@@ -110,7 +110,7 @@ async def add_cors_headers(request: Request, call_next):
     if origin in get_cors_origins():
         response.headers['Access-Control-Allow-Origin'] = origin
         response.headers['Access-Control-Allow-Credentials'] = 'true'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS, PATCH'
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
     return response
 
@@ -146,9 +146,9 @@ app.include_router(contacts_router, prefix="/contacts", tags=["contacts"])
 app.include_router(admin_router, prefix="/admin", tags=["admin"])
 app.include_router(request_list_router, prefix="/request_list", tags=["requests"])
 app.include_router(documents_router, prefix="/api", tags=["documents"])
-app.include_router(vpn_router, prefix="", tags=["vpn"])
+app.include_router(vpn_router)
 app.include_router(chat_router)
-
+app.include_router(serverstats_router)
 @app.get("/health", include_in_schema=False)
 async def health_check():
     return {"status": "healthy", "timestamp": __import__("datetime").datetime.utcnow()}

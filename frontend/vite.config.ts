@@ -6,22 +6,23 @@ const API_BASE_URL = 'http://192.1.66.117:8000';
 
 export default defineConfig({
   plugins: [react()],
-  
+
   define: {
+    // Заглушка process.env для совместимости
     'process.env': {},
-    'import.meta.env.VITE_API_BASE_URL': JSON.stringify(API_BASE_URL)
+    'import.meta.env.VITE_API_BASE_URL': JSON.stringify(API_BASE_URL),
   },
-  
+
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@models': path.resolve(__dirname, './src/models'),
     },
   },
-  
+
   server: {
     proxy: {
-      // Правильный proxy для всех API endpoints
+      // Унифицированный прокси для всех API эндпоинтов
       '^/api/.*': {
         target: API_BASE_URL,
         changeOrigin: true,
@@ -52,25 +53,30 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '^/serverstats/.*': {
+        target: API_BASE_URL,
+        changeOrigin: true,
+        secure: false,
+      },
       '/check-username': {
         target: API_BASE_URL,
         changeOrigin: true,
-        secure: false
+        secure: false,
       },
     },
-    
+
     host: true,
     port: 3000,
     open: true,
     strictPort: true,
-    cors: true
+    cors: true,
   },
-  
+
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: true,
     minify: 'terser',
-    chunkSizeWarningLimit: 100
-  }
+    chunkSizeWarningLimit: 100,
+  },
 });

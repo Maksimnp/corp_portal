@@ -10,7 +10,7 @@ const services = [
   { title: 'Редактирование контактов', description: 'Управление контактами Active Directory', to: '/edit-contacts', icon: <EditOutlined style={{ fontSize: '24px' }} />, isAdminOnly: true },
   { title: 'Админ-панель', description: 'Управление пользователями и настройками системы', to: '/admin', icon: '👮‍♂️', isAdminOnly: true },
   { title: 'Документы', description: 'Центр хранения внутренних документов и инструкций', to: '/docs', icon: '📄' },
-  { title: 'Опросы', description: 'Участвуйте в корпоративных опросах и голосованиях', to: '/polls', icon: '📊', disabled: true },
+  { title: 'Статистика серверов', description: 'Просмотр статистики серверов', to: '/serverstats', icon: '📊', disabled: false },
   { title: 'VPN Управление', description: 'Управление подключениями и профилями OpenVPN', to: '/VPNManagement', icon: '🔒', isAdminOnly: true },
 ];
 const JITSI_URL = import.meta.env.VITE_API_JITSI_URL;

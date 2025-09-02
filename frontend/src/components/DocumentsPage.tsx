@@ -45,6 +45,7 @@ const DocumentsPage: React.FC = () => {
   const [myDocuments, setMyDocuments] = useState<Document[]>([]);
   const [sharedDocuments, setSharedDocuments] = useState<SharedDocument[]>([]);
   const [sendedDocuments, setSendedDocuments] = useState<SharedDocument[]>([]);
+  const [statusDoc, setStatusDoc] = useState<Record<string, string>>({});
   const [contacts, setContacts] = useState<User[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
@@ -101,6 +102,28 @@ const DocumentsPage: React.FC = () => {
     }
   };
 
+  const fetchStatusDocument = async () => {
+    try {
+      const url = `${BASE_URL}/api/documents/doc_status`;
+      const response = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('123');
+        console.log(result);
+        setStatusDoc(result); // Это уже будет объект { [document_id]: status }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(`Ошибка получения отправленных документов: ${errorData.detail || response.statusText}`);
+      }
+    } catch (error) {
+      toast.error('Ошибка сети при получении отправленных документов');
+      console.error('Ошибка получения отправленных документов:', error);
+    }
+  };
+
   const fetchSendedDocuments = async () => {
     try {
       const response = await fetch(`${BASE_URL}/api/documents/sended${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''}`, {
@@ -150,44 +173,94 @@ const DocumentsPage: React.FC = () => {
   const debouncedFetchMyDocuments = debounce(fetchMyDocuments, 300);
   const debouncedFetchSharedDocuments = debounce(fetchSharedDocuments, 300);
   const debouncedFetchContacts = debounce(fetchContacts, 300);
-
-  const handleFileUpload = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedFile) {
-      toast.error('Выберите файл для загрузки');
+  
+  const showBrowserNotification = (title: string, options?: NotificationOptions) => {
+    // Проверяем поддержку браузером
+    if (!("Notification" in window)) {
+      console.log("Браузер не поддерживает уведомления.");
+      toast.info("Браузер не поддерживает уведомления на рабочем столе.");
       return;
     }
 
-    setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-    formData.append('title', title);
-
-    try {
-      const response = await fetch(`${BASE_URL}/api/documents/documents`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
+    // Если разрешение уже получено, показываем уведомление
+    if (Notification.permission === "granted") {
+      new Notification(title, options);
+    }
+    // Если разрешение не запрашивали, запрашиваем его
+    else if (Notification.permission !== "denied") {
+      Notification.requestPermission().then((permission) => {
+        // Если пользователь дал разрешение, показываем уведомление
+        if (permission === "granted") {
+          new Notification(title, options);
+        } else {
+          // Пользователь запретил уведомления
+          console.log("Пользователь запретил уведомления.");
+          toast.info("Уведомления на рабочем столе отключены пользователем.");
+        }
+      }).catch((err) => {
+        console.error("Ошибка запроса разрешения на уведомления:", err);
+        toast.error("Ошибка при запросе разрешения на уведомления.");
       });
-
-      if (response.ok) {
-        toast.success('Документ успешно загружен');
-        fetchMyDocuments();
-        setTitle('');
-        setSelectedFile(null);
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        toast.error(`Ошибка загрузки документа: ${errorData.detail || response.statusText}`);
-      }
-    } catch (error) {
-      toast.error('Ошибка сети при загрузке документа');
-      console.error('Ошибка загрузки документа:', error);
-    } finally {
-      setIsUploading(false);
+    }
+    // Если пользователь запретил уведомления
+    else {
+      console.log("Уведомления заблокированы пользователем.");
+      toast.info("Уведомления на рабочем столе отключены. Проверьте настройки браузера.");
     }
   };
+
+  const handleFileUpload = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!selectedFile) {
+    toast.error('Выберите файл для загрузки');
+    return;
+  }
+  toast.info('Начало загрузки документа...');
+
+  showBrowserNotification("Загрузка документа", {
+    body: `Началась загрузка файла: ${selectedFile.name || title}`,
+    icon: "/favicon.ico" 
+  });
+  setIsUploading(true);
+  const formData = new FormData();
+  formData.append('file', selectedFile);
+  formData.append('title', title);
+  try {
+    const response = await fetch(`${BASE_URL}/api/documents/documents`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData,
+    });
+    if (response.ok) {
+      toast.success('Документ успешно загружен');
+      showBrowserNotification("Загрузка завершена", {
+        body: `Файл "${title || selectedFile.name}" успешно загружен.`,
+        icon: "/favicon.ico"
+      });
+      fetchMyDocuments();
+      setTitle('');
+      setSelectedFile(null);
+    } else {
+      const errorData = await response.json().catch(() => ({}));
+      toast.error(`Ошибка загрузки документа: ${errorData.detail || response.statusText}`);
+      showBrowserNotification("Ошибка загрузки", {
+        body: `Не удалось загрузить файл "${title || selectedFile.name}".`,
+        icon: "/favicon.ico"
+      });
+    }
+  } catch (error) {
+    toast.error('Ошибка сети при загрузке документа');
+    showBrowserNotification("Ошибка сети", {
+        body: `Ошибка сети при загрузке файла "${title || selectedFile.name}".`,
+        icon: "/favicon.ico" 
+    });
+    console.error('Ошибка загрузки документа:', error);
+  } finally {
+    setIsUploading(false);
+  }
+};
 
   const handleShareDocument = async () => {
     if (!currentDoc || !recipient) {
@@ -523,6 +596,7 @@ const DocumentsPage: React.FC = () => {
       fetchMyDocuments();
       fetchSharedDocuments();
       fetchContacts();
+      fetchStatusDocument();
     } else {
       toast.error('Требуется авторизация');
       navigate('/login');
@@ -537,6 +611,33 @@ const DocumentsPage: React.FC = () => {
     debouncedFetchContacts();
   }, [searchQueryContacts]);
 
+  const closeOnlyModal = async () => {
+    // const myHeaders = new Headers();
+    // myHeaders.append("Content-Type", "multipart/form-data");
+    // myHeaders.append("Accept", "application/json");
+
+    // const formdata = new FormData();
+    // formdata.append("Forcesave", "true");
+    // // formdata.append("File", fileInput.files[0], "file");
+    // formdata.append("FileExtension", ".docx");
+    // formdata.append("DownloadUri", `http://192.1.66.117:8000/api/documents/download/${onlyOfficeConfig["document"]["key"]}`);
+
+    // const requestOptions:RequestInit = {
+    //   method: "PUT",
+    //   headers: myHeaders,
+    //   body: formdata,
+    //   redirect: "follow"
+    // };
+
+    // fetch(`${onlyOfficeServerUrl}/2.0/files/file/7b5761f9-311e-4e75-ba89-4e28edffb3e0/saveediting`, requestOptions)
+    //   .then((response) => response.text())
+    //   .then((result) => console.log(result))
+    //   .catch((error) => console.error(error));
+    setIsOnlyOfficeModalOpen(false);
+    fetchSharedDocuments();
+    setOnlyOfficeConfig(null);
+    setOnlyOfficeJwtToken(undefined);
+  }
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <ToastContainer position="top-right" autoClose={3000} />
@@ -707,7 +808,7 @@ const DocumentsPage: React.FC = () => {
                                           {sendDoc.title}
                                         <Tag color={getStatusColor(sendDoc.status)} className="flex-shrink-0 ml-1">
                                           {getStatusText(sendDoc.status)}
-                                        </Tag>
+                                        </Tag>  
                                       </div>
                                       <div className="flex justify-between items-center w-full text-xs text-gray-500 mt-1">
                                         <span className="truncate mr-2">@{sendDoc.recipient_username}</span>
@@ -815,12 +916,12 @@ const DocumentsPage: React.FC = () => {
                         <p className="text-sm text-gray-500 mt-1">От: <strong>{item.owner_username}</strong></p>
                         <div className="mt-2 flex flex-wrap gap-2">
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            item.status === DocumentStatus.PENDING ? 'bg-yellow-100 text-yellow-800' :
-                            item.status === DocumentStatus.VIEWED ? 'bg-green-100 text-green-800' :
+                            statusDoc[item.document_id] === DocumentStatus.PENDING ? 'bg-yellow-100 text-yellow-800' :
+                            statusDoc[item.document_id] === DocumentStatus.VIEWED ? 'bg-green-100 text-green-800' :
                             'bg-blue-100 text-blue-800'
                           }`}>
-                            {item.status === DocumentStatus.PENDING ? 'Не просмотрено' : 
-                             item.status === DocumentStatus.VIEWED ? 'Просмотрено' : 'Отредактировано'}
+                            {statusDoc[item.document_id] === DocumentStatus.PENDING ? 'Не просмотрено' : 
+                             statusDoc[item.document_id] === DocumentStatus.VIEWED ? 'Просмотрено' : 'Отредактировано'}
                           </span>
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                             item.permission === DocumentPermission.EDIT ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
@@ -979,12 +1080,7 @@ const DocumentsPage: React.FC = () => {
       {isOnlyOfficeModalOpen && (
         <OnlyOfficeModal
           isOpen={isOnlyOfficeModalOpen}
-          onClose={() => {
-            setIsOnlyOfficeModalOpen(false);
-            fetchSharedDocuments();
-            setOnlyOfficeConfig(null);
-            setOnlyOfficeJwtToken(undefined);
-          }}
+          onClose={closeOnlyModal}
           config={onlyOfficeConfig}
           jwtToken={onlyOfficeJwtToken}
         />

@@ -1,9 +1,8 @@
 from fastapi import APIRouter, HTTPException, Request, Body, status, Depends
 from pydantic import BaseModel, field_validator
 import logging
-from services.jwt_utils import create_access_token
+from services.jwt_utils import create_access_token, verify_token
 from services.ad_auth import authenticate_user, get_user_role
-from services.jwt_utils import verify_token
 from fastapi.security import OAuth2PasswordBearer
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -14,18 +13,17 @@ router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login") # Убедитесь, что URL правильный
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
-    """Получает информацию о текущем пользователе из JWT токена в заголовке Authorization."""
-    logger.debug(f"Attempting to verify token: {token[:10]}...") # Логируем начало токена для отладки
+    """Получает информацию о текущем пользователе из JWT токена."""
+    logger.debug(f"Попытка проверки токена: {token[:10]}...")
     user = verify_token(token)
     if not user:
-        logger.warning("Token verification failed or user not found")
+        logger.warning("Проверка токена не удалась или пользователь не найден")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный или истекший токен доступа",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    logger.debug(f"User authenticated: {user.get('username', 'Unknown')}")
-    # Дополнительная проверка активности пользователя может быть здесь
+    logger.debug(f"Пользователь аутентифицирован: {user.get('username', 'Unknown')}")
     return user
 
 # --- Функция для WebSocket соединений ---
@@ -72,21 +70,17 @@ class LoginData(BaseModel):
 async def login(request: Request, login_data: LoginData = Body(...)):
     """
     Аутентификация через AD.
-    Принимает только JSON в формате:
-    {
-        "username": "string",
-        "password": "string"
-    }
     """
+    # Логирование тела запроса (опционально, для отладки)
     try:
         body = await request.json()
-        logger.info(f"Received request body: {body}")
+        logger.info(f"Получено тело запроса: {body}")
     except Exception as e:
-        logger.warning(f"Failed to parse request body: {e}")
+        logger.warning(f"Не удалось распарсить тело запроса: {e}")
         body = None
 
     if not login_data:
-        logger.warning("No login data provided")
+        logger.warning("Данные для входа не предоставлены")
         raise HTTPException(
             status_code=422,
             detail="Требуются username и password в теле запроса"
@@ -95,37 +89,40 @@ async def login(request: Request, login_data: LoginData = Body(...)):
     username = login_data.username
     password = login_data.password
 
-    logger.info(f"Login attempt for user: {username}")
+    logger.info(f"Попытка входа для пользователя: {username}")
 
-    # Аутентификация через AD
+    # Аутентификация через AD с использованием нового сервиса
     try:
         user_info = authenticate_user(username, password)
         if not user_info:
-            logger.warning(f"AD authentication failed for username: {username}")
+            logger.warning(f"Аутентификация в AD не удалась для пользователя: {username}")
+            # ВАЖНО: Возвращаем 401, а не 500, если учетные данные неверны
             raise HTTPException(
-                status_code=401,
+                status_code=status.HTTP_401_UNAUTHORIZED, 
                 detail="Неверный логин или пароль"
             )
+    except HTTPException:
+        # Пробрасываем HTTPException от authenticate_user (например, 401)
+        raise
     except Exception as e:
-        logger.error(f"AD authentication error: {str(e)}")
+        # Любая другая ошибка (проблемы с подключением и т.д.) - это 500
+        logger.error(f"Ошибка аутентификации через AD: {str(e)}", exc_info=True)
         raise HTTPException(
-            status_code=500,
-            detail="Ошибка аутентификации через AD. Проверьте логи."
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Внутренняя ошибка сервера при аутентификации. Проверьте логи."
         )
 
     # Получаем роль
     try:
         role = get_user_role(username)
     except Exception as e:
-        logger.error(f"Error getting user role for {username}: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="Ошибка получения роли пользователя. Проверьте логи."
-        )
+        logger.error(f"Ошибка получения роли пользователя {username}: {str(e)}")
+        # Это не критично, можно продолжить с ролью "user"
+        role = "user" 
 
     # Проверка наличия full_name
     full_name = user_info.get("full_name", username)
-    logger.info(f"User {username} authenticated successfully with role: {role}")
+    logger.info(f"Пользователь {username} успешно аутентифицирован с ролью: {role}")
 
     # Создаём токен
     access_token = create_access_token(

@@ -265,7 +265,7 @@ const EditADContacts: React.FC = () => {
   const checkUsernameAvailability = async (username: string) => {
     try {
       if (!token) throw new Error('Токен аутентификации не найден.');
-      const response = await fetch(`${API_BASE_URL}/check-username?username=${encodeURIComponent(username)}`, {
+      const response = await fetch(`${API_BASE_URL}/contacts/check-username?username=${encodeURIComponent(username)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!response.ok) throw new Error(`Ошибка проверки имени: ${response.status}`);
@@ -334,7 +334,7 @@ const EditADContacts: React.FC = () => {
         groups: values.groups || [],
         sam_account_name: values.sam_account_name?.trim(),
       };
-
+      console.log(contactData);
       const response = await fetch(`${API_BASE_URL}/contacts`, {
         method: 'POST',
         headers: {
@@ -796,7 +796,7 @@ const EditADContacts: React.FC = () => {
                   label="Имя входа (sAMAccountName)"
                   rules={[
                     { required: modal.type === 'create', message: 'Пожалуйста, введите имя входа' },
-                    { pattern: /^[a-zA-Z0-9-]{1,20}$/, message: 'Имя входа должно содержать 1-20 символов (буквы, цифры, дефис)' },
+                    { pattern: /^[a-zA-Z0-9-.]{1,20}$/, message: 'Имя входа должно содержать 1-20 символов (буквы, цифры, дефис)' },
                     {
                       validator: async (_, value) => {
                         if (modal.type === 'create' && value) {
@@ -845,7 +845,7 @@ const EditADContacts: React.FC = () => {
                   normalize={(value) => formatPhoneNumber(value)}
                 >
                   <Input 
-                    placeholder="Например: 3758989, 375173758989" 
+                    placeholder="Например: 123456" 
                     className="font-mono rounded-md" 
                     title="Введите городской номер телефона"
                     onChange={(e) => {

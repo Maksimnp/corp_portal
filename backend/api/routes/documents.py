@@ -10,6 +10,7 @@ from models.document_models import Document, SharedDocument, DocumentStatus, Doc
 from schemas.document_schemas import DocumentCreate,DocumentResponse, SharedDocumentCreate, DocumentStatusCreate
 from services.jwt_utils import verify_token
 import logging
+from typing import Dict
 from pathlib import Path as PathLib
 from sqlalchemy.orm import Session
 from db.database import get_db_connection as get_db
@@ -17,7 +18,7 @@ from crud.documents import (
     create_document, get_user_documents, share_document,
     get_shared_documents, update_shared_document_status,
     delete_document, get_document, get_shared_document,
-    get_sended_documents, create_status_document
+    get_sended_documents, create_status_document, get_status_documents
 )
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
@@ -202,6 +203,22 @@ async def share_document_endpoint(
     except Exception as e:
         logger.error(f"Error sharing document: {e}")
         raise HTTPException(status_code=500, detail="Error sharing document")
+
+@router.get("/doc_status", response_model=Dict[str, str])
+async def share_document_endpoint(
+    token: str = Depends(oauth2_scheme),
+    search: Optional[str] = Query(None),
+    db: Session = Depends(get_db)
+):
+    user = verify_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    try:
+        return get_status_documents(db, user['username'], search)
+    except Exception as e:
+        logger.error(f"Error getting shared documents: {e}")
+        raise HTTPException(status_code=500, detail="Error getting shared documents")
     
 @router.put("/status/{document_id}", response_model=DocumentStatusMod)
 async def update_document_status(
@@ -220,7 +237,7 @@ async def update_document_status(
             raise HTTPException(status_code=404, detail="Shared document not found")
         return updated_doc
     except Exception as e:
-        logger.error(f"Error updating document status: {e}")
+        logger.error(f"Error updating document status: {e}  ")
         raise HTTPException(status_code=500, detail="Error updating document status")
         
 

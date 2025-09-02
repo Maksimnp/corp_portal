@@ -1,20 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAuth } from '../AuthContext';
-import { format, isValid } from 'date-fns';
+import { format, isValid, previousDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { PaperPlaneRight, Paperclip, Smiley, DotsThreeVertical, MagnifyingGlass, UserCircle, Users, Plus, X, Pencil, Trash, SignOut } from 'phosphor-react';
+import { PaperPlaneRight, Paperclip, Smiley, DotsThreeVertical, MagnifyingGlass, UserCircle, Users, Plus, X, Microphone, Sticker } from 'phosphor-react';
 import { toast } from 'react-toastify';
-import EmojiPicker from 'emoji-picker-react';
-
-// Define EmojiClickData type for emoji-picker-react
-type EmojiClickData = {
-  emoji: string;
-  imageUrl: string;
-  unified: string;
-  originalUnified: string;
-  names: string[];
-  activeSkinTone: 'neutral' | 'light' | 'medium-light' | 'medium' | 'medium-dark' | 'dark';
-};
+import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
+import { marked } from 'marked';
+import { CommentOutlined, CopyOutlined, DeleteOutlined, EditOutlined, FileExcelOutlined, FileImageOutlined, FileOutlined, FilePdfOutlined, FileTextOutlined, FileWordOutlined, FileZipOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { BsFiletypeTxt } from "react-icons/bs";
+import copy from 'copy-to-clipboard';
 
 interface Message {
   id: string;
@@ -25,6 +19,8 @@ interface Message {
   is_read: boolean;
   file_url?: string;
   file_name?: string;
+  edited?: boolean;
+  quoted_message_id: string | null;
 }
 
 interface Chat {
@@ -49,21 +45,12 @@ interface Contact {
   sam_account_name?: string;
 }
 
-// Utility to get avatar (you can replace with real image URL logic)
-const getAvatar = (contact: Contact) => {
-  // Example: if you have a user image API
-  // return `https://api.example.com/avatar/${contact.id}`;
-  return null; // No real image, use initials
-};
-
-const getInitials = (name: string) => {
-  return name
-    .split(' ')
-    .map(part => part[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-};
+const stickers = [
+  'https://example.com/stickers/happy.png',
+  'https://example.com/stickers/sad.png',
+  'https://example.com/stickers/laugh.png',
+  'https://example.com/stickers/thumbsup.png',
+];
 
 const ChatComponent: React.FC = () => {
   const { token, username, refreshToken } = useAuth();
@@ -84,6 +71,7 @@ const ChatComponent: React.FC = () => {
   const [isLoadingChats, setIsLoadingChats] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [limit] = useState(50);
   const [showCreateOptions, setShowCreateOptions] = useState(false);
@@ -96,14 +84,42 @@ const ChatComponent: React.FC = () => {
   const [isLoadingContacts, setIsLoadingContacts] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showKickModal, setShowKickModal] = useState(false);
-  const [showEditChatModal, setShowEditChatModal] = useState(false); // New modal
-  const [editChatName, setEditChatName] = useState('');
-  const [editChatDescription, setEditChatDescription] = useState('');
-
+  const [contactMap, setContactMap] = useState<{ [key: string]: string }>({});
+  const [selectedToKick, setSelectedToKick] = useState<string[]>([]);
+  const [showChatOptions, setShowChatOptions] = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [messageSearchQuery, setMessageSearchQuery] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const createOptionsRef = useRef<HTMLDivElement>(null);
+  const chatOptionsRef = useRef<HTMLDivElement>(null);
+  const stickerPickerRef = useRef<HTMLDivElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [contextMenu, setContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    message: Message | null;
+  }>({
+    visible: false,
+    x: 0,
+    y: 0,
+    message: null,
+  })
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+  const [quotedMessage, setQuotedMessage] = useState<Message | null>(null);
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [quotedMessageData, setQuotedMessageData] = useState<Record<string, Message | null>>({});
+  const [showDeleteMessageModal, setShowDeleteMessageModal] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
+  const [showChatInfoSidebar, setShowChatInfoSidebar] = useState(false);
+  const [showEditChatModal, setShowEditChatModal] = useState(false);
+  const [editChatName, setEditChatName] = useState('');
+  const [editChatDescription, setEditChatDescription] = useState('');
 
   const WS_BASE = import.meta.env.VITE_WS_BASE || (import.meta.env.VITE_ENV === 'production' ? 'wss://192.1.66.117:8000' : 'ws://192.1.66.117:8000');
   const API_BASE = import.meta.env.VITE_API_BASE || 'http://192.1.66.117:8000';
@@ -113,24 +129,31 @@ const ChatComponent: React.FC = () => {
     'Content-Type': 'application/json',
   });
 
-  const currentChat = chats.find((c) => c.id === activeChat);
+  const currentChat = useMemo(() => chats.find(chat => chat.id === activeChat), [chats, activeChat]);
 
   const currentMessages = useMemo(() => {
     return activeChat ? (messagesByChat[activeChat] || []).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) : [];
   }, [activeChat, messagesByChat]);
 
-  const contactMap = useMemo(() => {
-    const map: { [key: string]: Contact } = {};
-    contacts.forEach(c => {
-      map[c.id] = c;
-    });
-    return map;
-  }, [contacts]);
+  const sortedMessages = useMemo(() => {
+    return [...currentMessages].sort((a, b) => {
+    const timeA = new Date(a.timestamp).getTime();
+    const timeB = new Date(b.timestamp).getTime();
+    if (timeA !== timeB) {
+      return timeA - timeB; // По возрастанию времени
+    }
+    return a.id.localeCompare(b.id);
+  });
+}, [currentMessages]);
 
-  const getDisplayName = useCallback((username: string) => {
-    const contact = Object.values(contactMap).find(c => c.sam_account_name === username);
-    return contact?.displayName || username;
-  }, [contactMap]);
+  const filteredMessages = useMemo(() => {
+    if (!searchQuery) return sortedMessages;
+    const lowerQuery = searchQuery.toLowerCase();
+    return sortedMessages.filter(m =>
+      m.content?.toLowerCase().includes(lowerQuery) ||
+      m.file_name?.toLowerCase().includes(lowerQuery)
+    );
+  }, [sortedMessages, searchQuery]);
 
   const unreadCounts = useMemo(() => {
     const counts: { [key: string]: number } = {};
@@ -143,11 +166,16 @@ const ChatComponent: React.FC = () => {
     return counts;
   }, [messagesByChat, chats, username]);
 
-  // Handle click outside for create options
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (createOptionsRef.current && !createOptionsRef.current.contains(event.target as Node)) {
         setShowCreateOptions(false);
+      }
+      if (chatOptionsRef.current && !chatOptionsRef.current.contains(event.target as Node)) {
+        setShowChatOptions(false);
+      }
+      if (stickerPickerRef.current && !stickerPickerRef.current.contains(event.target as Node)) {
+        setShowStickerPicker(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -155,6 +183,119 @@ const ChatComponent: React.FC = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // -----------------------------
+  // Контекстное меню сообщения
+  // -----------------------------
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(event.target as Node)) {
+        setContextMenu(prev => ({...prev, visible: false}));
+      }
+    }
+    if (contextMenu.visible) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [contextMenu.visible]);
+
+  const handleMessageContextMenu = (event: React.MouseEvent, msg: Message) => {
+    event.preventDefault();
+    const react = event.currentTarget.getBoundingClientRect();
+    setContextMenu({
+      visible:true,
+      x: event.clientX,
+      y: event.clientY,
+      message: msg,
+    });
+  };
+
+  const handleContextMenuEdit = () => {
+    if (contextMenu.message) {
+      startEditMessage(contextMenu.message);
+      setContextMenu(prev => ({ ...prev, visible: false }));
+    }
+  };
+
+  const handleContextMenuDelete = () => {
+    if (contextMenu.message) {
+      deleteMessage(contextMenu.message);
+      setContextMenu(prev => ({ ...prev, visible: false }));
+    }
+  };
+
+
+  const handleContextMenuCopy = () => {
+    if (contextMenu.message?.content) {
+      try {
+        copy(contextMenu.message.content);
+      } catch (err) {
+        console.error('Failed to copy text: ', err);
+      }
+      setContextMenu(prev => ({ ...prev, visible: false }));
+    }
+  };
+  
+  const handleContextMenuQuote = () => {
+    if (contextMenu.message) {
+      quoteMessage(contextMenu.message);
+      setContextMenu(prev => ({ ...prev, visible: false }));
+    }
+  };
+
+  const renderContextMenu = () => {
+    if (!contextMenu.visible || !contextMenu.message) return null;
+
+    return (
+      <div
+        ref={contextMenuRef}
+        className="fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 py-1 min-w-[150px]" // Добавлен z-index
+        style={{
+          top: `${contextMenu.y}px`,
+          left: `${contextMenu.x}px`,
+          transform: 'translate(0, 0)',
+        }}
+      >
+        {contextMenu.message.sender === username && (
+          <>
+            <button
+              onClick={handleContextMenuEdit}
+              className="w-full text-left font-semibold gap-4 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+            >
+              <EditOutlined className="text-xl" />
+              Редактировать
+            </button>
+            <button
+              onClick={handleContextMenuDelete}
+              className="w-full text-left font-semibold gap-4 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 flex items-center"
+            >
+              <DeleteOutlined className="text-xl"/>
+              Удалить
+            </button>
+            <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+          </>
+        )}
+        <button
+          onClick={handleContextMenuCopy}
+          className="w-full text-left font-semibold gap-4 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+        >
+          <CopyOutlined className="text-xl"/>
+          Копировать
+        </button>
+        <button
+          onClick={handleContextMenuQuote}
+          className="w-full text-left font-semibold gap-4 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
+        >
+          <CommentOutlined className="text-xl"/>
+          Ответить
+        </button>
+      </div>
+    );
+  };
 
   const fetchChats = useCallback(async () => {
     if (!token) return;
@@ -171,7 +312,7 @@ const ChatComponent: React.FC = () => {
         });
         if (refreshRes.ok) {
           const { access_token } = await refreshRes.json();
-          refreshToken(access_token);
+           
           toast.info('Токен обновлен');
           return fetchChats();
         }
@@ -179,11 +320,40 @@ const ChatComponent: React.FC = () => {
         window.location.href = '/login';
         return;
       }
-      if (!res.ok) throw new Error(`Failed to load chats: ${res.status} ${res.statusText}`);
+      if (!res.ok) {
+        throw new Error(`Failed to load chats: ${res.status} ${res.statusText}`);
+      }
       const data: Chat[] = await res.json();
+      console.log(`fetchChats ${data}`);
       setChats(data);
       if (data.length > 0 && activeChat === null) {
         setActiveChat(data[0].id);
+      }
+      const allMembers = new Set<string>();
+      data.forEach((chat) => {
+        chat.members.forEach((m) => allMembers.add(m));
+      });
+      const newContactEntries: Record<string, string> = {};
+      const contactFetchPromises = [...allMembers].map(async (m) => {
+        if (!contactMap[m]) { 
+          try {
+            const res = await fetch(`${API_BASE}/chat/contacts?query=${encodeURIComponent(m)}`, {
+              headers: authHeaders(),
+            });
+            if (res.ok) {
+              const contactsData = await res.json();
+              if (contactsData.length > 0) {
+                newContactEntries[m] = contactsData[0].displayName; 
+              }
+            }
+          } catch (err) {
+            console.error(`Error fetching display name for ${m}:`, err);
+          }
+        }
+      });
+      await Promise.all(contactFetchPromises);
+      if (Object.keys(newContactEntries).length > 0) {
+        setContactMap((prev) => ({ ...prev, ...newContactEntries }));
       }
     } catch (e: any) {
       console.error('Error loading chats:', e);
@@ -191,11 +361,47 @@ const ChatComponent: React.FC = () => {
     } finally {
       setIsLoadingChats(false);
     }
-  }, [token, activeChat, refreshToken]);
+  }, [token]); {/*, activeChat, refreshToken, contactMap*/}
 
   useEffect(() => {
     fetchChats();
   }, [fetchChats]);
+
+  const fetchQuotedMessageData = async (quotedMessageId: string): Promise<Message | null> => {
+    if (quotedMessageData[quotedMessageId] !== undefined) {
+      return quotedMessageData[quotedMessageId];
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/chat/messages/${quotedMessageId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.warn(`Quoted message ${quotedMessageId} not found on server.`);
+          setQuotedMessageData(prev => ({ ...prev, [quotedMessageId]: null }));
+          return null;
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          console.error(`Ошибка загрузки сообщения ${quotedMessageId}:`, response.status, errorData);
+          return null;
+        }
+      }
+
+      const messageData: Message = await response.json();
+      setQuotedMessageData(prev => ({ ...prev, [quotedMessageId]: messageData }));
+      return messageData;
+
+    } catch (error) {
+      console.error(`Ошибка загрузки сообщения ${quotedMessageId}:`, error);
+      return null;
+    }
+  };
 
   const loadMessages = async () => {
     if (!activeChat || !token) return;
@@ -213,7 +419,7 @@ const ChatComponent: React.FC = () => {
         });
         if (refreshRes.ok) {
           const { access_token } = await refreshRes.json();
-          refreshToken(access_token);
+           
           return loadMessages();
         }
         toast.error('Сессия истекла. Войдите снова.');
@@ -222,23 +428,52 @@ const ChatComponent: React.FC = () => {
       }
       if (!res.ok) throw new Error(`Failed to load messages: ${res.status} ${res.statusText}`);
       const data: any[] = await res.json();
-      const parsed = data.map((msg) => ({
-        ...msg,
-        id: String(msg.id),
-        channel_id: String(msg.channel_id),
-        is_read: Boolean(msg.is_read),
-        timestamp: typeof msg.timestamp === 'string' ? msg.timestamp : new Date(msg.timestamp).toISOString(),
-        file_url: msg.file_url,
-        file_name: msg.file_name,
-      }));
+      console.log(`loadMessages ${data}`);
       if (data.length < limit) {
         setHasMoreByChat(prev => ({ ...prev, [activeChat]: false }));
       }
-      setMessagesByChat(prev => ({
-        ...prev,
-        [activeChat]: [...parsed, ...(prev[activeChat] || [])],
-      }));
-      setOffsetByChat(prev => ({ ...prev, [activeChat]: currentOffset + parsed.length }));
+      
+      setMessagesByChat(prev => {
+        const currentMessages = prev[activeChat] || [];
+        const currentIds = new Set(currentMessages.map(m => m.id));
+        console.log(`loadMessages: Загружено ${data.length} сообщений.`);
+
+        const uniqueNewMessages = data.filter(msg => {
+            const msgId = String(msg.id);
+            const isDuplicate = currentIds.has(msgId);
+            if (isDuplicate) {
+                console.warn(`loadMessages: Пропущен дубликат сообщения с ID ${msgId}`);
+            }
+            return !isDuplicate; 
+        }).map(msg => ({
+            ...msg,
+            id: String(msg.id),
+            is_read: Boolean(msg.is_read),
+            timestamp: typeof msg.timestamp === 'string' ? msg.timestamp : new Date(msg.timestamp).toISOString(),
+            file_url: msg.file_url,
+            file_name: msg.file_name,
+            edited: Boolean(msg.edited),
+        }));
+
+        console.log(`loadMessages: Добавлено ${uniqueNewMessages.length} новых сообщений.`);
+
+        const combinedMessages = [...uniqueNewMessages, ...currentMessages];
+        
+        combinedMessages.sort((a, b) => {
+            const timeA = new Date(a.timestamp).getTime();
+            const timeB = new Date(b.timestamp).getTime();
+            if (timeA !== timeB) {
+                return timeA - timeB;
+            }
+            return a.id.localeCompare(b.id);
+        });
+
+        return {
+            ...prev,
+            [activeChat]: combinedMessages
+        };
+      });
+      setOffsetByChat(prev => ({ ...prev, [activeChat]: currentOffset + limit }));
     } catch (e) {
       console.error('Error loading messages:', e);
       toast.error('Не удалось загрузить сообщения');
@@ -287,12 +522,16 @@ const ChatComponent: React.FC = () => {
         console.error('Batch mark read error:', e);
       }
     })();
-  }, [currentMessages, activeChat, token, username]);
+  }, [currentMessages, activeChat, token, username, refreshToken]);
 
-  // WebSocket connection
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
   useEffect(() => {
     if (!token || !username) return;
-
     let ws: WebSocket | null = null;
     let reconnectAttempts = 0;
     const maxReconnectAttempts = 10;
@@ -306,7 +545,6 @@ const ChatComponent: React.FC = () => {
       setConnectionStatus('connecting');
       try {
         ws = new WebSocket(`${WS_BASE}/chat/ws?token=${encodeURIComponent(token)}`);
-
         ws.onopen = () => {
           if (!isMounted) {
             ws?.close();
@@ -316,14 +554,12 @@ const ChatComponent: React.FC = () => {
           setConnectionStatus('connected');
           reconnectAttempts = 0;
           setWebsocket(ws);
-
           pingInterval = setInterval(() => {
             if (ws && ws.readyState === WebSocket.OPEN) {
               ws.send(JSON.stringify({ type: 'ping' }));
             }
           }, 15000);
         };
-
         ws.onmessage = (event) => {
           if (!isMounted) return;
           try {
@@ -334,76 +570,114 @@ const ChatComponent: React.FC = () => {
               return;
             }
             if (data.type === 'new_message') {
-              setMessagesByChat(prev => ({
-                ...prev,
-                [data.data.channel_id]: [...(prev[data.data.channel_id] || []), data.data],
-              }));
-            } else if (data.type === 'typing') {
+              const channelId = data.data.channel_id;
+              const newMsgId = data.data.id;
+              console.groupCollapsed(`WS New Message: ${newMsgId} (Channel: ${channelId})`);
+              console.log("Полученные данные:", data.data);
+              if (data.data.sender !== username && Notification.permission === "granted") {
+                const isHidden = document.visibilityState === 'hidden';
+                const isNotCurrent = activeChat !== data.data.channel_id;
+                if (isHidden || isNotCurrent) {
+                  const senderName = contactMap[data.data.sender] || data.data.sender;
+                  const chatName = chats.find(c => c.id === data.data.channel_id)?.name || 'чате';
+                  const bodyText = data.data.content || (data.data.file_name ? `Отправлен файл: ${data.data.file_name}` : 'Новое сообщение');
+                  new Notification(`Новое сообщение в ${chatName}`, {
+                    body: `${senderName}: ${bodyText}`,
+                  });
+                }
+              }
+              setMessagesByChat(prev => {
+                const channelId = data.data.channel_id;
+                const currentMsgsInUpdater = prev[channelId] || [];
+                const newMsgId = data.data.id;
+                const existingMsgIndex = currentMsgsInUpdater.findIndex(m => m.id === newMsgId);
+                if (existingMsgIndex !== -1) {
+                    return prev;
+                }
+                const newMessageQuotedId = data.data.quoted_message_id ? String(data.data.quoted_message_id) : null;
+                if (newMessageQuotedId) {
+                  const isDataAvailableLocally = currentMsgsInUpdater.some(m => m.id === newMessageQuotedId);
+                  const isDataAlreadyFetched = quotedMessageData[newMessageQuotedId] !== undefined;
+                  if (!isDataAvailableLocally && !isDataAlreadyFetched) {
+                      fetchQuotedMessageData(newMessageQuotedId).catch(err => {
+                          console.warn(`Фоновая загрузка цитируемого сообщения ${newMessageQuotedId} не удалась:`, err);
+                      });
+                  }
+                }
+                const updatedMessages = [...currentMsgsInUpdater, data.data].map(msg => ({
+                    ...msg,
+                    id: String(msg.id),
+                    is_read: Boolean(msg.is_read),
+                    timestamp: typeof msg.timestamp === 'string' ? msg.timestamp : new Date(msg.timestamp).toISOString(),
+                    file_url: msg.file_url,
+                    file_name: msg.file_name,
+                    edited: Boolean(msg.edited),
+                }));
+                updatedMessages.sort((a, b) => {
+                    const timeA = new Date(a.timestamp).getTime();
+                    const timeB = new Date(b.timestamp).getTime();
+                    if (timeA !== timeB) return timeA - timeB;
+                    return a.id.localeCompare(b.id);
+                });                
+                return {
+                    ...prev,
+                    [channelId]: updatedMessages
+                };
+              });
+            }
+            if (data.type === 'typing') {
               setIsTyping(true);
               setTypingUser(data.data.user);
               setTimeout(() => setIsTyping(false), 3000);
-            } else if (data.type === 'user_left') {
-              if (data.data.channel_id === activeChat) {
-                setChats((prev) =>
-                  prev.map((c) =>
-                    c.id === data.data.channel_id
-                      ? { ...c, members: c.members.filter((m) => m !== data.data.username) }
-                      : c
-                  )
-                );
-                toast.info(`${data.data.username} покинул чат`);
-              }
-            } else if (data.type === 'chat_deleted') {
-              if (data.data.channel_id === activeChat) {
-                setActiveChat(null);
-              }
-              setChats((prev) => prev.filter((c) => c.id !== data.data.channel_id));
-              toast.info('Чат был удален');
-            } else if (data.type === 'channel_invite') {
-              if (data.data.channel_id === activeChat) {
-                setChats((prev) =>
-                  prev.map((c) =>
-                    c.id === data.data.channel_id
-                      ? { ...c, members: [...c.members, ...data.data.members] }
-                      : c
-                  )
-                );
-                toast.info(`Приглашены: ${data.data.members.join(', ')}`);
-              }
-            } else if (data.type === 'channel_kick') {
-              if (data.data.channel_id === activeChat) {
-                setChats((prev) =>
-                  prev.map((c) =>
-                    c.id === data.data.channel_id
-                      ? { ...c, members: c.members.filter((m) => !data.data.members.includes(m)) }
-                      : c
-                  )
-                );
-                toast.info(`Исключены: ${data.data.members.join(', ')}`);
-              }
-            } else if (data.type === 'chat_renamed') {
-              setChats((prev) =>
-                prev.map((c) =>
-                  c.id === data.data.channel_id
-                    ? { ...c, name: data.data.name, description: data.data.description }
-                    : c
-                )
-              );
-              toast.info(`Чат переименован: ${data.data.name}`);
+            }
+            if (data.type === 'message_edited') {
+              setMessagesByChat(prev => ({
+                ...prev,
+                [data.data.channel_id]: prev[data.data.channel_id].map(m =>
+                  m.id === data.data.id ? { ...m, content: data.data.content, edited: true } : m
+                ),
+              }));
+            }
+            if (data.type === 'message_deleted') {
+              const deletedMessageId = data.data.id;
+              const channelId = data.data.channel_id;
+              
+              setMessagesByChat(prev => {
+                const currentMessages = prev[channelId] || [];
+                const updatedMessages = currentMessages.filter(msg => msg.id !== deletedMessageId);
+                
+                if (updatedMessages.length === 0) {
+
+                  return { ...prev, [channelId]: [] };
+                }
+                
+                return {
+                  ...prev,
+                  [channelId]: updatedMessages
+                };
+              });
+              
+              setQuotedMessageData(prev => {
+                const newState = { ...prev };
+                if (newState[deletedMessageId] !== undefined) {
+                  delete newState[deletedMessageId];
+                }
+                return newState;
+              });
+
+              console.log(`Сообщение ${deletedMessageId} удалено из канала ${channelId} (WebSocket)`);
             }
           } catch (e) {
             console.error('WS parse error:', e);
             toast.error('Ошибка обработки сообщения WebSocket');
           }
         };
-
         ws.onerror = (e) => {
           if (!isMounted) return;
           console.error('WebSocket error:', e);
           setConnectionStatus('disconnected');
           toast.error('Ошибка соединения с WebSocket');
         };
-
         ws.onclose = (event) => {
           if (!isMounted) return;
           console.log(`WebSocket closed: ${event.code}, reason: ${event.reason}`);
@@ -413,14 +687,17 @@ const ChatComponent: React.FC = () => {
           if (reconnectAttempts < maxReconnectAttempts) {
             reconnectAttempts++;
             const delay = baseDelay * Math.pow(1.5, reconnectAttempts - 1);
+            console.log(`Reconnecting in ${delay / 1000}s (${reconnectAttempts}/${maxReconnectAttempts})`);
             reconnectTimeout = setTimeout(connect, delay);
           } else {
-            toast.error('Не удалось подключиться к чату.');
+            console.error('Max reconnect attempts reached');
+            toast.error('Не удалось подключиться к чату. Проверьте соединение или попробуйте позже.');
           }
         };
       } catch (error) {
         console.error('WebSocket init error:', error);
         setConnectionStatus('disconnected');
+        toast.error('Ошибка инициализации WebSocket');
         if (reconnectAttempts < maxReconnectAttempts) {
           reconnectAttempts++;
           const delay = baseDelay * Math.pow(1.5, reconnectAttempts - 1);
@@ -430,22 +707,191 @@ const ChatComponent: React.FC = () => {
     };
 
     connect();
-
     return () => {
       isMounted = false;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (pingInterval) clearInterval(pingInterval);
       if (ws) ws.close();
     };
-  }, [token, username]);
+  }, [token, username, activeChat, chats, contactMap, refreshToken]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [currentMessages]);
+  }, [filteredMessages]);
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     setMessage((prev) => prev + emojiData.emoji);
     setShowEmojiPicker(false);
+  };
+
+  const handleStickerClick = (stickerUrl: string) => {
+    if (!websocket || websocket.readyState !== WebSocket.OPEN || !activeChat) {
+      toast.error('Нет соединения с сервером');
+      return;
+    }
+    const stickerName = stickerUrl.split('/').pop() || 'sticker.png';
+    const payload = {
+      type: 'send_message',
+      data: {
+        channel_id: activeChat,
+        content: '',
+        file_url: stickerUrl,
+        file_name: stickerName,
+      },
+    };
+    websocket.send(JSON.stringify(payload));
+    setShowStickerPicker(false);
+    toast.success('Стикер отправлен');
+  };
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/ogg; codecs=opus' });
+        audioChunksRef.current = [];
+        sendVoiceMessage(audioBlob);
+      };
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+      toast.info('Начата запись голосового сообщения...');
+    } catch (e) {
+      console.error('Error starting recording:', e);
+      toast.error('Не удалось начать запись. Проверьте разрешение на микрофон.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      toast.info('Запись остановлена. Сообщение отправляется...');
+    }
+  };
+
+  const sendVoiceMessage = async (audioBlob: Blob) => {
+    if (!websocket || websocket.readyState !== WebSocket.OPEN || !activeChat) {
+      toast.error('Нет соединения с сервером');
+      return;
+    }
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'voice_message.ogg');
+    try {
+      const uploadRes = await fetch(`${API_BASE}/chat/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!uploadRes.ok) throw new Error('Upload failed');
+      const uploadData = await uploadRes.json();
+      const payload = {
+        type: 'send_message',
+        data: {
+          channel_id: activeChat,
+          content: '',
+          file_url: uploadData.url,
+          file_name: 'Голосовое сообщение.ogg',
+        },
+      };
+      websocket.send(JSON.stringify(payload));
+      toast.success('Голосовое сообщение отправлено');
+    } catch (e) {
+      console.error('Voice message send error:', e);
+      toast.error('Не удалось отправить голосовое сообщение');
+    }
+  };
+
+  const quoteMessage = (msg: Message) => {
+    // const senderName = contactMap[msg.sender] || msg.sender;
+    // const quote = `> ${senderName}: ${msg.content}\n\n`;
+    // setMessage(prev => prev + quote);
+    setQuotedMessage(msg);
+    inputRef.current?.focus();
+  };
+
+  const cancelQuote = () => {
+    setQuotedMessage(null);
+  };
+
+  const startEditMessage = (msg: Message) => {
+    if (msg.sender === username) {
+      setEditingMessage(msg);
+      setMessage(msg.content || '');
+      inputRef.current?.focus();
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingMessage(null);
+    setMessage('');
+  };
+
+  const confirmDeleteMessage = async () => {
+    if (!messageToDelete) return;
+
+    if (messageToDelete.sender !== username) {
+      toast.error('Вы можете удалить только свое сообщение');
+      return;
+    }
+    if (!token || !websocket || websocket.readyState !== WebSocket.OPEN) {
+      toast.error('Нет соединения с сервером');
+      return;
+    }
+    const messageIdToDelete = messageToDelete.id;
+    const channelId = messageToDelete.channel_id;
+
+    setMessagesByChat(prev => {
+      const currentMessages = prev[channelId] || [];
+      const updatedMessages = currentMessages.filter(m => m.id !== messageIdToDelete);
+      return {
+        ...prev,
+        [channelId]: updatedMessages
+      };
+    });
+    setQuotedMessageData(prev => {
+      const newState = { ...prev };
+      if (newState[messageIdToDelete] !== undefined) {
+        delete newState[messageIdToDelete];
+      }
+      return newState;
+    });
+
+    try {
+      const res = await fetch(`${API_BASE}/chat/message/${messageToDelete.id}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+      });
+
+      if (res.ok) {
+        toast.success('Сообщение удалено');
+        console.log(`Сообщение ${messageIdToDelete} успешно удалено с сервера`);
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        console.error('Ошибка удаления сообщения на сервере:', res.status, errorData);
+        toast.error(`Не удалось удалить сообщение: ${errorData.detail || res.statusText}`);
+      }
+    } catch (e: any) {
+      console.error('Ошибка сети при удалении сообщения:', e);
+      toast.error('Ошибка сети при удалении сообщения');
+    }
+    finally {
+      setShowDeleteMessageModal(false);
+      setMessageToDelete(null);
+    }
+  };
+
+  const deleteMessage = async (msg: Message) => {
+    if (msg.sender !== username) {
+      toast.error('Вы можете удалить только свое сообщение');
+      return;
+    }
+    
+    setMessageToDelete(msg);
+    setShowDeleteMessageModal(true);
   };
 
   const handleSendMessage = async () => {
@@ -453,8 +899,11 @@ const ChatComponent: React.FC = () => {
       toast.error('Нет соединения с сервером');
       return;
     }
-    if (!message.trim() && !selectedFile) return;
-
+    if (!message.trim() && !selectedFile && !isRecording) return;
+    if (isRecording) {
+      stopRecording();
+      return;
+    }
     try {
       let fileUrl = '';
       let fileName = '';
@@ -471,20 +920,26 @@ const ChatComponent: React.FC = () => {
         fileUrl = uploadData.url;
         fileName = selectedFile.name;
       }
-
       const payload = {
-        type: 'send_message',
+        type: editingMessage ? 'edit_message' : 'send_message',
         data: {
           channel_id: activeChat,
-          content: message.trim(),
-          file_url: fileUrl,
-          file_name: fileName,
+          content: message || undefined,
+          ...(quotedMessage && { quoted_message_id: quotedMessage.id }), 
+          ...(editingMessage && { message_id: editingMessage.id }),
+          ...(fileUrl && { file_url: fileUrl, file_name: fileName }),
         },
       };
       websocket.send(JSON.stringify(payload));
       setMessage('');
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      if (!editingMessage) { 
+        setQuotedMessage(null);
+      }
+      if (editingMessage) {
+        setEditingMessage(null);
+      }
     } catch (e) {
       console.error('Send message error:', e);
       toast.error('Не удалось отправить сообщение');
@@ -495,6 +950,10 @@ const ChatComponent: React.FC = () => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
+    }
+    if (e.key === 'Escape' && editingMessage) {
+      e.preventDefault();
+      cancelEdit();
     }
   };
 
@@ -530,19 +989,28 @@ const ChatComponent: React.FC = () => {
         });
         if (refreshRes.ok) {
           const { access_token } = await refreshRes.json();
-          refreshToken(access_token);
+           
           return searchContacts(query);
         }
         toast.error('Сессия истекла. Войдите снова.');
         window.location.href = '/login';
         return;
       }
-      if (!res.ok) throw new Error(`Failed to search contacts: ${res.status} ${res.statusText}`);
+      if (!res.ok) {
+        let errorDetail = 'Неизвестная ошибка';
+        try {
+          const errorData = await res.json();
+          errorDetail = errorData.detail || `${res.status} ${res.statusText}`;
+        } catch {
+          errorDetail = `${res.status} ${res.statusText}`;
+        }
+        throw new Error(`Не удалось найти контакты: ${errorDetail}`);
+      }
       const data: Contact[] = await res.json();
       setContacts(data);
     } catch (e: any) {
       console.error('Error searching contacts:', e);
-      toast.error(`Не удалось найти контакты: ${e.message}`);
+      toast.error(e.message);
     } finally {
       setIsLoadingContacts(false);
     }
@@ -563,14 +1031,16 @@ const ChatComponent: React.FC = () => {
         });
         if (refreshRes.ok) {
           const { access_token } = await refreshRes.json();
-          refreshToken(access_token);
+           
           return createPrivateChat(contactId);
         }
         toast.error('Сессия истекла. Войдите снова.');
         window.location.href = '/login';
         return;
       }
-      if (!res.ok) throw new Error(`Failed to create private chat: ${res.status} ${res.statusText}`);
+      if (!res.ok) {
+        throw new Error(`Failed to create private chat: ${res.status} ${res.statusText}`);
+      }
       const newChat: Chat = await res.json();
       setChats((prev) => [...prev, newChat]);
       setActiveChat(newChat.id);
@@ -585,10 +1055,14 @@ const ChatComponent: React.FC = () => {
 
   const createGroupChat = async () => {
     if (!token || selectedContacts.length < 2) {
-      toast.error('Выберите минимум двух участников для группы');
+      toast.error('Выберите минимум двух участников для создания группы');
       return;
     }
+    if (groupName.length === 0) {
+      setGroupName('Chat');
+    }
     try {
+      console.log(groupName);
       const res = await fetch(`${API_BASE}/chat/chats/group`, {
         method: 'POST',
         headers: authHeaders(),
@@ -605,24 +1079,28 @@ const ChatComponent: React.FC = () => {
         });
         if (refreshRes.ok) {
           const { access_token } = await refreshRes.json();
-          refreshToken(access_token);
+           
           return createGroupChat();
         }
         toast.error('Сессия истекла. Войдите снова.');
         window.location.href = '/login';
         return;
       }
-      if (!res.ok) throw new Error(`Failed to create group chat: ${res.status} ${res.statusText}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(`Failed to create group chat: ${res.status} ${res.statusText} - ${errorData.detail || 'Unknown error'}`);
+      }
       const newChat: Chat = await res.json();
       setChats((prev) => [...prev, newChat]);
       setActiveChat(newChat.id);
       setShowCreateGroup(false);
       setGroupName('');
       setSelectedContacts([]);
-      toast.success('Группа создана');
+      setShowContactSearch(false);
+      toast.success('Групповой чат создан');
     } catch (e: any) {
       console.error('Error creating group chat:', e);
-      toast.error(`Не удалось создать группу: ${e.message}`);
+      toast.error(`Не удалось создать групповой чат: ${e.message}`);
     }
   };
 
@@ -645,14 +1123,17 @@ const ChatComponent: React.FC = () => {
         });
         if (refreshRes.ok) {
           const { access_token } = await refreshRes.json();
-          refreshToken(access_token);
+           
           return createChannel();
         }
         toast.error('Сессия истекла. Войдите снова.');
         window.location.href = '/login';
         return;
       }
-      if (!res.ok) throw new Error(`Failed to create channel: ${res.status} ${res.statusText}`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(`Failed to create channel: ${res.status} ${res.statusText} - ${errorData.detail || 'Unknown error'}`);
+      }
       const newChat: Chat = await res.json();
       setChats((prev) => [...prev, newChat]);
       setActiveChat(newChat.id);
@@ -666,13 +1147,16 @@ const ChatComponent: React.FC = () => {
     }
   };
 
-  const inviteToChannel = async (channelId: string, contactIds: string[]) => {
+  const inviteToChat = async (chatId: string, members: string[]) => {
     if (!token) return;
     try {
-      const res = await fetch(`${API_BASE}/chat/chats/${channelId}/invite`, {
+      console.log(chatId);
+      console.log(members);
+
+      const res = await fetch(`${API_BASE}/chat/chats/${chatId}/invite`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ members: contactIds }),
+        body: JSON.stringify({ members }),
       });
       if (res.status === 401) {
         const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
@@ -681,31 +1165,49 @@ const ChatComponent: React.FC = () => {
           body: JSON.stringify({ refresh_token: localStorage.getItem('refresh_token') }),
         });
         if (refreshRes.ok) {
-          const { access_token } = await res.json();
-          refreshToken(access_token);
-          return inviteToChannel(channelId, contactIds);
+          const { access_token } = await refreshRes.json();
+           
+          return inviteToChat(chatId, members);
         }
         toast.error('Сессия истекла. Войдите снова.');
         window.location.href = '/login';
         return;
       }
-      if (!res.ok) throw new Error(`Failed to invite: ${res.status} ${res.statusText}`);
-      toast.success('Приглашены');
+      if (!res.ok) {
+        throw new Error(`Failed to invite to chat: ${res.status} ${res.statusText}`);
+      }
+      const data = await res.json();
+      if (data && Array.isArray(data.members)) {
+        setChats(prevChats =>
+          prevChats.map(chat =>
+            chat.id === chatId
+              ? { ...chat, members: data.members }
+              : chat
+          )
+        );
+        toast.success('Пользователи приглашены в чат');
+      } else {
+        console.error('Invalid data structure received from server:', data);
+        toast.error('Получены некорректные данные от сервера');
+      }
+      toast.success('Пользователи приглашены в чат');
       setSelectedContacts([]);
+      setContactSearchQuery('');
+      setContacts([]);
       setShowInviteModal(false);
     } catch (e) {
-      console.error('Error inviting:', e);
-      toast.error('Не удалось пригласить');
+      console.error('Error inviting to chat:', e);
+      toast.error('Не удалось пригласить пользователей');
     }
   };
 
-  const kickFromChannel = async (channelId: string, contactIds: string[]) => {
+  const kickFromChat = async (chatId: string, members: string[]) => {
     if (!token) return;
     try {
-      const res = await fetch(`${API_BASE}/chat/chats/${channelId}/kick`, {
+      const res = await fetch(`${API_BASE}/chat/chats/${chatId}/kick`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ members: contactIds }),
+        body: JSON.stringify({ members }),
       });
       if (res.status === 401) {
         const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
@@ -715,33 +1217,33 @@ const ChatComponent: React.FC = () => {
         });
         if (refreshRes.ok) {
           const { access_token } = await refreshRes.json();
-          refreshToken(access_token);
-          return kickFromChannel(channelId, contactIds);
+           
+          return kickFromChat(chatId, members);
         }
         toast.error('Сессия истекла. Войдите снова.');
         window.location.href = '/login';
         return;
       }
-      if (!res.ok) throw new Error(`Failed to kick: ${res.status} ${res.statusText}`);
-      toast.success('Исключены');
-      setSelectedContacts([]);
+      if (!res.ok) {
+        throw new Error(`Failed to kick from chat: ${res.status} ${res.statusText}`);
+      }
+      const updatedChat: Chat = await res.json();
+      setChats(prev => prev.map(c => c.id === chatId ? updatedChat : c));
+      toast.success('Пользователи исключены');
+      setSelectedToKick([]);
       setShowKickModal(false);
     } catch (e) {
-      console.error('Error kicking:', e);
-      toast.error('Не удалось исключить');
+      console.error('Error kicking from chat:', e);
+      toast.error('Не удалось исключить пользователей');
     }
   };
 
-  const renameChat = async () => {
-    if (!token || !editChatName.trim() || !activeChat) return;
+  const leaveChat = async (chatId: string) => {
+    if (!token) return;
     try {
-      const res = await fetch(`${API_BASE}/chat/chats/${activeChat}/rename`, {
+      const res = await fetch(`${API_BASE}/chat/chats/${chatId}/leave`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({
-          name: editChatName,
-          description: editChatDescription,
-        }),
       });
       if (res.status === 401) {
         const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
@@ -751,64 +1253,76 @@ const ChatComponent: React.FC = () => {
         });
         if (refreshRes.ok) {
           const { access_token } = await refreshRes.json();
-          refreshToken(access_token);
-          return renameChat();
+           
+          return leaveChat(chatId);
         }
-        toast.error('Сессия истекла.');
+        toast.error('Сессия истекла. Войдите снова.');
         window.location.href = '/login';
         return;
       }
-      if (!res.ok) throw new Error('Failed to rename chat');
-      const updatedChat = await res.json();
-      setChats(chats.map(c => (c.id === activeChat ? updatedChat : c)));
-      toast.success('Название обновлено');
-      setShowEditChatModal(false);
+      if (!res.ok) {
+        throw new Error(`Failed to leave chat: ${res.status} ${res.statusText}`);
+      }
+      setChats(prev => prev.filter(c => c.id !== chatId));
+      if (activeChat === chatId) setActiveChat(null);
+      toast.success('Вы покинули чат');
+      setShowLeaveModal(false);
     } catch (e) {
-      toast.error('Не удалось переименовать');
+      console.error('Error leaving chat:', e);
+      toast.error('Не удалось покинуть чат');
     }
   };
 
-  const deleteChat = async () => {
-    if (!token || !activeChat) return;
-    if (!window.confirm('Вы уверены, что хотите удалить этот чат?')) return;
+  const deleteChat = async (chatId: string) => {
+    if (!token) return;
     try {
-      const res = await fetch(`${API_BASE}/chat/chats/${activeChat}`, {
+      const res = await fetch(`${API_BASE}/chat/chats/${chatId}`, {
         method: 'DELETE',
         headers: authHeaders(),
       });
-      if (res.ok) {
-        setChats(chats.filter(c => c.id !== activeChat));
-        if (activeChat === activeChat) setActiveChat(null);
-        toast.success('Чат удалён');
-        setShowEditChatModal(false);
-      } else {
-        toast.error('Не удалось удалить чат');
+      if (res.status === 401) {
+        const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: localStorage.getItem('refresh_token') }),
+        });
+        if (refreshRes.ok) {
+          const { access_token } = await refreshRes.json();
+           
+          return deleteChat(chatId);
+        }
+        toast.error('Сессия истекла. Войдите снова.');
+        window.location.href = '/login';
+        return;
       }
+      if (!res.ok) {
+        throw new Error(`Failed to delete chat: ${res.status} ${res.statusText}`);
+      }
+      setChats(prev => prev.filter(c => c.id !== chatId));
+      if (activeChat === chatId) setActiveChat(null);
+      toast.success('Чат удален');
+      setShowDeleteModal(false);
     } catch (e) {
-      toast.error('Ошибка при удалении');
+      console.error('Error deleting chat:', e);
+      toast.error('Не удалось удалить чат');
     }
   };
 
-  const leaveChat = async () => {
-    if (!token || !activeChat) return;
-    if (!window.confirm('Покинуть этот чат?')) return;
-    try {
-      const res = await fetch(`${API_BASE}/chat/chats/${activeChat}/leave`, {
-        method: 'POST',
-        headers: authHeaders(),
-      });
-      if (res.ok) {
-        setChats(chats.filter(c => c.id !== activeChat));
-        if (activeChat === activeChat) setActiveChat(null);
-        toast.success('Вы покинули чат');
-        setShowEditChatModal(false);
-      } else {
-        toast.error('Не удалось покинуть');
-      }
-    } catch (e) {
-      toast.error('Ошибка при выходе');
-    }
-  };
+  const filteredChats = useMemo(() => {
+      console.log(`filteredChats ${chats}`);
+    return chats.filter(chat => {
+      if (!chat.members || !Array.isArray(chat.members)) {
+      // Если members нет или это не массив, можно:
+      // 1. Пропустить этот чат (return false)
+      // 2. Обработать иначе
+      // 3. Залогировать предупреждение
+      console.warn('Chat object is missing members array or members is not an array:', chat);
+      return false; // Пропускаем такой чат
+  }
+      const chatName = chat.is_group || chat.is_channel ? chat.name?.toLowerCase() : contactMap[chat.members.find(m => m !== username)!]?.toLowerCase() || 'личный чат';
+      return chatName?.includes(searchQuery.toLowerCase());
+    });
+  }, [chats, searchQuery, contactMap, username]);
 
   const toggleContactSelection = (contact: Contact) => {
     setSelectedContacts(prev =>
@@ -818,396 +1332,1172 @@ const ChatComponent: React.FC = () => {
     );
   };
 
-  const filteredChats = chats.filter((chat) => {
-    const query = searchQuery.toLowerCase();
-    const nameMatch = chat.name ? chat.name.toLowerCase().includes(query) : false;
-    const memberMatch = chat.members.some((m) => m.toLowerCase().includes(query));
-    return nameMatch || memberMatch;
-  });
-
-  const formatTimestamp = (ts: string): string => {
-    const d = new Date(ts);
-    return isValid(d) ? format(d, 'HH:mm', { locale: ru }) : '—';
+  const toggleKickSelection = (member: string) => {
+    setSelectedToKick(prev =>
+      prev.includes(member)
+        ? prev.filter(m => m !== member)
+        : [...prev, member]
+    );
   };
 
-  return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Connection status */}
-      <div
-        className={`fixed bottom-4 left-4 px-3 py-1 rounded-full text-xs font-medium z-50 ${
-          connectionStatus === 'connected'
-            ? 'bg-green-100 text-green-800'
-            : connectionStatus === 'connecting'
-            ? 'bg-yellow-100 text-yellow-800'
-            : 'bg-red-100 text-red-800'
-        }`}
-      >
-        {connectionStatus === 'connected' ? 'Подключено' : connectionStatus === 'connecting' ? 'Подключение...' : 'Отключено'}
-      </div>
+  const formatTimestamp = (timestamp: string) => {
+    if (!timestamp || !isValid(new Date(timestamp))) return 'Неизвестно';
+    return format(new Date(timestamp), 'HH:mm', { locale: ru });
+  };
 
-      {/* Left panel */}
-      <div className="w-80 border-r border-gray-200 bg-white flex flex-col">
-        {/* Header */}
-        <div className="p-3 border-b border-gray-200 flex items-center justify-between">
-          <div className="relative flex-1">
-            <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input
-              type="text"
-              placeholder="Поиск чатов..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div className="relative ml-2" ref={createOptionsRef}>
-            <button
-              onClick={() => setShowCreateOptions(!showCreateOptions)}
-              className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-            >
-              <Plus size={20} />
-            </button>
-            {showCreateOptions && (
-              <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 z-10 w-48">
-                <button
-                  onClick={() => {
-                    setShowCreateGroup(true);
-                    setShowCreateOptions(false);
-                  }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center transition-colors"
+  const formatDate = (timestamp: string) => {
+    if (!timestamp || !isValid(new Date(timestamp))) return 'Неизвестно';
+    const today = new Date();
+    const messageDate = new Date(timestamp);
+    if (format(today, 'yyyy-MM-dd') === format(messageDate, 'yyyy-MM-dd')) {
+      return 'Сегодня';
+    }
+    if (format(today, 'yyyy-MM-dd') === format(new Date(messageDate.setDate(messageDate.getDate() + 1)), 'yyyy-MM-dd')) {
+      return 'Вчера';
+    }
+    return format(new Date(timestamp), 'dd MMMM yyyy', { locale: ru });
+  };
+
+  const renderContent = (content: string) => {
+    if (!content) return null;
+    return <span dangerouslySetInnerHTML={{ __html: marked.parseInline(content) }} />;
+  };
+
+  const getChatDisplayName = (chat: Chat) => {
+    if (chat.is_group || chat.is_channel) {
+      return chat.name || `Чат ${chat.id.slice(0, 4)}`;
+    }
+    const otherMember = chat.members.find(m => m !== username);
+    return otherMember ? contactMap[otherMember] || otherMember : 'Личный чат';
+  };
+
+  const getChatDisplayIcon = (chat: Chat, size: number = 20) => {
+    if (chat.is_group) return <Users size={size} />;
+    if (chat.is_channel) return <DotsThreeVertical size={size} />;
+    return <UserCircle size={size} />;
+  };
+  
+  const openEditChatModal = () => {
+    if (currentChat) {
+      // Инициализируем поля ввода текущими значениями чата
+      setEditChatName(currentChat.name || '');
+      setEditChatDescription(currentChat.description || '');
+      setShowEditChatModal(true);
+    }
+  };
+
+  const getFileIcon = (fileName: string) => {
+    const iconStyle = { fontSize: '50px' };
+    if (!fileName) return <FileOutlined />;
+
+    const extension = fileName.split('.').pop()?.toLowerCase();
+
+    switch (extension) {
+      case 'png':
+      case 'jpg':
+      case 'jpeg':
+      case 'gif':
+      case 'webp':
+      case 'svg':
+      case 'bmp':
+      case 'tiff':
+        return <FileImageOutlined style={iconStyle}/>;
+      case 'pdf':
+        return <FilePdfOutlined style={iconStyle}/>;
+      case 'doc':
+      case 'docx':
+        return <FileWordOutlined style={iconStyle}/>;
+      case 'xls':
+      case 'xlsx':
+        return <FileExcelOutlined style={iconStyle}/>;
+      case 'txt':
+        return <BsFiletypeTxt  style={iconStyle}/>
+      case 'md':
+      case 'rtf':
+        return <FileTextOutlined style={iconStyle}/>;
+      case 'zip':
+      case 'rar':
+      case '7z':
+      case 'tar':
+      case 'gz':
+        return <FileZipOutlined style={iconStyle}/>;
+      default:
+        return <FileOutlined style={iconStyle}/>; 
+    }
+  };
+
+  const scrollToMessage = (messageId: string | null) => {
+    if (!messageId) {
+      return null;
+    }
+    const element = document.getElementById(`message-${messageId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element.classList.add('bg-yellow-200', 'dark:bg-yellow-400/30');
+      setTimeout(() => {
+        element.classList.remove('bg-yellow-200', 'dark:bg-yellow-400/30');
+      }, 2000);
+    } else {
+      toast.info('Цитируемое сообщение не найдено в текущем списке.');
+    }
+  };
+
+  const renderMessageItem = (msg: Message) => {
+    const messageDate = formatDate(msg.timestamp);
+
+    const getQuotedMessagePreview = (quotedId: string): { sender: string; content: string } | null => {
+      const fullQuotedMsg = quotedMessageData[quotedId];
+      if (fullQuotedMsg) {
+        const senderName = contactMap[fullQuotedMsg.sender] || fullQuotedMsg.sender;
+        let contentPreview = 'Сообщение';
+        if (fullQuotedMsg.content) {
+          contentPreview = fullQuotedMsg.content.substring(0, 50) + (fullQuotedMsg.content.length > 50 ? '...' : '');
+        } else if (fullQuotedMsg.file_name) {
+          contentPreview = `📎 ${fullQuotedMsg.file_name}`;
+        }
+
+        return {
+          sender: senderName,
+          content: contentPreview
+        };
+      }
+      return null;
+    };
+
+    const isMyMessage = msg.sender === username;
+    const messageClass = isMyMessage
+      ? 'bg-indigo-500 text-white self-end'
+      : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-200 self-start';
+    
+    return (
+      <div
+        key={msg.id}
+        id={`message-${msg.id}`}
+        className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'} group`}
+        onContextMenu={(e) => handleMessageContextMenu(e, msg)}
+      >
+        <div className={`relative max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl px-4 py-2 rounded-lg ${messageClass} break-words word-break`}>
+          {!isMyMessage && (
+            <div className="font-semibold text-sm mb-1">{contactMap[msg.sender] || msg.sender}</div>
+          )}
+          {/* Ответ */}
+          {msg.quoted_message_id && (
+            (() => {
+              const isDataLoaded = quotedMessageData[msg.quoted_message_id!] !== undefined;
+              const previewText = getQuotedMessagePreview(msg.quoted_message_id!);
+              if (!isDataLoaded) { 
+                fetchQuotedMessageData(msg.quoted_message_id!).catch(err => {
+                  console.warn(`Фоновая загрузка цитаты ${msg.quoted_message_id!} провалилась:`, err);
+                });
+              }
+
+              return (
+                <div 
+                  className="mb-2 p-2 bg-black/10 dark:bg-white/10 border-l-4 border-purple-500 rounded text-sm cursor-pointer hover:bg-black/20 dark:hover:bg-white/20 transition-colors"
+                  onClick={() => {scrollToMessage(msg.quoted_message_id)}}
                 >
-                  <Users size={16} className="mr-2" />
-                  Создать группу
-                </button>
-                <button
-                  onClick={() => {
-                    setShowCreateChannel(true);
-                    setShowCreateOptions(false);
-                  }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center transition-colors"
-                >
-                  <Users size={16} className="mr-2" />
-                  Создать канал
-                </button>
+                  <span className="italic opacity-80 flex items-center">
+                    <CommentOutlined size={14} className="mr-1" />
+                    {previewText?.sender}
+                  </span>
+                  <span className="italic opacity-80 flex items-center">
+                    {previewText?.content}
+                  </span>
+                </div>
+              );
+            })()
+          )}
+          <div className="text-sm">
+            {renderContent(msg.content)}
+            {msg.file_url && (
+              <div className="mt-2">
+                {msg.file_name ? (
+                  <div className="flex flex-col">
+                    <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="text-black hover:underline flex items-center">
+                      {getFileIcon(msg.file_name)}
+                      {msg.file_name}
+                    </a>
+                    {(msg.file_url.endsWith('.png') || msg.file_url.endsWith('.jpg') || msg.file_url.endsWith('.jpeg') || msg.file_url.endsWith('.gif') || msg.file_url.endsWith('.webp')) ? (
+                      <img src={msg.file_url} alt={msg.file_name} className="mt-2 rounded max-h-48 object-contain" />
+                    ) : null}
+                  </div>
+                ) : (
+                  <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline flex items-center">
+                    <Paperclip size={16} className="mr-1" />
+                    Файл
+                  </a>
+                )}
               </div>
             )}
+            {msg.edited && <span className="text-xs text-black ml-2">(ред.)</span>}
+          </div>
+          <div className={`text-right text-xs mt-1 ${isMyMessage ? 'text-gray-300' : 'text-gray-500'}`}>
+            {formatTimestamp(msg.timestamp)}
+          </div>
+          
+          <div className="absolute top-0 left-0 right-0 bottom-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            <button
+              onClick={(e) => { e.stopPropagation(); quoteMessage(msg); }}
+              className="absolute bottom-1 right-1/2 transform translate-x-1/2 bg-gray-500 hover:bg-gray-600 text-white rounded-full p-1 text-xs pointer-events-auto"
+            >
+              <PaperPlaneRight size={12} />
+            </button>
           </div>
         </div>
+      </div>
+    );
+  };
 
-        {/* Contact search */}
-        <div className="p-3 border-b border-gray-200">
-          <div className="relative">
-            <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input
-              type="text"
-              placeholder="Поиск контактов..."
-              value={contactSearchQuery}
-              onChange={(e) => {
-                const val = e.target.value;
-                setContactSearchQuery(val);
-                if (val.trim()) {
-                  searchContacts(val);
-                  setShowContactSearch(true);
-                } else {
-                  setContacts([]);
-                  setShowContactSearch(false);
-                }
-              }}
-              className="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+  const renderMessages = () => {
+    let lastDate = '';
+    const messagesToRender = filteredMessages || [];
+
+    return messagesToRender.map((msg) => {
+      const messageDate = formatDate(msg.timestamp);
+      const showDateHeader = messageDate !== lastDate;
+      lastDate = messageDate;
+
+      return (
+        <React.Fragment key={`fragment-${msg.id}`}>
+          {showDateHeader && (
+            <div className="text-center my-2">
+              <span className="inline-block bg-gray-300 dark:bg-gray-800 text-gray-700 dark:text-gray-400 text-xs px-2 py-1 rounded-full">
+                {messageDate}
+              </span>
+            </div>
+          )}
+          {renderMessageItem(msg)}
+        </React.Fragment>
+      );
+    });
+  };
+
+  const renderSidebar = () => (
+    <div className="flex flex-col w-full md:w-1/3 border-r border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900">
+      <div className="flex items-center justify-between p-4 border-b border-gray-300 dark:border-gray-800">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Чаты</h2>
+        <div className="relative">
+          <button onClick={() => setShowCreateOptions(!showCreateOptions)} className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+            <Plus size={24} />
+          </button>
+          {showCreateOptions && (
+            <div ref={createOptionsRef} className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-10">
+              <a onClick={() => { setShowContactSearch(true); setShowCreateOptions(false); }} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                Новый личный чат
+              </a>
+              <a onClick={() => { setShowCreateGroup(true); setShowCreateOptions(false); setShowContactSearch(true); }} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                Новая группа
+              </a>
+              <a onClick={() => { setShowCreateChannel(true); setShowCreateOptions(false); }} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                Новый канал
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="p-4 border-b border-gray-300 dark:border-gray-800">
+        <div className="relative">
+          <MagnifyingGlass size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Поиск чатов..."
+            className="w-full pl-10 pr-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        {isLoadingChats ? (
+          <div className="p-4 text-center text-gray-500">Загрузка чатов...</div>
+        ) : filteredChats.length > 0 ? (
+          filteredChats.map((chat) => (
+            <div
+              key={chat.id}
+              onClick={() => setActiveChat(chat.id)}
+              className={`flex items-center p-4 border-b border-gray-300 dark:border-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${activeChat === chat.id ? 'bg-gray-200 dark:bg-gray-700' : ''}`}
+            >
+              <div className="flex-shrink-0 mr-3 text-gray-500 dark:text-gray-400">
+                {getChatDisplayIcon(chat)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">{getChatDisplayName(chat)}</div>
+                  {unreadCounts[chat.id] > 0 && (
+                    <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full">
+                      {unreadCounts[chat.id]}
+                    </span>
+                  )}
+                </div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                  {messagesByChat[chat.id] && messagesByChat[chat.id].length > 0
+                    ? messagesByChat[chat.id][messagesByChat[chat.id].length - 1].content?.split('\n')[0] || 'Новый файл'
+                    : 'Нет сообщений'}
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="p-4 text-center text-gray-500">Нет чатов.</div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderEditingMessage = () => {
+    if (!editingMessage) return null;
+
+    return (
+      <div className="w-full max-w-full overflow-hidden">
+        <div className="flex items-start max-w-full w-full mb-3 p-3 bg-gray-100 dark:bg-gray-800 rounded-t-lg border border-gray-200 dark:border-gray-700">
+          <EditOutlined className="text-3xl text-purple-500 mt-1 flex-shrink-0 mr-2" />
+          
+          <div className="flex-1 min-w-0 w-full">
+            <div className="flex items-start w-full">
+              <div className="border-l-[4px] border-purple-500 pl-3 rounded-sm flex-1 min-w-0 w-full max-w-full overflow-hidden" style={{wordBreak: 'break-word'}}>
+                <div className="text-sm font-semibold text-purple-600 dark:text-purple-400 mb-1 truncate">
+                  Редактирование
+                </div>
+                <div className="text-sm text-gray-700 dark:text-gray-300 w-full max-w-full overflow-hidden">
+                  <div className="line-clamp-2 break-words">
+                    {editingMessage.content ? (
+                      editingMessage.content
+                    ) : editingMessage.file_name ? (
+                      `📎 ${editingMessage.file_name}`
+                    ) : (
+                      'Сообщение'
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <button
+                onClick={cancelEdit}
+                className="ml-2 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+                aria-label="Отменить цитирование"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
         </div>
+      </div>
+    );
+  };
 
-        {/* Chat list */}
-        <div className="flex-1 overflow-y-auto">
-          {showContactSearch && contactSearchQuery && (
-            <div className="border-b border-gray-200">
-              <div className="p-3 bg-gray-50">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Результаты:</h4>
-                {isLoadingContacts ? (
-                  <div className="text-center text-sm text-gray-500">Поиск...</div>
-                ) : contacts.length > 0 ? (
-                  contacts.map((contact) => (
-                    <div
-                      key={contact.id}
-                      onClick={() => (showInviteModal || showKickModal ? toggleContactSelection(contact) : createPrivateChat(contact.id))}
-                      className={`p-2 cursor-pointer hover:bg-blue-50 rounded-lg transition-colors flex items-center ${
-                        selectedContacts.some((c) => c.id === contact.id) ? 'bg-blue-100' : ''
-                      }`}
-                    >
-                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-2">
-                        <span className="text-xs font-medium">{getInitials(contact.displayName || contact.id)}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{contact.displayName}</div>
-                        <div className="text-xs text-gray-500 truncate">{contact.position}</div>
-                      </div>
-                      {(showInviteModal || showKickModal) && (
-                        <input
-                          type="checkbox"
-                          checked={selectedContacts.some((c) => c.id === contact.id)}
-                          onChange={() => toggleContactSelection(contact)}
-                          className="mr-2"
-                        />
-                      )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowContactSearch(false);
-                          setContactSearchQuery('');
-                          setContacts([]);
-                        }}
-                        className="text-gray-400 hover:text-gray-600"
-                      >
-                        <X size={14} />
-                      </button>
+  const renderQuotedMessage = () => {
+    if (!quotedMessage) return null;
+
+    return (
+      <div className="w-full max-w-full overflow-hidden">
+        <div className="flex items-start max-w-full w-full mb-3 p-3 bg-gray-100 dark:bg-gray-800 rounded-t-lg border border-gray-200 dark:border-gray-700">
+          <CommentOutlined className="text-xl text-purple-500 mt-1 flex-shrink-0 mr-2" />
+          
+          <div className="flex-1 min-w-0 w-full">
+            <div className="flex items-start w-full">
+              <div className="border-l-[4px] border-purple-500 pl-3 rounded-sm flex-1 min-w-0 w-full max-w-full overflow-hidden">
+                <div className="text-sm font-semibold text-purple-600 dark:text-purple-400 mb-1 truncate">
+                  Ответ {contactMap[quotedMessage.sender] || quotedMessage.sender}:
+                </div>
+                <div className="text-sm text-gray-700 dark:text-gray-300 w-full max-w-full overflow-hidden">
+                  <div className="line-clamp-2 break-words">
+                    {quotedMessage.content ? (
+                      quotedMessage.content
+                    ) : quotedMessage.file_name ? (
+                      `📎 ${quotedMessage.file_name}`
+                    ) : (
+                      'Сообщение'
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <button
+                onClick={cancelQuote}
+                className="ml-2 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0"
+                aria-label="Отменить цитирование"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderChatInfoSidebar = () => {
+    if (!currentChat || !showChatInfoSidebar) {
+      return null;
+    }
+
+    return (
+      <div 
+        className="bg-black bg-opacity-40 transition-opacity duration-300 ease-in-out"
+        onClick={() => setShowChatInfoSidebar(false)}
+      >
+        <div 
+          className="h-full w-[420px] bg-white dark:bg-gray-800 shadow-xl transform transition-transform duration-300 ease-in-out"
+          style={{ 
+            transform: showChatInfoSidebar ? 'translateX(0)' : 'translateX(100%)',
+          }}
+          onClick={(e) => e.stopPropagation()} 
+        >
+          {renderEditChatModal()}
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Информация о чате</h3>
+            <div className=''>
+              <button
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                onClick={openEditChatModal}
+              >
+                <EditOutlined className="text-2xl mr-4" />
+              </button>
+              <button 
+                onClick={() => setShowChatInfoSidebar(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                aria-label="Закрыть"
+              >
+                <X size={24} />
+              </button>
+            </div>
+          </div>
+          <div className="p-4 overflow-y-auto h-[calc(100%-65px)]">
+            
+            <div className="mb-6">
+              <div className="flex flex-col items-center mb-4">
+                <div className="mb-2 text-gray-500 dark:text-gray-400 text-9xl">
+                  {getChatDisplayIcon(currentChat, 180)}
+                </div>
+                <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  {getChatDisplayName(currentChat)}
+                </h4>
+                <div className="text-sm">
+                  <div className="text-gray-500 dark:text-gray-400">Участники ({currentChat.members?.length || 0})</div>
+                </div>
+                {currentChat.description && (
+                  <div className='flex justify-start w-full gap-8 pl-5 pb-2 mt-12 rounded-xl hover:bg-gray-100'>
+                    <InfoCircleOutlined className='text-2xl text-gray-600'/>
+                    <div>
+                      <p className="text-black text-lg dark:text-gray-400 mt-1">{currentChat.description}</p>
+                      <p className="text-gray-600 text-xs dark:text-gray-400">Информация</p>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center text-sm text-gray-500">Не найдено</div>
+                  </div>
                 )}
               </div>
             </div>
-          )}
 
-          {isLoadingChats ? (
-            <div className="p-4 text-center text-gray-500">Загрузка...</div>
-          ) : filteredChats.length === 0 ? (
-            <div className="p-4 text-center text-gray-500">Чаты не найдены</div>
-          ) : (
-            filteredChats.map((chat) => (
-              <div
-                key={chat.id}
-                onClick={() => setActiveChat(chat.id)}
-                className={`flex items-center p-3 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
-                  activeChat === chat.id ? 'bg-blue-50' : ''
-                }`}
-              >
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                  {chat.is_channel ? <Users size={24} /> : <UserCircle size={24} />}
-                </div>
-                <div className="ml-3 flex-1 min-w-0">
-                  <div className="flex justify-between items-baseline">
-                    <h3 className="text-sm font-medium text-gray-900 truncate">
-                      {chat.name || chat.members.filter((m) => m !== username).map(m => getDisplayName(m)).join(', ')}
-                      {chat.is_channel && ' 📢'}
-                    </h3>
-                    {unreadCounts[chat.id] > 0 && (
-                      <span className="text-xs bg-red-500 text-white rounded-full px-2 py-1">
-                        {unreadCounts[chat.id]}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500 truncate">
-                    {chat.is_channel ? 'Канал' : chat.is_group ? 'Группа' : 'Личный чат'}
-                  </p>
-                </div>
+            <div className="mb-6">
+              <h5 className="text-md font-semibold mb-2 text-gray-900 dark:text-gray-100">Участники</h5>
+              <div className="space-y-2 max-h-1/2 overflow-y-auto">
+                {currentChat.members && currentChat.members.length > 0 ? (
+                  currentChat.members.map((member, index) => (
+                    <div key={index} className="flex items-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                      <UserCircle size={20} className="mr-2 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                      <span className="truncate">{contactMap[member] || member}</span>
+                      {currentChat.creator_username === member && (
+                        <span className="ml-2 text-xs px-1.5 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 rounded">
+                          Админ
+                        </span>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">Нет участников</p>
+                )}
               </div>
-            ))
-          )}
+            </div>
+
+            {currentChat.is_group || currentChat.is_channel ? (
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                {currentChat.creator_username !== username ? (
+                  <button
+                    onClick={() => {
+                      console.info('Функция пока не реализована.');
+                    }}
+                    className="w-full py-2 px-4 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
+                  >
+                    Покинуть чат
+                  </button>
+                ) : (
+                  <p className="text-gray-500 dark:text-gray-400 text-sm text-center">
+                    Вы являетесь создателем этого чата.
+                  </p>
+                )}
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
+    );
+  };
 
-      {/* Main area */}
-      <div className="flex-1 flex flex-col">
-        {isLoadingMessages && activeChat ? (
-          <div className="flex-1 flex items-center justify-center bg-gray-50">
-            <div className="text-center p-6">Загрузка сообщений...</div>
+  const handleEditChatSubmit = async (e: React.FormEvent) => {
+    console.log('dsf');
+  };
+  const renderEditChatModal = () => {
+    if (!showEditChatModal || !currentChat) {
+      return null;
+    }
+
+    return (
+      <div 
+        className="bg-black bg-opacity-40 transition-opacity duration-300 ease-in-out z-[101]"
+        onClick={() => setShowEditChatModal(false)}
+      >
+        <div 
+          className="h-full w-[420px] bg-white dark:bg-gray-800 shadow-xl transform transition-transform duration-300 ease-in-out flex flex-col"
+          style={{ 
+            transform: showEditChatModal ? 'translateX(0)' : 'translateX(100%)',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Редактировать чат</h3>
+            <button 
+              onClick={() => setShowEditChatModal(false)}
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              aria-label="Закрыть"
+            >
+              <X size={24} />
+            </button>
           </div>
-        ) : currentChat ? (
-          <>
-            <div className="flex items-center p-3 border-b border-gray-200 bg-white">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                {currentChat.is_channel ? <Users size={24} /> : <UserCircle size={24} />}
+
+          <form onSubmit={handleEditChatSubmit} className="flex flex-col flex-1 overflow-hidden">
+            <div className="p-4 flex-1 overflow-y-auto">
+              <div className="flex flex-col items-center mb-6">
+                <div className="mb-2 text-gray-500 dark:text-gray-400 text-6xl">
+                  {getChatDisplayIcon(currentChat, 96)}
+                </div>
+                <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 text-center">
+                  {currentChat.is_group || currentChat.is_channel
+                    ? (currentChat.name || 'Без названия')
+                    : 'Личный чат'}
+                </h4>
               </div>
-              <div className="ml-3 flex-1">
-                <h2 className="text-lg font-medium">
-                  {currentChat.name || currentChat.members.filter((m) => m !== username).map(m => getDisplayName(m)).join(', ')}
-                  {currentChat.is_channel && ' 📢'}
-                </h2>
-                <p className="text-xs text-gray-500">Создатель: {getDisplayName(currentChat.creator_username)}</p>
-                <p className="text-xs text-gray-500">Участники: {currentChat.members.map(m => getDisplayName(m)).join(', ')}</p>
-                {isTyping && <p className="text-xs text-gray-500">{getDisplayName(typingUser)} печатает…</p>}
+
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="edit-chat-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Название
+                  </label>
+                  <input
+                    type="text"
+                    id="edit-chat-name"
+                    value={editChatName}
+                    onChange={(e) => setEditChatName(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    placeholder="Введите название чата"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="edit-chat-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Описание
+                  </label>
+                  <textarea
+                    id="edit-chat-description"
+                    value={editChatDescription}
+                    onChange={(e) => setEditChatDescription(e.target.value)}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    placeholder="Введите описание чата (необязательно)"
+                  />
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
+            </div>
+
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+              <div className="flex justify-end space-x-3">
                 <button
-                  className="p-2 text-gray-500 hover:text-gray-700"
-                  onClick={() => {
-                    setEditChatName(currentChat.name || '');
-                    setEditChatDescription(currentChat.description || '');
-                    setShowEditChatModal(true);
-                  }}
-                  title="Настройки"
+                  type="button"
+                  onClick={() => setShowEditChatModal(false)}
+                  className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
                 >
-                  <DotsThreeVertical size={20} />
+                  Отмена
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                >
+                  Сохранить
                 </button>
               </div>
             </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
 
-            {/* Messages */}
-            <div
-              className="flex-1 overflow-y-auto p-4 bg-gray-50"
-              onScroll={handleScroll}
-              style={{
-                backgroundImage:
-                  'url("data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' viewBox=\'0 0 100 100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z\' fill=\'%239C92AC\' fill-opacity=\'0.05\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")',
-              }}
-            >
-              {currentMessages.map((msg) => {
-                const isOwn = msg.sender === username;
-                const senderName = getDisplayName(msg.sender);
-                return (
-                  <div key={msg.id} className={`mb-4 flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                    <div
-                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                        isOwn
-                          ? 'bg-blue-500 text-white rounded-br-none'
-                          : 'bg-white border border-gray-200 rounded-bl-none'
-                      }`}
-                    >
-                      {!isOwn && (
-                        <div className="text-xs font-medium text-gray-700 mb-1">{senderName}</div>
-                      )}
-                      {msg.file_url && (
-                        <div className="mb-2">
-                          <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
-                            {msg.file_name}
-                          </a>
-                        </div>
-                      )}
-                      <div className="text-sm">{msg.content}</div>
-                      <div className="flex items-center justify-end mt-1 space-x-1">
-                        <span className="text-xs opacity-70">{formatTimestamp(msg.timestamp)}</span>
-                        {isOwn && (
-                          <span className={`text-xs ${msg.is_read ? 'text-blue-300' : 'text-gray-200'}`}>
-                            ✓{msg.is_read && '✓'}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              <div ref={messagesEndRef} />
+  const renderChatWindow = () => {
+    if (!activeChat || !currentChat) {
+      return (
+        <div className="flex-1 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+          <div className="text-gray-500 dark:text-gray-400 text-lg">Выберите чат для начала общения</div>
+        </div>
+      );
+    }
+    return (
+      <div className="flex flex-1 bg-gray-100 dark:bg-gray-800">
+        <div className="flex flex-col flex-1 bg-gray-100 dark:bg-gray-800">
+          <div className="flex items-center justify-between p-4 border-b border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900">
+            {/*  */}
+            <div className="flex items-center hover:cursor-pointer"> 
+              <div className="flex-shrink-0 mr-3 text-gray-500 dark:text-gray-400"
+                onClick={ () => {setShowChatInfoSidebar(true)}}
+              >
+                {getChatDisplayIcon(currentChat)}
+              </div>
+              <div className="flex flex-col">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{getChatDisplayName(currentChat)}</h2>
+                {currentChat.is_channel && (
+                  <div className="text-sm text-gray-500 dark:text-gray-400">{currentChat.description}</div>
+                )}
+              </div>
             </div>
-
-            {/* Input */}
-            <div className="p-3 border-t border-gray-200 bg-white relative">
+            <div className="relative">
+              <button onClick={() => setShowChatOptions(!showChatOptions)} className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                <DotsThreeVertical size={24} />
+              </button>
+              {showChatOptions && (
+                <div ref={chatOptionsRef} className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-10">
+                  {(currentChat.is_group || currentChat.is_channel) && (
+                    <>
+                      <a onClick={() => { setShowInviteModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                        Пригласить пользователей
+                      </a>
+                      {currentChat.creator_username === username && (
+                        <a onClick={() => { setShowKickModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                          Исключить пользователей
+                        </a>
+                      )}
+                    </>
+                  )}
+                  <a onClick={() => { setShowLeaveModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                    Покинуть чат
+                  </a>
+                  {currentChat.creator_username === username && (
+                    <a onClick={() => { setShowDeleteModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-red-600 hover:bg-red-100 dark:hover:bg-red-900 cursor-pointer">
+                      Удалить чат
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-col flex-1 overflow-y-auto p-4 space-y-2 messages-container relative" onScroll={handleScroll}>
+            {hasMoreByChat[activeChat] && isLoadingMessages && (
+              <div className="text-center text-gray-500">Загрузка старых сообщений...</div>
+            )}
+            {renderMessages()}
+            <div ref={messagesEndRef} />
+            {renderContextMenu()}
+          </div>
+          {isTyping && typingUser !== username && (
+            <div className="p-2 text-sm text-gray-500 dark:text-gray-400">
+              {contactMap[typingUser] || typingUser} печатает...
+            </div>
+          )}
+            {/* INPUT BAR */}
+            <div className="p-4 border-t border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900 relative">
+              {renderQuotedMessage()}
+              {renderEditingMessage()}
               {showEmojiPicker && (
-                <div className="absolute bottom-16 left-4 z-10">
+                <div className="absolute bottom-16 left-0 z-10">
                   <EmojiPicker onEmojiClick={handleEmojiClick} />
                 </div>
               )}
-              <div className="flex items-center">
-                <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} />
-                <button
-                  className="p-2 text-gray-500 hover:text-gray-700"
-                  title="Прикрепить файл"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Paperclip size={20} />
+              {showStickerPicker && (
+                <div ref={stickerPickerRef} className="absolute bottom-16 left-0 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 grid grid-cols-4 gap-2">
+                  {stickers.map((sticker, index) => (
+                    <button key={index} onClick={() => handleStickerClick(sticker)} className="w-12 h-12">
+                      <img src={sticker} alt={`Sticker ${index + 1}`} className="w-full h-full object-contain" />
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center space-x-2">
+                <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                  <Smiley size={24} />
                 </button>
-                <button
-                  className="p-2 text-gray-500 hover:text-gray-700"
-                  title="Эмодзи"
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                >
-                  <Smiley size={20} />
+                <button onClick={() => setShowStickerPicker(!showStickerPicker)} className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                  <Sticker size={24} />
                 </button>
+                <label className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer">
+                  <Paperclip size={24} />
+                  <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+                </label>
                 <input
-                  ref={inputRef}
                   type="text"
-                  placeholder="Напишите сообщение..."
                   value={message}
-                  onChange={(e) => {
-                    setMessage(e.target.value);
-                    handleTyping();
-                  }}
+                  onChange={(e) => setMessage(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  className="flex-1 mx-2 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onInput={handleTyping}
+                  placeholder={editingMessage ? 'Редактировать сообщение...' : 'Напишите сообщение...'}
+                  className="flex-1 px-4 py-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
+                  ref={inputRef}
                 />
-                <button
-                  onClick={handleSendMessage}
-                  disabled={(!message.trim() && !selectedFile) || connectionStatus !== 'connected'}
-                  className={`p-2 rounded-full ${
-                    (message.trim() || selectedFile) && connectionStatus === 'connected'
-                      ? 'bg-blue-500 text-white hover:bg-blue-600'
-                      : 'text-gray-400 cursor-not-allowed'
-                  }`}
-                >
-                  <PaperPlaneRight size={20} />
+                {editingMessage ? (
+                  <button onClick={cancelEdit} className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900 rounded-full transition-colors">
+                    <X size={24} />
+                  </button>
+                ) : (
+                  <button onClick={handleSendMessage} className="p-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
+                    <PaperPlaneRight size={24} />
+                  </button>
+                )}
+                <button onClick={isRecording ? stopRecording : startRecording} className={`p-2 rounded-full ${isRecording ? 'bg-red-600' : 'bg-gray-200 dark:bg-gray-700'} text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors`}>
+                  <Microphone size={24} color={isRecording ? 'white' : 'currentColor'} />
                 </button>
               </div>
               {selectedFile && (
-                <div className="mt-2 text-sm text-gray-600">
-                  Файл: {selectedFile.name}
-                  <button
-                    className="ml-2 text-red-500"
-                    onClick={() => {
-                      setSelectedFile(null);
-                      if (fileInputRef.current) fileInputRef.current.value = '';
-                    }}
-                  >
-                    Удалить
+                <div className="mt-2 text-sm text-gray-600 dark:text-gray-400 flex items-center">
+                  <Paperclip size={16} className="mr-1" />
+                  <span>Выбран файл: {selectedFile.name}</span>
+                  <button onClick={() => setSelectedFile(null)} className="ml-2 text-red-500 hover:text-red-700">
+                    <X size={16} />
                   </button>
                 </div>
               )}
             </div>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center bg-gray-50">
-            <div className="text-center p-6 max-w-md">
-              <UserCircle size={48} className="mx-auto text-gray-400" />
-              <h3 className="mt-4 text-lg font-medium text-gray-900">Выберите чат</h3>
-              <p className="mt-2 text-sm text-gray-500">Выберите чат или создайте новый</p>
-            </div>
+            {showDeleteMessageModal && messageToDelete && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[2000] p-4">
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+                    Удалить сообщение
+                  </h3>
+                  <p className="text-gray-700 dark:text-gray-300 mb-6">
+                    Вы уверены, что хотите удалить это сообщение? Это действие нельзя отменить.
+                  </p>
+                  {/* Опционально: показать превью удаляемого сообщения */}
+                  {/* 
+                  <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-700 rounded text-sm break-words">
+                    {messageToDelete.content || messageToDelete.file_name || 'Файл'}
+                  </div>
+                  */}
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      onClick={() => {
+                        setShowDeleteMessageModal(false);
+                        setMessageToDelete(null);
+                      }}
+                      className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      onClick={confirmDeleteMessage}
+                      className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors"
+                    >
+                      Удалить
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+          {renderChatInfoSidebar()}
       </div>
+    );
+  };
 
-      {/* Edit Chat Modal */}
-      {showEditChatModal && currentChat && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium">Настройки чата</h3>
-              <button onClick={() => setShowEditChatModal(false)} className="text-gray-500 hover:text-gray-700">
-                <X size={20} />
-              </button>
+  const renderModals = () => {
+    if (showContactSearch) {
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Начать чат с контактом</h3>
+            <div className="relative mb-4">
+              <MagnifyingGlass size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Поиск по ФИО или логину..."
+                className="w-full pl-10 pr-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value={contactSearchQuery}
+                onChange={(e) => {
+                  setContactSearchQuery(e.target.value);
+                  if (e.target.value.length > 2) {
+                    searchContacts(e.target.value);
+                  } else {
+                    setContacts([]);
+                  }
+                }}
+              />
             </div>
-            <input
-              type="text"
-              placeholder="Название"
-              value={editChatName}
-              onChange={(e) => setEditChatName(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-lg mb-4"
-            />
-            <textarea
-              placeholder="Описание"
-              value={editChatDescription}
-              onChange={(e) => setEditChatDescription(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-lg mb-4"
-            />
-            <div className="flex flex-col space-y-2">
-              <button onClick={renameChat} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
-                Сохранить
+            {isLoadingContacts ? (
+              <div className="text-center text-gray-500">Поиск...</div>
+            ) : (
+              <div className="max-h-60 overflow-y-auto">
+                {contacts.length > 0 ? (
+                  contacts.map(contact => (
+                    <div
+                      key={contact.id}
+                      className="flex items-center justify-between p-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                      onClick={() => {
+                        if (showCreateGroup || showCreateChannel || showInviteModal) {
+                          toggleContactSelection(contact);
+                        } else {
+                          createPrivateChat(contact.id);
+                        }
+                      }}
+                    >
+                      <div className="flex items-center">
+                        <UserCircle size={24} className="mr-3 text-gray-500" />
+                        <div className="flex-1">
+                          <div className="font-semibold text-gray-900 dark:text-gray-100">{contact.displayName}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{contact.id}</div>
+                        </div>
+                      </div>
+                      {(showCreateGroup || showCreateChannel || showInviteModal) && (
+                        <input
+                          type="checkbox"
+                          checked={selectedContacts.some(c => c.id === contact.id)}
+                          onChange={() => toggleContactSelection(contact)}
+                          className="form-checkbox text-indigo-600 h-5 w-5"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-gray-500">Контакты не найдены</div>
+                )}
+              </div>
+            )}
+            <div className="mt-4 flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setShowContactSearch(false);
+                  setContactSearchQuery('');
+                  setContacts([]);
+                  if (showCreateGroup || showCreateChannel) {
+                    setShowCreateGroup(false);
+                    setShowCreateChannel(false);
+                  }
+                  if (showInviteModal) {
+                    setShowInviteModal(false);
+                    setSelectedContacts([]);
+                  }
+                }}
+                className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
+              >
+                Отмена
               </button>
-              {currentChat.creator_username === username && (
-                <button onClick={deleteChat} className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center justify-center">
-                  <Trash size={16} className="mr-1" /> Удалить чат
-                </button>
-              )}
-              {!currentChat.is_channel && (
-                <button onClick={leaveChat} className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 flex items-center justify-center">
-                  <SignOut size={16} className="mr-1" /> Покинуть
+              {(showCreateGroup || showCreateChannel || showInviteModal) && (
+                <button
+                  onClick={() => {
+                    if (showCreateGroup) createGroupChat();
+                    if (showCreateChannel) createChannel();
+                    if (showInviteModal && activeChat) inviteToChat(activeChat, selectedContacts.map(c => c.id));
+                  }}
+                  className="px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                  disabled={selectedContacts.length === 0}
+                >
+                  Готово
                 </button>
               )}
             </div>
           </div>
         </div>
-      )}
+      );
+    }
+    if (showCreateGroup) {
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Создать новую группу</h3>
+            <input
+              type="text"
+              placeholder="Название группы"
+              className="w-full px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+            />
+            <div className="relative mb-4">
+              <MagnifyingGlass size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Поиск контактов для добавления..."
+                className="w-full pl-10 pr-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value={contactSearchQuery}
+                onChange={(e) => {
+                  setContactSearchQuery(e.target.value);
+                  if (e.target.value.length > 2) {
+                    searchContacts(e.target.value);
+                  } else {
+                    setContacts([]);
+                  }
+                }}
+              />
+            </div>
+            {isLoadingContacts ? (
+              <div className="text-center text-gray-500">Поиск...</div>
+            ) : (
+              <div className="max-h-40 overflow-y-auto mb-4">
+                {contacts.map(contact => (
+                  <div key={contact.id} className="flex items-center justify-between p-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors" onClick={() => toggleContactSelection(contact)}>
+                    <div className="flex items-center">
+                      <UserCircle size={24} className="mr-3 text-gray-500" />
+                      <div className="flex-1">
+                        <div className="font-semibold text-gray-900 dark:text-gray-100">{contact.displayName}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{contact.id}</div>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={selectedContacts.some(c => c.id === contact.id)}
+                      onChange={() => toggleContactSelection(contact)}
+                      className="form-checkbox text-indigo-600 h-5 w-5"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="mt-4 flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setShowCreateGroup(false);
+                  setGroupName('');
+                  setSelectedContacts([]);
+                  setContactSearchQuery('');
+                  setContacts([]);
+                }}
+                className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={createGroupChat}
+                className="px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                disabled={!groupName.trim() || selectedContacts.length < 1}
+              >
+                Создать
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    if (showCreateChannel) {
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Создать новый канал</h3>
+            <input
+              type="text"
+              placeholder="Название канала"
+              className="w-full px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={channelName}
+              onChange={(e) => setChannelName(e.target.value)}
+            />
+            <textarea
+              placeholder="Описание канала (необязательно)"
+              className="w-full px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 mb-4 h-32 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              value={channelDescription}
+              onChange={(e) => setChannelDescription(e.target.value)}
+            />
+            <div className="mt-4 flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setShowCreateChannel(false);
+                  setChannelName('');
+                  setChannelDescription('');
+                }}
+                className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={createChannel}
+                className="px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                disabled={!channelName.trim()}
+              >
+                Создать
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    if (showInviteModal && currentChat) {
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Пригласить в {getChatDisplayName(currentChat)}</h3>
+            <div className="relative mb-4">
+              <MagnifyingGlass size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Поиск контактов..."
+                className="w-full pl-10 pr-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value={contactSearchQuery}
+                onChange={(e) => {
+                  setContactSearchQuery(e.target.value);
+                  if (e.target.value.length > 2) {
+                    searchContacts(e.target.value);
+                  } else {
+                    setContacts([]);
+                  }
+                }}
+              />
+            </div>
+            {isLoadingContacts ? (
+              <div className="text-center text-gray-500">Поиск...</div>
+            ) : (
+              <div className="max-h-60 overflow-y-auto">
+                {contacts.filter(c => !currentChat.members.includes(c.id)).length > 0 ? (
+                  contacts.filter(c => !currentChat.members.includes(c.id)).map(contact => (
+                    <div key={contact.id} className="flex items-center justify-between p-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors" onClick={() => toggleContactSelection(contact)}>
+                      <div className="flex items-center">
+                        <UserCircle size={24} className="mr-3 text-gray-500" />
+                        <div className="flex-1">
+                          <div className="font-semibold text-gray-900 dark:text-gray-100">{contact.displayName}</div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">{contact.id}</div>
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={selectedContacts.some(c => c.id === contact.id)}
+                        onChange={() => toggleContactSelection(contact)}
+                        className="form-checkbox text-indigo-600 h-5 w-5"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-gray-500">Все подходящие контакты уже в чате</div>
+                )}
+              </div>
+            )}
+            <div className="mt-4 flex justify-end space-x-2">
+              <button
+                onClick={() => { setShowInviteModal(false); setSelectedContacts([]); setContactSearchQuery(''); setContacts([]); }}
+                className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => inviteToChat(currentChat.id, selectedContacts.map(c => c.id))}
+                className="px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                disabled={selectedContacts.length === 0}
+              >
+                Пригласить
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    // Kick Modal
+    if (showKickModal && currentChat) {
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Исключить из {getChatDisplayName(currentChat)}</h3>
+            <div className="max-h-60 overflow-y-auto mb-4">
+              {currentChat.members.filter(member => member !== username).map(member => (
+                <div key={member} className="flex items-center justify-between p-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors" onClick={() => toggleKickSelection(member)}>
+                  <div className="flex items-center">
+                    <UserCircle size={24} className="mr-3 text-gray-500" />
+                    <div className="flex-1">
+                      <div className="font-semibold text-gray-900 dark:text-gray-100">{contactMap[member] || member}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">{member}</div>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={selectedToKick.includes(member)}
+                    onChange={() => toggleKickSelection(member)}
+                    className="form-checkbox text-red-600 h-5 w-5"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex justify-end space-x-2">
+              <button
+                onClick={() => { setShowKickModal(false); setSelectedToKick([]); }}
+                className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => kickFromChat(currentChat.id, selectedToKick)}
+                className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+                disabled={selectedToKick.length === 0}
+              >
+                Исключить
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    // Leave modal
+    if (showLeaveModal && currentChat) {
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg text-center">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Покинуть чат</h3>
+            <p className="text-gray-700 dark:text-gray-300 mb-6">
+              Вы уверены, что хотите покинуть чат "{getChatDisplayName(currentChat)}"?
+            </p>
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={() => setShowLeaveModal(false)}
+                className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => leaveChat(currentChat.id)}
+                className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors"
+              >
+                Покинуть
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    // Delete modal
+    if (showDeleteModal && currentChat) {
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg text-center">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Удалить чат</h3>
+            <p className="text-gray-700 dark:text-gray-300 mb-6">
+              Вы уверены, что хотите навсегда удалить чат "{getChatDisplayName(currentChat)}"? Это действие нельзя отменить.
+            </p>
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => deleteChat(currentChat.id)}
+                className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors"
+              >
+                Удалить
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
 
-      {/* Modals: Invite, Kick, Create Group/Channel */}
-      {/* ... (оставлены без изменений, но можно улучшить аналогично) */}
+  return (
+    <div className="flex h-screen w-full bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
+      {renderSidebar()}
+      {renderChatWindow()}
+      {renderModals()}
     </div>
   );
 };

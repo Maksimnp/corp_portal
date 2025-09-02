@@ -10,8 +10,9 @@ import HomePage from './pages/HomePage/HomePage';
 import EditADContacts from './components/EditADContacts';
 import DocumentsPage from './components/DocumentsPage';
 import { AuthProvider, useAuth } from './pages/AuthContext';
-import  VPNManagement  from './pages/VPNManagement/VPNManagement';
+import VPNManagement from './pages/VPNManagement/VPNManagement';
 import JitsiWrapper from './pages/meet/JitsiWrapper';
+import ServerStats from './pages/ServerStats/ServerStats'; 
 
 const PrivateRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
     const { isAuthenticated, loading } = useAuth();
@@ -75,13 +76,13 @@ const App: React.FC = () => {
                         }
                     />
                     <Route
-    path="/jitsi"
-    element={
-        <PrivateRoute>
-            <JitsiWrapper />
-        </PrivateRoute>
-    }
-/>
+                        path="/jitsi"
+                        element={
+                            <PrivateRoute>
+                                <JitsiWrapper />
+                            </PrivateRoute>
+                        }
+                    />
                     <Route
                         path="/edit-contacts"
                         element={
@@ -102,7 +103,15 @@ const App: React.FC = () => {
                         path="/VPNManagement"
                         element={
                             <PrivateRoute>
-                                <VPNManagement/>
+                                <VPNManagement />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/serverstats"
+                        element={
+                            <PrivateRoute>
+                                <ServerStats />
                             </PrivateRoute>
                         }
                     />
