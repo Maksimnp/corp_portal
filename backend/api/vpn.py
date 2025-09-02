@@ -7,7 +7,6 @@ import logging
 load_dotenv()
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 OPENVPN_HOST = os.getenv("OPENVPN_HOST", "[https://192.1.3.141](https://192.1.3.141):943")
 OPENVPN_ADMIN_USERNAME = os.getenv("OPENVPN_ADMIN_USERNAME", "openvpn")
