@@ -510,3 +510,309 @@ fastapi.exceptions.HTTPException: 500: Внутренняя ошибка
 2025-09-02 17:27:35,042 - api.vpn - ERROR - Неожиданная ошибка: 500: Ошибка связи с OpenVPN API
 2025-09-02 17:27:35,042 - api.vpn - ERROR - Ошибка в /server-settings: 500: Внутренняя ошибка
 2025-09-02 17:27:35,042 - main - INFO - Response: 200 for /api/vpn/server-settings
+2025-09-02 17:30:27,773 - chat - INFO - WS disconnected: d.dyatel
+2025-09-02 17:30:28,305 - chat - INFO - WS connected: d.dyatel
+2025-09-02 17:30:28,307 - chat - INFO - WS disconnected: d.dyatel
+2025-09-02 17:30:28,308 - main - INFO - Request: GET /chat/chats | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,309 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,320 - chat - INFO - WS connected: d.dyatel
+2025-09-02 17:30:28,324 - main - INFO - Response: 200 for /chat/chats
+2025-09-02 17:30:28,329 - main - INFO - Request: GET /chat/chats | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,330 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,330 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,331 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,332 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'mk'
+2025-09-02 17:30:28,333 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,334 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,334 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,335 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,336 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,336 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,337 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,338 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'd.dyatel'
+2025-09-02 17:30:28,338 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,338 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'e.pavlovskaya'
+2025-09-02 17:30:28,340 - chat - INFO - WS connected: d.dyatel
+2025-09-02 17:30:28,340 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'p.komkov'
+2025-09-02 17:30:28,343 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'M.Mahnach'
+2025-09-02 17:30:28,344 - chat - INFO - WS disconnected: d.dyatel
+2025-09-02 17:30:28,346 - main - INFO - Response: 200 for /chat/chats
+2025-09-02 17:30:28,351 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,353 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,354 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'r.tukin'
+2025-09-02 17:30:28,367 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,369 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,373 - chat - INFO - WS connected: d.dyatel
+2025-09-02 17:30:28,376 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,377 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,377 - chat - INFO - WS disconnected: d.dyatel
+2025-09-02 17:30:28,378 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,380 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,380 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,381 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,381 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,381 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'mnp'
+2025-09-02 17:30:28,383 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'v.akulenko'
+2025-09-02 17:30:28,385 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,386 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,387 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,388 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,388 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,389 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,390 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'l.kulikova'
+2025-09-02 17:30:28,392 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,394 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'r.rachkovskij'
+2025-09-02 17:30:28,394 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'e.shersteneva'
+2025-09-02 17:30:28,398 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,478 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,479 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'k.dyatel'
+2025-09-02 17:30:28,482 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,485 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,490 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,492 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,494 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,495 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,496 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'n.shmakova'
+2025-09-02 17:30:28,496 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'm.pavlyuchenko'
+2025-09-02 17:30:28,497 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,501 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,505 - main - INFO - Request: GET /chat/d40ad143-aae8-4669-aa49-ed683df28d13/messages | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,505 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,506 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,507 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,508 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'd.dyatel'
+2025-09-02 17:30:28,509 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,511 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,513 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,515 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,515 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'mk'
+2025-09-02 17:30:28,521 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,524 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,530 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'M.Mahnach'
+2025-09-02 17:30:28,532 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,533 - main - INFO - Response: 200 for /chat/d40ad143-aae8-4669-aa49-ed683df28d13/messages
+2025-09-02 17:30:28,535 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,542 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,542 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,543 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,543 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,545 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,546 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,547 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'e.pavlovskaya'
+2025-09-02 17:30:28,547 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'r.tukin'
+2025-09-02 17:30:28,548 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'p.komkov'
+2025-09-02 17:30:28,551 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,552 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,554 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,556 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,558 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,559 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,562 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,564 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'v.akulenko'
+2025-09-02 17:30:28,567 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,571 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,573 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'mnp'
+2025-09-02 17:30:28,575 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'r.rachkovskij'
+2025-09-02 17:30:28,575 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,577 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,577 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,580 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,581 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,581 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,584 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,584 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'l.kulikova'
+2025-09-02 17:30:28,586 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,596 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,597 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'e.shersteneva'
+2025-09-02 17:30:28,598 - chat - INFO - WS connected: d.dyatel
+2025-09-02 17:30:28,600 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'k.dyatel'
+2025-09-02 17:30:28,601 - chat - INFO - WS disconnected: d.dyatel
+2025-09-02 17:30:28,602 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,603 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,604 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,610 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,613 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,617 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,618 - main - INFO - Request: GET /chat/messages/4a5de6e1-6e71-4438-9f1f-218c125e9c3a | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,619 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,621 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,622 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'm.pavlyuchenko'
+2025-09-02 17:30:28,622 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'n.shmakova'
+2025-09-02 17:30:28,623 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,624 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,626 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,630 - main - INFO - Response: 200 for /chat/messages/4a5de6e1-6e71-4438-9f1f-218c125e9c3a
+2025-09-02 17:30:28,633 - main - INFO - Request: GET /chat/messages/4a5de6e1-6e71-4438-9f1f-218c125e9c3a | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,636 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,641 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,644 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:28,646 - main - INFO - Response: 200 for /chat/messages/4a5de6e1-6e71-4438-9f1f-218c125e9c3a
+2025-09-02 17:30:28,649 - main - INFO - Request: GET /chat/messages/4a5de6e1-6e71-4438-9f1f-218c125e9c3a | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,651 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,652 - chat - INFO - WS connected: d.dyatel
+2025-09-02 17:30:28,653 - chat - INFO - WS disconnected: d.dyatel
+2025-09-02 17:30:28,657 - main - INFO - Response: 200 for /chat/messages/4a5de6e1-6e71-4438-9f1f-218c125e9c3a
+2025-09-02 17:30:28,661 - main - INFO - Request: GET /chat/messages/4a5de6e1-6e71-4438-9f1f-218c125e9c3a | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,662 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,665 - main - INFO - Response: 200 for /chat/messages/4a5de6e1-6e71-4438-9f1f-218c125e9c3a
+2025-09-02 17:30:28,669 - main - INFO - Request: GET /chat/messages/4a5de6e1-6e71-4438-9f1f-218c125e9c3a | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,670 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,673 - main - INFO - Response: 200 for /chat/messages/4a5de6e1-6e71-4438-9f1f-218c125e9c3a
+2025-09-02 17:30:28,676 - main - INFO - Request: GET /chat/messages/4a5de6e1-6e71-4438-9f1f-218c125e9c3a | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,677 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,680 - main - INFO - Response: 200 for /chat/messages/4a5de6e1-6e71-4438-9f1f-218c125e9c3a
+2025-09-02 17:30:28,684 - main - INFO - Request: GET /chat/messages/4a5de6e1-6e71-4438-9f1f-218c125e9c3a | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,685 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,689 - main - INFO - Response: 200 for /chat/messages/4a5de6e1-6e71-4438-9f1f-218c125e9c3a
+2025-09-02 17:30:28,692 - main - INFO - Request: GET /chat/messages/4a5de6e1-6e71-4438-9f1f-218c125e9c3a | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en;q=0.9,en-GB;q=0.8,en-US;q=0.7'}
+2025-09-02 17:30:28,693 - services.jwt_utils - INFO - Успешная аутентификация пользователя: d.dyatel
+2025-09-02 17:30:28,697 - main - INFO - Response: 200 for /chat/messages/4a5de6e1-6e71-4438-9f1f-218c125e9c3a
+2025-09-02 17:30:35,795 - chat - INFO - WS disconnected: k.dyatel
+2025-09-02 17:30:36,493 - chat - INFO - WS connected: k.dyatel
+2025-09-02 17:30:36,494 - main - INFO - Request: GET /chat/chats | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,495 - main - INFO - Request: GET /chat/chats | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,495 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,496 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,496 - chat - INFO - WS disconnected: k.dyatel
+2025-09-02 17:30:36,501 - main - INFO - Response: 200 for /chat/chats
+2025-09-02 17:30:36,509 - chat - INFO - WS connected: k.dyatel
+2025-09-02 17:30:36,511 - main - INFO - Response: 200 for /chat/chats
+2025-09-02 17:30:36,516 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,517 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,517 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'k.dyatel'
+2025-09-02 17:30:36,518 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,519 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,519 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,521 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,521 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,522 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,522 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,523 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,523 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'mk'
+2025-09-02 17:30:36,523 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,523 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'e.pavlovskaya'
+2025-09-02 17:30:36,523 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'd.dyatel'
+2025-09-02 17:30:36,524 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,525 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'M.Mahnach'
+2025-09-02 17:30:36,526 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'p.komkov'
+2025-09-02 17:30:36,552 - chat - INFO - WS connected: k.dyatel
+2025-09-02 17:30:36,554 - chat - INFO - WS disconnected: k.dyatel
+2025-09-02 17:30:36,555 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,556 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,556 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,557 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,557 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,557 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,560 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,560 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,561 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'r.tukin'
+2025-09-02 17:30:36,563 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,564 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,564 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,565 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,565 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'mnp'
+2025-09-02 17:30:36,566 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'v.akulenko'
+2025-09-02 17:30:36,567 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,568 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,569 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,570 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,570 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,571 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,571 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'r.rachkovskij'
+2025-09-02 17:30:36,572 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'e.shersteneva'
+2025-09-02 17:30:36,572 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'l.kulikova'
+2025-09-02 17:30:36,590 - chat - INFO - WS connected: k.dyatel
+2025-09-02 17:30:36,594 - chat - INFO - WS disconnected: k.dyatel
+2025-09-02 17:30:36,596 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,597 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,597 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,598 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,599 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,599 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,600 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,601 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,601 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,601 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'm.pavlyuchenko'
+2025-09-02 17:30:36,602 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,603 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,604 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,605 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,605 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'n.shmakova'
+2025-09-02 17:30:36,605 - main - INFO - Request: GET /chat/4117b1c6-c5d3-45af-8c25-4cc0f8918556/messages | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,605 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'dim.dt'
+2025-09-02 17:30:36,606 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,607 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,608 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,609 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'a.antonov'
+2025-09-02 17:30:36,609 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'k.dyatel'
+2025-09-02 17:30:36,611 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,621 - main - INFO - Response: 200 for /chat/4117b1c6-c5d3-45af-8c25-4cc0f8918556/messages
+2025-09-02 17:30:36,628 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,633 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,635 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,638 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,639 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,639 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,639 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'r.tukin'
+2025-09-02 17:30:36,642 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,648 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,649 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,649 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,650 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,650 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,650 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'mk'
+2025-09-02 17:30:36,653 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,654 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,654 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'd.dyatel'
+2025-09-02 17:30:36,655 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'e.pavlovskaya'
+2025-09-02 17:30:36,655 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,658 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,658 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,660 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'v.akulenko'
+2025-09-02 17:30:36,660 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'mnp'
+2025-09-02 17:30:36,661 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,667 - chat - INFO - WS connected: k.dyatel
+2025-09-02 17:30:36,670 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,672 - chat - INFO - WS disconnected: k.dyatel
+2025-09-02 17:30:36,675 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,680 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'l.kulikova'
+2025-09-02 17:30:36,680 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,690 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,690 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,692 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,693 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,694 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,694 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'r.rachkovskij'
+2025-09-02 17:30:36,696 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,697 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,697 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,698 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,699 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,699 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'p.komkov'
+2025-09-02 17:30:36,701 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,702 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'e.shersteneva'
+2025-09-02 17:30:36,704 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,707 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,708 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'm.pavlyuchenko'
+2025-09-02 17:30:36,709 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,711 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,711 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'n.shmakova'
+2025-09-02 17:30:36,716 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,716 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,718 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'dim.dt'
+2025-09-02 17:30:36,718 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,726 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,728 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,729 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'M.Mahnach'
+2025-09-02 17:30:36,732 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,732 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,738 - main - INFO - Request: GET /chat/contacts | Origin: None | Headers: {'host': '192.1.66.117:8000', 'connection': 'close', 'pragma': 'no-cache', 'cache-control': 'no-cache', 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36', 'dnt': '1', 'content-type': 'application/json', 'accept': '*/*', 'referer': 'http://192.1.66.117:3000/chat', 'accept-encoding': 'gzip, deflate', 'accept-language': 'ru,en-US;q=0.9,en;q=0.8'}
+2025-09-02 17:30:36,739 - services.jwt_utils - INFO - Успешная аутентификация пользователя: k.dyatel
+2025-09-02 17:30:36,743 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,743 - chat - INFO - Начало поиска в AD (ldap3). Запрос: 'a.antonov'
+2025-09-02 17:30:36,744 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,747 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,753 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,763 - main - INFO - Response: 200 for /chat/contacts
+2025-09-02 17:30:36,768 - chat - INFO - WS disconnected: k.dyatel
+2025-09-02 17:30:36,770 - chat - INFO - WS connected: k.dyatel
