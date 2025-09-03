@@ -4,7 +4,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query, UploadFile, File, Path 
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Body, Query, UploadFile, File, Path 
 from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean, create_engine
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
@@ -131,6 +131,11 @@ class MessageCreate(BaseModel):
     file_url: Optional[str] = None
     file_name: Optional[str] = None
     quoted_message_id: Optional[UUIDType] = None
+
+class ChatUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    # model_config = ConfigDict(...) если используете Pydantic v2
 
 class EditMessageRequest(BaseModel):
     message_id: UUIDType
@@ -872,6 +877,66 @@ def kick_from_channel(
         logger.error(f"Error kicking from channel {channel_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Не удалось исключить пользователей: {str(e)}")
 
+@router.patch("/chats/{chat_id}", response_model=dict)
+def update_chat(
+    chat_id: UUIDType = Path(..., description="UUID чата для обновления"),
+    chat_update: ChatUpdateRequest = Body(..., description="Поля для обновления чата"),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Обновить информацию о чате (название, описание).
+
+    - **chat_id**: UUID чата.
+    - **chat_update**: Объект с полями `name` и/или `description` для обновления.
+    """
+    username = current_user["username"]
+    logger.debug(f"User {username} attempting to update chat {chat_id} with data: {chat_update.model_dump(exclude_unset=True) if hasattr(chat_update, 'model_dump') else chat_update.dict(exclude_unset=True)}")
+
+    try:
+        chat = db.query(Channel).filter(Channel.id == chat_id).first()
+        if not chat:
+            logger.info(f"Chat {chat_id} not found for user {username}")
+            raise HTTPException(status_code=404, detail="Чат не найден")
+
+        if username not in chat.members:
+             logger.warning(f"User {username} is not a member of chat {chat_id}")
+             raise HTTPException(status_code=403, detail="Доступ запрещен")
+        
+        if (chat.is_group or chat.is_channel) and chat.creator_username != username:
+            logger.warning(f"User {username} is not the creator of chat {chat_id} and cannot edit it")
+            raise HTTPException(status_code=403, detail="Только создатель группы/канала может изменять её название и описание")
+
+        update_data = chat_update.model_dump(exclude_unset=True) if hasattr(chat_update, 'model_dump') else chat_update.dict(exclude_unset=True)
+        if not update_data:
+            logger.debug(f"No data provided to update chat {chat_id} by user {username}")
+            return {"id": str(chat.id), "name": chat.name, "description": chat.description}
+
+        updated_fields = {}
+        if 'name' in update_data:
+            new_name = update_data['name'].strip() if update_data['name'] else None
+            if new_name == "":
+                 logger.warning(f"User {username} tried to set empty name for chat {chat_id}")
+                 raise HTTPException(status_code=400, detail="Название чата не может быть пустым")
+            chat.name = new_name
+            updated_fields['name'] = chat.name
+            
+        if 'description' in update_data:
+            new_description = update_data['description'].strip() if update_data['description'] else None
+            chat.description = new_description
+            updated_fields['description'] = chat.description
+            
+        db.commit()
+        db.refresh(chat)
+        logger.info(f"Chat {chat_id} successfully updated by user {username}. Updated fields: {updated_fields}")
+
+        return {"id": str(chat.id), **updated_fields}
+
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Unexpected error updating chat {chat_id} by user {username}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+    
 @router.post("/chats/{channel_id}/leave")
 def leave_chat(
     channel_id: UUIDType,

@@ -120,6 +120,8 @@ const ChatComponent: React.FC = () => {
   const [showEditChatModal, setShowEditChatModal] = useState(false);
   const [editChatName, setEditChatName] = useState('');
   const [editChatDescription, setEditChatDescription] = useState('');
+  const [isSidebarVisible, setIsSidebarVisible] = useState(false);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
   const WS_BASE = import.meta.env.VITE_WS_BASE || (import.meta.env.VITE_ENV === 'production' ? 'wss://192.1.66.117:8000' : 'ws://192.1.66.117:8000');
   const API_BASE = import.meta.env.VITE_API_BASE || 'http://192.1.66.117:8000';
@@ -1376,15 +1378,6 @@ const ChatComponent: React.FC = () => {
     if (chat.is_channel) return <DotsThreeVertical size={size} />;
     return <UserCircle size={size} />;
   };
-  
-  const openEditChatModal = () => {
-    if (currentChat) {
-      // Инициализируем поля ввода текущими значениями чата
-      setEditChatName(currentChat.name || '');
-      setEditChatDescription(currentChat.description || '');
-      setShowEditChatModal(true);
-    }
-  };
 
   const getFileIcon = (fileName: string) => {
     const iconStyle = { fontSize: '50px' };
@@ -1726,43 +1719,65 @@ const ChatComponent: React.FC = () => {
     );
   };
 
+  useEffect(() => {
+    let timer;
+    if (showChatInfoSidebar) {
+      setIsSidebarVisible(true);
+      timer = setTimeout(() => {
+      }, 10);
+    } else {
+      timer = setTimeout(() => {
+        setIsSidebarVisible(false);
+      }, 300);
+    }
+    return () => clearTimeout(timer);
+  }, [showChatInfoSidebar]);
+
+  const openSidebar = () => {
+    setIsSidebarVisible(true);
+    setTimeout(() => {
+      setShowChatInfoSidebar(true);
+    }, 10);
+  };
+
   const renderChatInfoSidebar = () => {
-    if (!currentChat || !showChatInfoSidebar) {
+    if (!currentChat || !isSidebarVisible) {
       return null;
     }
 
     return (
       <div 
-        className="bg-black bg-opacity-40 transition-opacity duration-300 ease-in-out"
-        onClick={() => setShowChatInfoSidebar(false)}
-      >
-        <div 
-          className="h-full w-[420px] bg-white dark:bg-gray-800 shadow-xl transform transition-transform duration-300 ease-in-out"
-          style={{ 
-            transform: showChatInfoSidebar ? 'translateX(0)' : 'translateX(100%)',
-          }}
-          onClick={(e) => e.stopPropagation()} 
-        >
-          {renderEditChatModal()}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Информация о чате</h3>
-            <div className=''>
-              <button
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                onClick={openEditChatModal}
-              >
-                <EditOutlined className="text-2xl mr-4" />
-              </button>
-              <button 
-                onClick={() => setShowChatInfoSidebar(false)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                aria-label="Закрыть"
-              >
-                <X size={24} />
-              </button>
-            </div>
-          </div>
-          <div className="p-4 overflow-y-auto h-[calc(100%-65px)]">
+      className={`h-full w-[420px] bg-white dark:bg-gray-800 shadow-xl transform transition-transform duration-300 ease-in-out ${
+        showChatInfoSidebar ? 'translate-x-0' : 'translate-x-full'
+      }`}
+      style={{ 
+        position: 'absolute',
+        right: 0,
+        top: 0,
+        zIndex: 40,
+        height: '100%'
+      }}
+    >
+      {renderEditChatModal()}
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Информация о чате</h3>
+        <div className=''>
+          <button
+            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            onClick={openEditChatModal}
+          >
+            <EditOutlined className="text-2xl mr-4" />
+          </button>
+          <button 
+            onClick={() => setShowChatInfoSidebar(false)}
+            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            aria-label="Закрыть"
+          >
+            <X size={24} />
+          </button>
+        </div>
+      </div>
+      <div className="p-4 overflow-y-auto h-[calc(100%-65px)]">
             
             <div className="mb-6">
               <div className="flex flex-col items-center mb-4">
@@ -1828,34 +1843,116 @@ const ChatComponent: React.FC = () => {
             ) : null}
           </div>
         </div>
-      </div>
     );
   };
 
   const handleEditChatSubmit = async (e: React.FormEvent) => {
-    console.log('dsf');
+    e.preventDefault();
+    if (!currentChat || !token) return;
+
+    const trimmedName = editChatName.trim();
+    if (!trimmedName) {
+      toast.error('Название чата не может быть пустым');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/chat/chats/${currentChat.id}`, {
+        method: 'PATCH',   
+        headers: {
+          ...authHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: trimmedName,
+          description: editChatDescription.trim() || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error('Ошибка редактирования чата:', res.status, errorData);
+        let errorMsg = 'Не удалось обновить чат';
+        if (errorData.detail) {
+          if (typeof errorData.detail === 'string') {
+            errorMsg = errorData.detail;
+          } else if (Array.isArray(errorData.detail) && errorData.detail[0]?.msg) {
+            errorMsg = errorData.detail[0].msg;
+          }
+        }
+        toast.error(errorMsg);
+        return;
+      }
+
+      const updatedChatData: Partial<Chat> = await res.json();
+      console.log('Чат успешно обновлен:', updatedChatData);
+
+      setChats(prevChats =>
+        prevChats.map(chat =>
+          chat.id === currentChat.id
+            ? { ...chat, ...updatedChatData }
+            : chat
+        )
+      );
+      // setCurrentChat(prev => prev ? { ...prev, ...updatedChatData } : null);
+
+      toast.success('Чат успешно обновлен');
+      setShowEditChatModal(false);
+    } catch (err: any) {
+      console.error('Ошибка сети при редактировании чата:', err);
+      toast.error('Ошибка сети при обновлении чата');
+    }
   };
+
+  useEffect(() => {
+    let timer;
+    if (showEditChatModal) {
+      setIsEditModalVisible(true);
+      timer = setTimeout(() => {
+      }, 10);
+    } else {
+      timer = setTimeout(() => {
+        setIsEditModalVisible(false);
+      }, 300);
+    }
+    return () => clearTimeout(timer);
+  }, [showEditChatModal]);
+
+  const openEditChatModal = () => {
+    if (currentChat) {
+      setEditChatName(currentChat.name || '');
+      setEditChatDescription(currentChat.description || '');
+    }
+    setIsEditModalVisible(true);
+    setTimeout(() => {
+      setShowEditChatModal(true);
+    }, 10);
+  };
+  const closeEditModal = () => {
+    setShowEditChatModal(false);
+  };
+
   const renderEditChatModal = () => {
-    if (!showEditChatModal || !currentChat) {
+    if (!isEditModalVisible || !currentChat) {
       return null;
     }
 
     return (
       <div 
-        className="bg-black bg-opacity-40 transition-opacity duration-300 ease-in-out z-[101]"
-        onClick={() => setShowEditChatModal(false)}
+        className="fixed inset-0 transition-opacity duration-300 ease-in-out z-[101]"
+        onClick={closeEditModal}
       >
         <div 
-          className="h-full w-[420px] bg-white dark:bg-gray-800 shadow-xl transform transition-transform duration-300 ease-in-out flex flex-col"
-          style={{ 
-            transform: showEditChatModal ? 'translateX(0)' : 'translateX(100%)',
-          }}
+          className={`h-full w-[420px] bg-white dark:bg-gray-800 shadow-xl transform transition-transform duration-300 ease-in-out flex flex-col ${
+            showEditChatModal ? 'translate-x-0' : 'translate-x-full'
+          }`}
           onClick={(e) => e.stopPropagation()}
+          style={{ marginLeft: 'auto' }}
         >
           <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Редактировать чат</h3>
             <button 
-              onClick={() => setShowEditChatModal(false)}
+              onClick={closeEditModal}
               className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
               aria-label="Закрыть"
             >
@@ -1912,7 +2009,7 @@ const ChatComponent: React.FC = () => {
               <div className="flex justify-end space-x-3">
                 <button
                   type="button"
-                  onClick={() => setShowEditChatModal(false)}
+                  onClick={closeEditModal}
                   className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
                 >
                   Отмена
@@ -1931,177 +2028,180 @@ const ChatComponent: React.FC = () => {
     );
   };
 
-  const renderChatWindow = () => {
-    if (!activeChat || !currentChat) {
-      return (
-        <div className="flex-1 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-          <div className="text-gray-500 dark:text-gray-400 text-lg">Выберите чат для начала общения</div>
-        </div>
-      );
-    }
+const renderChatWindow = () => {
+  if (!activeChat || !currentChat) {
     return (
-      <div className="flex flex-1 bg-gray-100 dark:bg-gray-800">
-        <div className="flex flex-col flex-1 bg-gray-100 dark:bg-gray-800">
-          <div className="flex items-center justify-between p-4 border-b border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900">
-            {/*  */}
-            <div className="flex items-center hover:cursor-pointer"> 
-              <div className="flex-shrink-0 mr-3 text-gray-500 dark:text-gray-400"
-                onClick={ () => {setShowChatInfoSidebar(true)}}
-              >
-                {getChatDisplayIcon(currentChat)}
-              </div>
-              <div className="flex flex-col">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{getChatDisplayName(currentChat)}</h2>
-                {currentChat.is_channel && (
-                  <div className="text-sm text-gray-500 dark:text-gray-400">{currentChat.description}</div>
-                )}
-              </div>
-            </div>
-            <div className="relative">
-              <button onClick={() => setShowChatOptions(!showChatOptions)} className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-                <DotsThreeVertical size={24} />
-              </button>
-              {showChatOptions && (
-                <div ref={chatOptionsRef} className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-10">
-                  {(currentChat.is_group || currentChat.is_channel) && (
-                    <>
-                      <a onClick={() => { setShowInviteModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
-                        Пригласить пользователей
-                      </a>
-                      {currentChat.creator_username === username && (
-                        <a onClick={() => { setShowKickModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
-                          Исключить пользователей
-                        </a>
-                      )}
-                    </>
-                  )}
-                  <a onClick={() => { setShowLeaveModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
-                    Покинуть чат
-                  </a>
-                  {currentChat.creator_username === username && (
-                    <a onClick={() => { setShowDeleteModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-red-600 hover:bg-red-100 dark:hover:bg-red-900 cursor-pointer">
-                      Удалить чат
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="flex flex-col flex-1 overflow-y-auto p-4 space-y-2 messages-container relative" onScroll={handleScroll}>
-            {hasMoreByChat[activeChat] && isLoadingMessages && (
-              <div className="text-center text-gray-500">Загрузка старых сообщений...</div>
-            )}
-            {renderMessages()}
-            <div ref={messagesEndRef} />
-            {renderContextMenu()}
-          </div>
-          {isTyping && typingUser !== username && (
-            <div className="p-2 text-sm text-gray-500 dark:text-gray-400">
-              {contactMap[typingUser] || typingUser} печатает...
-            </div>
-          )}
-            {/* INPUT BAR */}
-            <div className="p-4 border-t border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900 relative">
-              {renderQuotedMessage()}
-              {renderEditingMessage()}
-              {showEmojiPicker && (
-                <div className="absolute bottom-16 left-0 z-10">
-                  <EmojiPicker onEmojiClick={handleEmojiClick} />
-                </div>
-              )}
-              {showStickerPicker && (
-                <div ref={stickerPickerRef} className="absolute bottom-16 left-0 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 grid grid-cols-4 gap-2">
-                  {stickers.map((sticker, index) => (
-                    <button key={index} onClick={() => handleStickerClick(sticker)} className="w-12 h-12">
-                      <img src={sticker} alt={`Sticker ${index + 1}`} className="w-full h-full object-contain" />
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div className="flex items-center space-x-2">
-                <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-                  <Smiley size={24} />
-                </button>
-                <button onClick={() => setShowStickerPicker(!showStickerPicker)} className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-                  <Sticker size={24} />
-                </button>
-                <label className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer">
-                  <Paperclip size={24} />
-                  <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-                </label>
-                <input
-                  type="text"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  onInput={handleTyping}
-                  placeholder={editingMessage ? 'Редактировать сообщение...' : 'Напишите сообщение...'}
-                  className="flex-1 px-4 py-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
-                  ref={inputRef}
-                />
-                {editingMessage ? (
-                  <button onClick={cancelEdit} className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900 rounded-full transition-colors">
-                    <X size={24} />
-                  </button>
-                ) : (
-                  <button onClick={handleSendMessage} className="p-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
-                    <PaperPlaneRight size={24} />
-                  </button>
-                )}
-                <button onClick={isRecording ? stopRecording : startRecording} className={`p-2 rounded-full ${isRecording ? 'bg-red-600' : 'bg-gray-200 dark:bg-gray-700'} text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors`}>
-                  <Microphone size={24} color={isRecording ? 'white' : 'currentColor'} />
-                </button>
-              </div>
-              {selectedFile && (
-                <div className="mt-2 text-sm text-gray-600 dark:text-gray-400 flex items-center">
-                  <Paperclip size={16} className="mr-1" />
-                  <span>Выбран файл: {selectedFile.name}</span>
-                  <button onClick={() => setSelectedFile(null)} className="ml-2 text-red-500 hover:text-red-700">
-                    <X size={16} />
-                  </button>
-                </div>
-              )}
-            </div>
-            {showDeleteMessageModal && messageToDelete && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[2000] p-4">
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-                    Удалить сообщение
-                  </h3>
-                  <p className="text-gray-700 dark:text-gray-300 mb-6">
-                    Вы уверены, что хотите удалить это сообщение? Это действие нельзя отменить.
-                  </p>
-                  {/* Опционально: показать превью удаляемого сообщения */}
-                  {/* 
-                  <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-700 rounded text-sm break-words">
-                    {messageToDelete.content || messageToDelete.file_name || 'Файл'}
-                  </div>
-                  */}
-                  <div className="flex justify-end space-x-3">
-                    <button
-                      onClick={() => {
-                        setShowDeleteMessageModal(false);
-                        setMessageToDelete(null);
-                      }}
-                      className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
-                    >
-                      Отмена
-                    </button>
-                    <button
-                      onClick={confirmDeleteMessage}
-                      className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors"
-                    >
-                      Удалить
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-          {renderChatInfoSidebar()}
+      <div className="flex-1 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+        <div className="text-gray-500 dark:text-gray-400 text-lg">Выберите чат для начала общения</div>
       </div>
     );
-  };
+  }
+  
+  return (
+    <div className="relative flex flex-1 bg-gray-100 dark:bg-gray-800 h-full overflow-hidden">
+      <div className={`flex flex-col flex-1 transition-all duration-300 ease-in-out ${
+        showChatInfoSidebar ? 'mr-[420px]' : ''
+      }`}>
+        <div className="flex items-center justify-between p-4 border-b border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900">
+          {/*  */}
+          <div className="flex items-center hover:cursor-pointer"> 
+            <div className="flex-shrink-0 mr-3 text-gray-500 dark:text-gray-400"
+              onClick={() => {openSidebar()}}
+            >
+              {getChatDisplayIcon(currentChat)}
+            </div>
+            <div className="flex flex-col">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{getChatDisplayName(currentChat)}</h2>
+              {currentChat.is_channel && (
+                <div className="text-sm text-gray-500 dark:text-gray-400">{currentChat.description}</div>
+              )}
+            </div>
+          </div>
+          <div className="relative">
+            <button onClick={() => setShowChatOptions(!showChatOptions)} className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+              <DotsThreeVertical size={24} />
+            </button>
+            {showChatOptions && (
+              <div ref={chatOptionsRef} className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-10">
+                {(currentChat.is_group || currentChat.is_channel) && (
+                  <>
+                    <a onClick={() => { setShowInviteModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                      Пригласить пользователей
+                    </a>
+                    {currentChat.creator_username === username && (
+                      <a onClick={() => { setShowKickModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                        Исключить пользователей
+                      </a>
+                    )}
+                  </>
+                )}
+                <a onClick={() => { setShowLeaveModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                  Покинуть чат
+                </a>
+                {currentChat.creator_username === username && (
+                  <a onClick={() => { setShowDeleteModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-red-600 hover:bg-red-100 dark:hover:bg-red-900 cursor-pointer">
+                    Удалить чат
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-col flex-1 overflow-y-auto p-4 space-y-2 messages-container relative" onScroll={handleScroll}>
+          {hasMoreByChat[activeChat] && isLoadingMessages && (
+            <div className="text-center text-gray-500">Загрузка старых сообщений...</div>
+          )}
+          {renderMessages()}
+          <div ref={messagesEndRef} />
+          {renderContextMenu()}
+        </div>
+        {isTyping && typingUser !== username && (
+          <div className="p-2 text-sm text-gray-500 dark:text-gray-400">
+            {contactMap[typingUser] || typingUser} печатает...
+          </div>
+        )}
+        {/* INPUT BAR */}
+        <div className="p-4 border-t border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900 relative">
+          {renderQuotedMessage()}
+          {renderEditingMessage()}
+          {showEmojiPicker && (
+            <div className="absolute bottom-16 left-0 z-10">
+              <EmojiPicker onEmojiClick={handleEmojiClick} />
+            </div>
+          )}
+          {showStickerPicker && (
+            <div ref={stickerPickerRef} className="absolute bottom-16 left-0 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 grid grid-cols-4 gap-2">
+              {stickers.map((sticker, index) => (
+                <button key={index} onClick={() => handleStickerClick(sticker)} className="w-12 h-12">
+                  <img src={sticker} alt={`Sticker ${index + 1}`} className="w-full h-full object-contain" />
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="flex items-center space-x-2">
+            <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+              <Smiley size={24} />
+            </button>
+            <button onClick={() => setShowStickerPicker(!showStickerPicker)} className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+              <Sticker size={24} />
+            </button>
+            <label className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer">
+              <Paperclip size={24} />
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+            </label>
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onInput={handleTyping}
+              placeholder={editingMessage ? 'Редактировать сообщение...' : 'Напишите сообщение...'}
+              className="flex-1 px-4 py-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
+              ref={inputRef}
+            />
+            {editingMessage ? (
+              <button onClick={cancelEdit} className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900 rounded-full transition-colors">
+                <X size={24} />
+              </button>
+            ) : (
+              <button onClick={handleSendMessage} className="p-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
+                <PaperPlaneRight size={24} />
+              </button>
+            )}
+            <button onClick={isRecording ? stopRecording : startRecording} className={`p-2 rounded-full ${isRecording ? 'bg-red-600' : 'bg-gray-200 dark:bg-gray-700'} text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors`}>
+              <Microphone size={24} color={isRecording ? 'white' : 'currentColor'} />
+            </button>
+          </div>
+          {selectedFile && (
+            <div className="mt-2 text-sm text-gray-600 dark:text-gray-400 flex items-center">
+              <Paperclip size={16} className="mr-1" />
+              <span>Выбран файл: {selectedFile.name}</span>
+              <button onClick={() => setSelectedFile(null)} className="ml-2 text-red-500 hover:text-red-700">
+                <X size={16} />
+              </button>
+            </div>
+          )}
+        </div>
+        {showDeleteMessageModal && messageToDelete && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[2000] p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+                Удалить сообщение
+              </h3>
+              <p className="text-gray-700 dark:text-gray-300 mb-6">
+                Вы уверены, что хотите удалить это сообщение? Это действие нельзя отменить.
+              </p>
+              {/* Опционально: показать превью удаляемого сообщения */}
+              {/* 
+              <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-700 rounded text-sm break-words">
+                {messageToDelete.content || messageToDelete.file_name || 'Файл'}
+              </div>
+              */}
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteMessageModal(false);
+                    setMessageToDelete(null);
+                  }}
+                  className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
+                >
+                  Отмена
+                </button>
+                <button
+                  onClick={confirmDeleteMessage}
+                  className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors"
+                >
+                  Удалить
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      {renderChatInfoSidebar()}
+    </div>
+  );
+};
 
   const renderModals = () => {
     if (showContactSearch) {

@@ -165,27 +165,28 @@ const VPNManagement: React.FC = () => {
   const navigate = useNavigate();
   const screens = useBreakpoint();
 
-  const fetchHistoricalData = async (startDate: dayjs.Dayjs, endDate: dayjs.Dayjs) => {
-    setLoadingHistorical(true);
-    try {
-      const response = await axios.get<{ data: HistoricalData[] }>(`${API_URL}/api/vpn/historical-data`, {
-        params: {
-          start: startDate.unix(),
-          end: endDate.unix()
-        }
-      });
-      setHistoricalData(response.data.data || []);
-    } catch (err) {
-      const error = err as AxiosError;
-      console.error('Ошибка загрузки исторических данных:', error);
-      message.error(`Ошибка загрузки исторических данных: ${error.message}`);
-      // Fallback to demo data
-      generateDemoHistoricalData(startDate, endDate);
-    } finally {
-      setLoadingHistorical(false);
+const fetchHistoricalData = async (startDate: dayjs.Dayjs, endDate: dayjs.Dayjs) => {
+  setLoadingHistorical(true);
+  try {
+    const response = await axios.get<{ data: HistoricalData[] }>(`${API_URL}/api/vpn/historical-data`, {
+      params: {
+        start: startDate.unix(),
+        end: endDate.unix()
+      }
+    });
+    if (!response.data.data.length) {
+      message.warning('Нет исторических данных за выбранный период');
     }
-  };
-
+    setHistoricalData(response.data.data || []);
+  } catch (err) {
+    const error = err as AxiosError;
+    console.error('Ошибка загрузки исторических данных:', error);
+    message.error(`Ошибка загрузки исторических данных: ${error.message}`);
+    setHistoricalData([]);
+  } finally {
+    setLoadingHistorical(false);
+  }
+};
   const generateDemoHistoricalData = (startDate: dayjs.Dayjs, endDate: dayjs.Dayjs) => {
     const demoData: HistoricalData[] = [];
     const hoursDiff = endDate.diff(startDate, 'hour');
