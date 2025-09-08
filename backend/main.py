@@ -10,14 +10,14 @@ from dotenv import load_dotenv
 import os
 from api.contacts import get_all_groups
 from api.routes.documents import router as documents_router
-
-# Импорт роутеров
 from api.auth import router as auth_router
 from api.contacts import router as contacts_router
 from api.admin import router as admin_router
 from api.request_list import router as request_list_router
-from api.chat import router as chat_router  
+from api.chat import router as chat_router
 from api.serverstats import router as serverstats_router
+from api.faqs import faq_router
+
 load_dotenv()
 
 # Настройка логирования
@@ -82,7 +82,7 @@ def get_cors_origins():
     origins = [origin.strip() for origin in origins_str.split(",") if origin.strip()]
     return origins
 
-# Инициализация приложения FastAPI с middleware
+# Инициализация приложения FastAPI
 app = FastAPI(
     title="Employee Portal API",
     description="API для корпоративного портала: аутентификация, чат, заявки, контакты, документы",
@@ -147,6 +147,8 @@ app.include_router(request_list_router, prefix="/request_list", tags=["requests"
 app.include_router(documents_router, prefix="/api", tags=["documents"])
 app.include_router(chat_router)
 app.include_router(serverstats_router)
+app.include_router(faq_router, prefix="/faq")
+
 @app.get("/health", include_in_schema=False)
 async def health_check():
     return {"status": "healthy", "timestamp": __import__("datetime").datetime.utcnow()}

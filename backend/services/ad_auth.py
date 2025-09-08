@@ -1,4 +1,4 @@
-# services/ad_service.py
+
 import logging
 import os
 import ssl
@@ -8,18 +8,16 @@ from ldap3.core.exceptions import LDAPException, LDAPInvalidCredentialsResult
 import certifi
 from dotenv import load_dotenv
 
-# Загрузка переменных окружения
+
 load_dotenv()
 
-# Настройка логирования
 logger = logging.getLogger(__name__)
 
-# --- Настройки из .env ---
 LDAP_SERVER = os.getenv("LDAP_SERVER", "ldaps://ns1.mhp.net:636")
 BASE_DN = os.getenv("BASE_DN", "DC=mhp,DC=net")
-LDAP_SEARCH_USER = os.getenv("LDAP_SEARCH_USER")  # Например, ServiceReader@mhp.net
+LDAP_SEARCH_USER = os.getenv("LDAP_SEARCH_USER")  
 LDAP_SEARCH_PASSWORD = os.getenv("LDAP_SEARCH_PASSWORD")
-AD_DOMAIN = os.getenv("AD_DOMAIN", "mhp.net") # Для формирования UPN
+AD_DOMAIN = os.getenv("AD_DOMAIN", "mhp.net") 
 LDAP_CA_CERT = os.getenv("LDAP_CA_CERT")
 LDAP_VALIDATE_CERTS = os.getenv("LDAP_VALIDATE_CERTS", "true").lower() == "true"
 LDAP_USE_SSL = os.getenv("LDAP_USE_SSL", "true").lower() == "true"

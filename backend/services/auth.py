@@ -1,16 +1,16 @@
 from datetime import datetime, timedelta
 from typing import Optional, Dict
 from jose import jwt, JWTError
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import os
 from dotenv import load_dotenv
 import logging
 
-# Настройка логирования
 logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-# Проверка переменных окружения
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
@@ -23,6 +23,10 @@ if not ALGORITHM:
 if ACCESS_TOKEN_EXPIRE_MINUTES <= 0:
     logger.error("ACCESS_TOKEN_EXPIRE_MINUTES must be positive, using default 30")
     ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+router = APIRouter(tags=["auth"])  
+
+security = HTTPBearer()
 
 def create_access_token(data: Dict[str, str], expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
@@ -46,10 +50,32 @@ def verify_token(token: str) -> Optional[Dict[str, str]]:
         result = {
             "username": username,
             "full_name": payload.get("full_name", "Не указано"),
-            "role": payload.get("role", None) 
+            "role": payload.get("role", None),
+            "department": payload.get("department", "ТЭРиОВТ")
         }
         logger.debug(f"Token verified for user: {username}")
         return result
     except JWTError as e:
         logger.warning(f"Token verification error: {e}")
         return None
+
+@router.get("/me")
+async def get_user_info(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        user_data = verify_token(credentials.credentials)
+        if not user_data:
+            logger.warning(f"Недействительный или истёкший токен: {credentials.credentials[:10]}...")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Недействительный или истёкший токен")
+        
+        user_info = {
+            "username": user_data.get("username"),
+            "full_name": user_data.get("full_name", user_data.get("username")),
+            "role": user_data.get("role", "user"),
+            "isAdmin": user_data.get("role") == "admin",
+            "department": user_data.get("department", "ТЭРиОВТ")
+        }
+        logger.info(f"User info retrieved for {user_info['username']}")
+        return user_info
+    except Exception as e:
+        logger.error(f"Ошибка в /auth/me: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка сервера: {str(e)}")

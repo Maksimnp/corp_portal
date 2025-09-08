@@ -1,11 +1,16 @@
+// vite.config.ts
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import tailwindcss from '@tailwindcss/vite'
 
 const API_BASE_URL = 'http://192.1.66.117:8000';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    tailwindcss(),
+  ],
 
   define: {
     // Заглушка process.env для совместимости

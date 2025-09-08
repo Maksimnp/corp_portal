@@ -9,6 +9,8 @@ import { marked } from 'marked';
 import { CommentOutlined, CopyOutlined, DeleteOutlined, EditOutlined, FileExcelOutlined, FileImageOutlined, FileOutlined, FilePdfOutlined, FileTextOutlined, FileWordOutlined, FileZipOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { BsFiletypeTxt } from "react-icons/bs";
 import copy from 'copy-to-clipboard';
+import { set } from 'lodash';
+// import "tailwindcss";
 
 interface Message {
   id: string;
@@ -124,7 +126,6 @@ const ChatComponent: React.FC = () => {
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
   const WS_BASE = import.meta.env.VITE_WS_BASE || (import.meta.env.VITE_ENV === 'production' ? 'wss://192.1.66.117:8000' : 'ws://192.1.66.117:8000');
   const API_BASE = import.meta.env.VITE_API_BASE || 'http://192.1.66.117:8000';
 
@@ -253,15 +254,38 @@ const ChatComponent: React.FC = () => {
 
   const renderContextMenu = () => {
     if (!contextMenu.visible || !contextMenu.message) return null;
+    const menuWidth = contextMenuRef.current?.offsetWidth || 200; 
+    const menuHeight = contextMenuRef.current?.offsetHeight || 150; 
+
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+
+    let left = contextMenu.x;
+    let top = contextMenu.y;
+
+    if (left + menuWidth > windowWidth) {
+      left = left - menuWidth;
+    }
+
+    if (top + menuHeight > windowHeight) {
+      top = top - menuHeight;
+    }
+
+    if (left < 0) {
+      left = 0;
+    }
+
+    if (top < 0) {
+      top = 0;
+    }
 
     return (
       <div
         ref={contextMenuRef}
-        className="fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 py-1 min-w-[150px]" // Добавлен z-index
+        className="fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 py-1 min-w-[150px]"
         style={{
-          top: `${contextMenu.y}px`,
-          left: `${contextMenu.x}px`,
-          transform: 'translate(0, 0)',
+          top: `${top}px`,
+          left: `${left}px`,
         }}
       >
         {contextMenu.message.sender === username && (
@@ -277,7 +301,7 @@ const ChatComponent: React.FC = () => {
               onClick={handleContextMenuDelete}
               className="w-full text-left font-semibold gap-4 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 flex items-center"
             >
-              <DeleteOutlined className="text-xl"/>
+              <DeleteOutlined className="text-xl" />
               Удалить
             </button>
             <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
@@ -287,14 +311,14 @@ const ChatComponent: React.FC = () => {
           onClick={handleContextMenuCopy}
           className="w-full text-left font-semibold gap-4 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
         >
-          <CopyOutlined className="text-xl"/>
+          <CopyOutlined className="text-xl" />
           Копировать
         </button>
         <button
           onClick={handleContextMenuQuote}
           className="w-full text-left font-semibold gap-4 px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center"
         >
-          <CommentOutlined className="text-xl"/>
+          <CommentOutlined className="text-xl" />
           Ответить
         </button>
       </div>
@@ -641,6 +665,9 @@ const ChatComponent: React.FC = () => {
                 setIsTyping(false);
               }, 3000);
             }
+            if (data.type === "group_created" || data.type === "private_chat_created") {
+              setChats((prev) => [...prev, data.data]);
+            }
             if (data.type === 'message_edited') {
               setMessagesByChat(prev => ({
                 ...prev,
@@ -652,6 +679,11 @@ const ChatComponent: React.FC = () => {
             if (data.type === "user_status") {
               console.log(data.data);
               setUserStatuses(data.data);
+            }
+            if (data.type === "chat_deleted") {
+              const chatId = data.data.channel_id;
+              setChats(prev => prev.filter(c => c.id !== chatId));
+              if (activeChat === chatId) setActiveChat(null);
             }
             if (data.type === 'message_deleted') {
               const deletedMessageId = data.data.id;
@@ -1065,7 +1097,7 @@ const ChatComponent: React.FC = () => {
         throw new Error(`Failed to create private chat: ${res.status} ${res.statusText}`);
       }
       const newChat: Chat = await res.json();
-      setChats((prev) => [...prev, newChat]);
+      // setChats((prev) => [...prev, newChat]);
       setActiveChat(newChat.id);
       setShowContactSearch(false);
       setContactSearchQuery('');
@@ -1077,7 +1109,7 @@ const ChatComponent: React.FC = () => {
   };
 
   const createGroupChat = async () => {
-    if (!token || selectedContacts.length < 2) {
+    if (!token || selectedContacts.length < 1) {
       toast.error('Выберите минимум двух участников для создания группы');
       return;
     }
@@ -1114,7 +1146,8 @@ const ChatComponent: React.FC = () => {
         throw new Error(`Failed to create group chat: ${res.status} ${res.statusText} - ${errorData.detail || 'Unknown error'}`);
       }
       const newChat: Chat = await res.json();
-      setChats((prev) => [...prev, newChat]);
+      console.log(newChat);
+      // setChats((prev) => [...prev, newChat]);
       setActiveChat(newChat.id);
       setShowCreateGroup(false);
       setGroupName('');
@@ -1321,8 +1354,8 @@ const ChatComponent: React.FC = () => {
       if (!res.ok) {
         throw new Error(`Failed to delete chat: ${res.status} ${res.statusText}`);
       }
-      setChats(prev => prev.filter(c => c.id !== chatId));
-      if (activeChat === chatId) setActiveChat(null);
+      // setChats(prev => prev.filter(c => c.id !== chatId));
+      // if (activeChat === chatId) setActiveChat(null);
       toast.success('Чат удален');
       setShowDeleteModal(false);
     } catch (e) {
@@ -1801,15 +1834,15 @@ const ChatComponent: React.FC = () => {
       <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Информация о чате</h3>
         <div className=''>
-          <button
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          {username === currentChat.creator_username && (<button
+            className="text-gray-500 hover:text-gray-700 cursor-pointer dark:text-gray-400 dark:hover:text-gray-200"
             onClick={openEditChatModal}
           >
             <EditOutlined className="text-2xl mr-4" />
-          </button>
+          </button>)}
           <button 
             onClick={() => setShowChatInfoSidebar(false)}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            className="text-gray-500 cursor-pointer hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             aria-label="Закрыть"
           >
             <X size={24} />
@@ -2098,9 +2131,10 @@ const renderChatWindow = () => {
       }`}>
         <div className="flex items-center justify-between p-4 border-b border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900">
           {/*  */}
-          <div className="flex items-center hover:cursor-pointer"> 
+          <div className="flex items-center hover:cursor-pointer"
+          onClick={() => {openSidebar()}}> 
             <div className="flex-shrink-0 mr-3 text-gray-500 dark:text-gray-400"
-              onClick={() => {openSidebar()}}
+              
             >
               {getChatDisplayIcon(currentChat, 48)}
             </div>
@@ -2269,9 +2303,9 @@ const renderChatWindow = () => {
 };
 
   const renderModals = () => {
-    if (showContactSearch) {
+    if (showContactSearch && !showCreateGroup) {
       return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg">
             <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Начать чат с контактом</h3>
             <div className="relative mb-4">
@@ -2370,7 +2404,7 @@ const renderChatWindow = () => {
     }
     if (showCreateGroup) {
       return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg">
             <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Создать новую группу</h3>
             <input
@@ -2448,7 +2482,7 @@ const renderChatWindow = () => {
     }
     if (showCreateChannel) {
       return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg">
             <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Создать новый канал</h3>
             <input

@@ -421,11 +421,15 @@ class ConnectionManager:
 
 
     async def broadcast_to_channel_members(self, payload: Dict[str, Any], channel_id: UUIDType, db: Session):
-        channel = db.query(Channel).filter(Channel.id == channel_id).first()
-        if not channel:
-            logger.warning(f"Channel {channel_id} not found for broadcast")
-            return
-        usernames = channel.members
+        logger.info(f"payload type - {payload}")
+        if payload["type"] == "chat_deleted":
+            usernames = payload["data"]["members"]
+        else:
+            channel = db.query(Channel).filter(Channel.id == channel_id).first()
+            if not channel:
+                logger.warning(f"Channel {channel_id} not found for broadcast")
+                return
+            usernames = channel.members
         for uname in usernames:
             conns = self.active_connections.get(uname, [])
             for ws in conns:
@@ -680,9 +684,13 @@ def create_private_chat(
         payload = {
             "type": "private_chat_created",
             "data": {
-                "channel_id": str(chat.id),
-                "members": chat.members,
-                "created_by": username,
+                "id": str(chat.id),
+                "description": chat.description,
+                "is_group": chat.is_group,
+                "is_channel": chat.is_channel,
+                "name": chat.name,
+                "creator_username": chat.creator_username,
+                "members": chat.members
             }
         }
         try:
@@ -733,9 +741,13 @@ def create_group_chat(
         payload = {
             "type": "group_created",
             "data": {
-                "channel_id": str(chat.id),
+                "id": str(chat.id),
+                "description": chat.description,
+                "is_group": chat.is_group,
+                "is_channel": chat.is_channel,
                 "name": chat.name,
-                "created_by": owner,
+                "creator_username": owner,
+                "members": chat.members
             }
         }
         logger.debug(f"Broadcasting group_created: {payload}")
@@ -1021,6 +1033,7 @@ def delete_chat(
             "type": "chat_deleted",
             "data": {
                 "channel_id": str(channel_id),
+                "members": channel.members
             }
         }
         logger.debug(f"Broadcasting chat_deleted: {payload}")

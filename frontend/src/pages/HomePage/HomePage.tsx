@@ -8,6 +8,7 @@ interface LoginResponse {
   access_token: string;
   role: number;
   full_name?: string;
+  department: string;
 }
 
 interface LoginError {
@@ -103,11 +104,12 @@ const HomePage: React.FC = () => {
 
                 if (response.ok) {
                     const successData = data as LoginResponse;
-                    const { access_token, role, full_name = username } = successData;
+                    const { access_token, role, full_name = username, department } = successData;
                     login(access_token, String(role));
                     localStorage.setItem('token', access_token);
                     localStorage.setItem('role', String(role));
                     localStorage.setItem('username', full_name);
+                    localStorage.setItem('department', department);
                     closeModal();
                     navigate('/dashboard');
                     return;

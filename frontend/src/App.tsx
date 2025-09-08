@@ -12,6 +12,7 @@ import DocumentsPage from './components/DocumentsPage';
 import { AuthProvider, useAuth } from './pages/AuthContext';
 import JitsiWrapper from './pages/meet/JitsiWrapper';
 import ServerStats from './pages/ServerStats/ServerStats'; 
+import FAQ from './pages/FAQ/faq';
 
 const PrivateRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
     const { isAuthenticated, loading } = useAuth();
@@ -98,7 +99,14 @@ const App: React.FC = () => {
                             </PrivateRoute>
                         }
                     />
-                
+                <Route
+                        path="/FAQ"
+                        element={
+                            <PrivateRoute>
+                                <FAQ />
+                            </PrivateRoute>
+                        }
+                    />
                     <Route
                         path="/serverstats"
                         element={

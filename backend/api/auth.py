@@ -3,13 +3,15 @@ from pydantic import BaseModel, field_validator
 import logging
 from services.jwt_utils import create_access_token, verify_token
 from services.ad_auth import authenticate_user, get_user_role
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.security import OAuth2PasswordBearer
+from services.ad_auth import get_user_details
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
+security = HTTPBearer()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login") # Убедитесь, что URL правильный
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
@@ -122,6 +124,8 @@ async def login(request: Request, login_data: LoginData = Body(...)):
 
     # Проверка наличия full_name
     full_name = user_info.get("full_name", username)
+    department = user_info.get("department")
+    logger.info(f"Отдел пользователя - {department}")
     logger.info(f"Пользователь {username} успешно аутентифицирован с ролью: {role}")
 
     # Создаём токен
@@ -137,5 +141,57 @@ async def login(request: Request, login_data: LoginData = Body(...)):
         "access_token": access_token,
         "token_type": "bearer",
         "role": role,
-        "full_name": full_name
+        "full_name": full_name,
+        "department": department
     }
+
+@router.get("/me")
+async def get_user_info(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        user_data = verify_token(credentials.credentials)
+        if not user_data:
+            logger.warning(f"Недействительный или истёкший токен: {credentials.credentials[:10]}...")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Недействительный или истёкший токен")
+        
+        user_info = {
+            "username": user_data.get("username"),
+            "full_name": user_data.get("full_name", user_data.get("username")),
+            "role": user_data.get("role", "user"),
+            "isAdmin": user_data.get("role") == "admin",
+            "department": user_data.get("department", "ТЭРиОВТ")
+        }
+        logger.info(f"User info retrieved for {user_info['username']}")
+        return user_info
+    except Exception as e:
+        logger.error(f"Ошибка в /auth/me: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка сервера: {str(e)}")
+
+@router.get("/user-departments")
+async def get_user_departments(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+
+        user_data = verify_token(credentials.credentials)
+        if not user_data:
+            logger.warning("Invalid or expired token in /user-departments")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Недействительный или истёкший токен")
+
+        current_username = user_data.get("username")
+        if not current_username:
+            logger.warning("Token does not contain username")
+            raise HTTPException(status_code=400, detail="Invalid token: username not found")
+
+        ad_user_info = get_user_details(current_username)
+        if not ad_user_info:
+            logger.error(f"Не удалось получить информацию о пользователе {current_username} из AD")
+            departments = []
+        else:
+            main_department = ad_user_info.get("department", "").strip()
+            departments = []
+            if main_department:
+                departments.append(main_department)
+
+        logger.info(f"Departments retrieved for user {current_username}: {departments}")
+        return {"departments": departments}
+    except Exception as e:
+        logger.error(f"Ошибка получения отделов для пользователя {current_username}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Ошибка получения отделов")

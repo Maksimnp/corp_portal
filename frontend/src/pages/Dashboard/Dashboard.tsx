@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { EditOutlined, VideoCameraOutlined } from '@ant-design/icons';
+import { EditOutlined, VideoCameraOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 
 const services = [
   { title: 'Чат', description: 'Общайтесь с коллегами в каналах и личных сообщениях', to: '/chat', icon: '💬' },
@@ -12,6 +12,7 @@ const services = [
   { title: 'Документы', description: 'Центр хранения внутренних документов и инструкций', to: '/docs', icon: '📄' },
   { title: 'Статистика серверов', description: 'Просмотр статистики серверов', to: '/serverstats', icon: '📊', disabled: false },
   { title: 'VPN Управление', description: 'Управление подключениями и профилями OpenVPN', to: '/VPNManagement', icon: '🔒', isAdminOnly: true },
+  { title: 'Часто задаваемые вопросы', description: 'Ответы на популярные вопросы', to: '/faq', icon: <QuestionCircleOutlined style={{ fontSize: '24px' }} /> },
 ];
 const JITSI_URL = import.meta.env.VITE_API_JITSI_URL;
 
