@@ -62,6 +62,7 @@ const ChatComponent: React.FC = () => {
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [userStatuses, setUserStatuses] = useState<{ [username: string]: string }>({});
   const [typingUser, setTypingUser] = useState('');
   const [websocket, setWebsocket] = useState<WebSocket | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -122,6 +123,7 @@ const ChatComponent: React.FC = () => {
   const [editChatDescription, setEditChatDescription] = useState('');
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const WS_BASE = import.meta.env.VITE_WS_BASE || (import.meta.env.VITE_ENV === 'production' ? 'wss://192.1.66.117:8000' : 'ws://192.1.66.117:8000');
   const API_BASE = import.meta.env.VITE_API_BASE || 'http://192.1.66.117:8000';
@@ -628,9 +630,16 @@ const ChatComponent: React.FC = () => {
               });
             }
             if (data.type === 'typing') {
+              if (typingTimeoutRef.current) {
+                clearTimeout(typingTimeoutRef.current);
+              }
+              
               setIsTyping(true);
               setTypingUser(data.data.user);
-              setTimeout(() => setIsTyping(false), 3000);
+              
+              typingTimeoutRef.current = setTimeout(() => {
+                setIsTyping(false);
+              }, 3000);
             }
             if (data.type === 'message_edited') {
               setMessagesByChat(prev => ({
@@ -639,6 +648,10 @@ const ChatComponent: React.FC = () => {
                   m.id === data.data.id ? { ...m, content: data.data.content, edited: true } : m
                 ),
               }));
+            }
+            if (data.type === "user_status") {
+              console.log(data.data);
+              setUserStatuses(data.data);
             }
             if (data.type === 'message_deleted') {
               const deletedMessageId = data.data.id;
@@ -682,7 +695,7 @@ const ChatComponent: React.FC = () => {
         };
         ws.onclose = (event) => {
           if (!isMounted) return;
-          console.log(`WebSocket closed: ${event.code}, reason: ${event.reason}`);
+          console.log(`WebSocket closed for ${username}. Code: ${event.code}, Reason: ${event.reason}, Was Clean: ${event.wasClean}`);
           setConnectionStatus('disconnected');
           setWebsocket(null);
           clearInterval(pingInterval);
@@ -716,6 +729,14 @@ const ChatComponent: React.FC = () => {
       if (ws) ws.close();
     };
   }, [token, username, activeChat, chats, contactMap, refreshToken]);
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -1365,12 +1386,18 @@ const ChatComponent: React.FC = () => {
     return <span dangerouslySetInnerHTML={{ __html: marked.parseInline(content) }} />;
   };
 
-  const getChatDisplayName = (chat: Chat) => {
+  const  getChatDisplayName = (chat: Chat, type_name: string): string => {
     if (chat.is_group || chat.is_channel) {
       return chat.name || `Чат ${chat.id.slice(0, 4)}`;
     }
-    const otherMember = chat.members.find(m => m !== username);
-    return otherMember ? contactMap[otherMember] || otherMember : 'Личный чат';
+    const otherMember = chat.members.find(m => m !== username) || 'Неизвестный пользователь';
+    if (type_name === 'short') { 
+      return otherMember;
+    } 
+    if (type_name === "full") { 
+      return otherMember ? contactMap[otherMember] || otherMember : 'Личный чат';
+    }
+    return 'Неизвестный чат';
   };
 
   const getChatDisplayIcon = (chat: Chat, size: number = 20) => {
@@ -1611,11 +1638,18 @@ const ChatComponent: React.FC = () => {
               className={`flex items-center p-4 border-b border-gray-300 dark:border-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${activeChat === chat.id ? 'bg-gray-200 dark:bg-gray-700' : ''}`}
             >
               <div className="flex-shrink-0 mr-3 text-gray-500 dark:text-gray-400">
-                {getChatDisplayIcon(chat)}
+                <div className='relative'>
+                  {getChatDisplayIcon(chat, 50)}
+                  {userStatuses[getChatDisplayName(chat, "short")] === "online" && (
+                    <div 
+                      className="absolute bottom-[5px] right-[5px] block h-3 w-3 rounded-full ring-2 ring-white bg-blue-500"
+                    />
+                  )}
+                </div>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">{getChatDisplayName(chat)}</div>
+                  <div className="font-semibold text-gray-900 dark:text-gray-100 truncate">{getChatDisplayName(chat, 'full')}</div>
                   {unreadCounts[chat.id] > 0 && (
                     <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full">
                       {unreadCounts[chat.id]}
@@ -1623,6 +1657,11 @@ const ChatComponent: React.FC = () => {
                   )}
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                  {/* {isTyping && typingUser !== username && (
+                    <div className="p-0 text-sm text-gray-500 dark:text-gray-400">
+                     печатает...
+                    </div>
+                  )} */}
                   {messagesByChat[chat.id] && messagesByChat[chat.id].length > 0
                     ? messagesByChat[chat.id][messagesByChat[chat.id].length - 1].content?.split('\n')[0] || 'Новый файл'
                     : 'Нет сообщений'}
@@ -1785,7 +1824,7 @@ const ChatComponent: React.FC = () => {
                   {getChatDisplayIcon(currentChat, 180)}
                 </div>
                 <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  {getChatDisplayName(currentChat)}
+                  {getChatDisplayName(currentChat, 'full')}
                 </h4>
                 <div className="text-sm">
                   <div className="text-gray-500 dark:text-gray-400">Участники ({currentChat.members?.length || 0})</div>
@@ -1808,7 +1847,14 @@ const ChatComponent: React.FC = () => {
                 {currentChat.members && currentChat.members.length > 0 ? (
                   currentChat.members.map((member, index) => (
                     <div key={index} className="flex items-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
-                      <UserCircle size={20} className="mr-2 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                      <div className='relative'>
+                        <UserCircle size={26} className="mr-2 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                        {userStatuses[member] === "online" && (
+                          <div 
+                            className="absolute bottom-[3px] right-[5px] block h-2 w-2 rounded-full ring-2 ring-white bg-blue-500"
+                          />
+                        )}
+                      </div>
                       <span className="truncate">{contactMap[member] || member}</span>
                       {currentChat.creator_username === member && (
                         <span className="ml-2 text-xs px-1.5 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 rounded">
@@ -2036,7 +2082,15 @@ const renderChatWindow = () => {
       </div>
     );
   }
-  
+  // console.log(getChatDisplayName(currentChat, "short"));
+  // console.log(JSON.stringify(currentChat, null, 2));
+  // console.log(JSON.stringify(userStatuses, null, 2));
+
+  // console.log(isTyping && typingUser !== username);
+  console.log(typingUser !== username);
+  console.log(userStatuses[getChatDisplayName(currentChat, "short")] === "online" && !isTyping  && typingUser !== username);
+  // console.log(!(getChatDisplayName(currentChat, "short") in userStatuses) && !isTyping  && typingUser !== username);
+  console.log(`status - ${userStatuses[getChatDisplayName(currentChat, "short")]}, isTyping - ${isTyping}, typingUser - ${typingUser}`)
   return (
     <div className="relative flex flex-1 bg-gray-100 dark:bg-gray-800 h-full overflow-hidden">
       <div className={`flex flex-col flex-1 transition-all duration-300 ease-in-out ${
@@ -2048,12 +2102,28 @@ const renderChatWindow = () => {
             <div className="flex-shrink-0 mr-3 text-gray-500 dark:text-gray-400"
               onClick={() => {openSidebar()}}
             >
-              {getChatDisplayIcon(currentChat)}
+              {getChatDisplayIcon(currentChat, 48)}
             </div>
-            <div className="flex flex-col">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{getChatDisplayName(currentChat)}</h2>
+            <div className="flex flex-col h-[50px]">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{getChatDisplayName(currentChat, 'full')}</h2>
               {currentChat.is_channel && (
                 <div className="text-sm text-gray-500 dark:text-gray-400">{currentChat.description}</div>
+              )}
+              {isTyping && typingUser !== username && (
+                <div className="p-0 text-sm text-gray-500 dark:text-gray-400">
+                  {/* {contactMap[typingUser] || typingUser}  */}печатает...
+                </div>
+              )}
+              {/*&& userStatuses[getChatDisplayName(currentChat)] === "online"*/}
+              {userStatuses[getChatDisplayName(currentChat, "short")] === "online" && (!isTyping || isTyping && typingUser == username) && (
+                <div className="p-0 text-sm dark:text-gray-400 text-blue-500">
+                  online
+                </div>
+              )}
+              {!(getChatDisplayName(currentChat, "short") in userStatuses) && !isTyping  && typingUser !== username && (
+                <div className="p-0 text-sm dark:text-gray-400 text-gray-500">
+                  last ceen recently
+                </div>
               )}
             </div>
           </div>
@@ -2095,11 +2165,6 @@ const renderChatWindow = () => {
           <div ref={messagesEndRef} />
           {renderContextMenu()}
         </div>
-        {isTyping && typingUser !== username && (
-          <div className="p-2 text-sm text-gray-500 dark:text-gray-400">
-            {contactMap[typingUser] || typingUser} печатает...
-          </div>
-        )}
         {/* INPUT BAR */}
         <div className="p-4 border-t border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900 relative">
           {renderQuotedMessage()}
@@ -2426,7 +2491,7 @@ const renderChatWindow = () => {
       return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Пригласить в {getChatDisplayName(currentChat)}</h3>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Пригласить в {getChatDisplayName(currentChat, 'full')}</h3>
             <div className="relative mb-4">
               <MagnifyingGlass size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
@@ -2496,7 +2561,7 @@ const renderChatWindow = () => {
       return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Исключить из {getChatDisplayName(currentChat)}</h3>
+            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Исключить из {getChatDisplayName(currentChat, 'full')}</h3>
             <div className="max-h-60 overflow-y-auto mb-4">
               {currentChat.members.filter(member => member !== username).map(member => (
                 <div key={member} className="flex items-center justify-between p-3 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors" onClick={() => toggleKickSelection(member)}>
@@ -2543,7 +2608,7 @@ const renderChatWindow = () => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg text-center">
             <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Покинуть чат</h3>
             <p className="text-gray-700 dark:text-gray-300 mb-6">
-              Вы уверены, что хотите покинуть чат "{getChatDisplayName(currentChat)}"?
+              Вы уверены, что хотите покинуть чат "{getChatDisplayName(currentChat, 'full')}"?
             </p>
             <div className="flex justify-center space-x-4">
               <button
@@ -2570,7 +2635,7 @@ const renderChatWindow = () => {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-lg text-center">
             <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Удалить чат</h3>
             <p className="text-gray-700 dark:text-gray-300 mb-6">
-              Вы уверены, что хотите навсегда удалить чат "{getChatDisplayName(currentChat)}"? Это действие нельзя отменить.
+              Вы уверены, что хотите навсегда удалить чат "{getChatDisplayName(currentChat, 'full')}"? Это действие нельзя отменить.
             </p>
             <div className="flex justify-center space-x-4">
               <button

@@ -10,7 +10,6 @@ import HomePage from './pages/HomePage/HomePage';
 import EditADContacts from './components/EditADContacts';
 import DocumentsPage from './components/DocumentsPage';
 import { AuthProvider, useAuth } from './pages/AuthContext';
-import VPNManagement from './pages/VPNManagement/VPNManagement';
 import JitsiWrapper from './pages/meet/JitsiWrapper';
 import ServerStats from './pages/ServerStats/ServerStats'; 
 
@@ -99,14 +98,7 @@ const App: React.FC = () => {
                             </PrivateRoute>
                         }
                     />
-                    <Route
-                        path="/VPNManagement"
-                        element={
-                            <PrivateRoute>
-                                <VPNManagement />
-                            </PrivateRoute>
-                        }
-                    />
+                
                     <Route
                         path="/serverstats"
                         element={

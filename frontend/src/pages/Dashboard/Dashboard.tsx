@@ -21,25 +21,30 @@ const ServiceCard: React.FC<{ service: typeof services[number] }> = ({ service }
   const isDisabled = service.disabled || (service.isAdminOnly && !isAdmin);
 
   const isVideoConf = service.title === 'Видеоконференции';
+  const isVPNManagement = service.title === 'VPN Управление';
 
   const handleClick = (e: React.MouseEvent) => {
     if (isDisabled) {
       e.preventDefault();
       return;
     }
+
+    e.preventDefault();
+
     if (isVideoConf) {
-      e.preventDefault();
       window.open(JITSI_URL, '_blank', 'noopener,noreferrer');
+    } else if (isVPNManagement) {
+      window.open('https://192.1.66.10:943/admin', '_blank', 'noopener,noreferrer');
     }
   };
 
-  if (isVideoConf) {
+  if (isVideoConf || isVPNManagement) {
     return (
       <div
         role="button"
         tabIndex={0}
         onClick={handleClick}
-        onKeyDown={e => {
+        onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             handleClick(e as any);
           }

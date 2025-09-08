@@ -9,7 +9,6 @@ from services.jwt_utils import verify_token
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
 import routeros_api
-from collections import defaultdict
 import time
 
 router = APIRouter(prefix="/serverstats", tags=["server-stats"])
@@ -148,8 +147,8 @@ def get_router_stats_sync(ips: List[str]):
                 entry = netwatch_entries[0]
                 status_value = entry.get('status', '').lower()
                 status = 'online' if status_value == 'up' else 'offline'
-                failed_tests = int(entry.get('failed-tests', '0'))
-                latency = entry.get('avg-roundtrip', '0ms')
+                failed_tests = int(entry.get('packet-count-lost', '0'))
+                latency = entry.get('average-rtt', '0ms')
                 packet_loss = entry.get('packet-loss', '0%')
                 since = entry.get('since', '')
                 if since:
@@ -197,6 +196,13 @@ def get_router_stats_sync(ips: List[str]):
         if connection:
             connection.disconnect()
 
+def parse_limit(limit_str: str) -> int:
+    """Парсинг лимита скорости (с суффиксами k, M, G)"""
+    multipliers = {'k': 1000, 'M': 1000000, 'G': 1000000000}
+    if limit_str[-1] in multipliers:
+        return int(limit_str[:-1]) * multipliers[limit_str[-1]]
+    return int(limit_str)
+
 def get_traffic_history_sync(ip: str, hours: int = 24):
     """Получение истории трафика для IP"""
     connection = None
@@ -221,12 +227,11 @@ def get_traffic_history_sync(ip: str, hours: int = 24):
         packets_in_data = []
         packets_out_data = []
 
-        # Для демонстрации создаем синтетические данные
-        # В реальной реализации нужно получать исторические данные
+        # TODO: Для реальной истории трафика используйте внешнюю БД или скрипты для логирования данных со временем.
+        # Здесь синтетические данные для демонстрации.
         now = datetime.now()
         for i in range(hours):
             timestamp = (now - timedelta(hours=i)).isoformat()
-            # Синтетические данные для демонстрации
             bytes_in_data.append(TimeSeriesData(
                 timestamp=timestamp,
                 value=float(i * 1000000)  # 1MB/hour
@@ -281,11 +286,11 @@ def get_latency_history_sync(ip: str, hours: int = 24):
         latency_data = []
         packet_loss_data = []
 
-        # Для демонстрации создаем синтетические данные
+        # TODO: Для реальной истории задержек используйте внешнюю БД или скрипты для логирования данных со временем.
+        # Здесь синтетические данные для демонстрации.
         now = datetime.now()
         for i in range(hours):
             timestamp = (now - timedelta(hours=i)).isoformat()
-            # Синтетические данные для демонстрации
             latency_data.append(TimeSeriesData(
                 timestamp=timestamp,
                 value=float(10 + i % 20)  # 10-30ms
@@ -328,9 +333,12 @@ def get_system_info_sync():
 
         if system_resource:
             resource = system_resource[0]
+            total_memory = int(resource.get('total-memory', 1))
+            free_memory = int(resource.get('free-memory', 0))
+            memory_usage = f"{((total_memory - free_memory) / total_memory * 100):.1f}%" if total_memory > 0 else "0%"
             system_info = SystemInfo(
                 cpuLoad=resource.get('cpu-load', '0') + '%',
-                memoryUsage=f"{int(resource.get('free-memory', 0)) / int(resource.get('total-memory', 1)) * 100:.1f}%",
+                memoryUsage=memory_usage,
                 uptime=resource.get('uptime', '0s'),
                 version=resource.get('version', 'Unknown')
             )
@@ -563,10 +571,10 @@ async def get_bandwidth_usage(_: dict = Depends(verify_token_dependency)):
         used_bandwidth = 0
         
         for queue in queues:
-            # Анализируем использование очередей
-            bytes_in = int(queue.get('bytes-in', '0'))
-            bytes_out = int(queue.get('bytes-out', '0'))
-            used_bandwidth += bytes_in + bytes_out
+            # Анализируем текущее использование (rate-in/out в bps)
+            rate_in = int(queue.get('rate-in', '0'))
+            rate_out = int(queue.get('rate-out', '0'))
+            used_bandwidth += rate_in + rate_out
             
             # Получаем лимиты (если есть)
             max_limit = queue.get('max-limit', '')
@@ -575,17 +583,17 @@ async def get_bandwidth_usage(_: dict = Depends(verify_token_dependency)):
                 parts = max_limit.split('/')
                 if len(parts) == 2:
                     try:
-                        # Берем максимальный лимит из upload/download
-                        upload_limit = int(parts[0].replace('k', '000').replace('M', '000000'))
-                        download_limit = int(parts[1].replace('k', '000').replace('M', '000000'))
-                        total_bandwidth += max(upload_limit, download_limit)
+                        upload_limit = parse_limit(parts[0])
+                        download_limit = parse_limit(parts[1])
+                        total_bandwidth += upload_limit + download_limit
                     except:
                         pass
         
+        utilization = f"{(used_bandwidth / total_bandwidth * 100) if total_bandwidth > 0 else 0:.2f}%"
         return {
             "total_bandwidth": f"{total_bandwidth / 1000000:.2f} Mbps",
             "used_bandwidth": f"{used_bandwidth / 1000000:.2f} Mbps",
-            "utilization": f"{(used_bandwidth / total_bandwidth * 100) if total_bandwidth > 0 else 0:.2f}%"
+            "utilization": utilization
         }
     except Exception as e:
         logger.error(f"Ошибка при получении использования пропускной способности: {e}", exc_info=True)
@@ -646,7 +654,8 @@ async def get_network_alerts(_: dict = Depends(verify_token_dependency)):
         # Фильтруем важные события
         alerts = []
         for log in logs:
-            if log.get('topics') in ['error', 'warning', 'critical']:
+            topics = log.get('topics', '').split(',')
+            if any(topic.strip() in ['error', 'warning', 'critical'] for topic in topics):
                 alerts.append({
                     "time": log.get('time', ''),
                     "topics": log.get('topics', ''),

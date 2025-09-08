@@ -100,29 +100,19 @@ def get_ad_connection(user: Optional[str] = None, password: Optional[str] = None
 
 def authenticate_user(username: str, password: str) -> Optional[Dict[str, str]]:
     """
-    Аутентификация пользователя в AD.
-    Возвращает информацию о пользователе или None.
+    Аутентификат пользователя в AD и получает его детали.
     """
     if not username or not password:
         logger.debug("Имя пользователя или пароль не предоставлены")
         return None
 
-    # Формируем UPN для аутентификации
-    # Предполагаем, что имя пользователя без домена
     user_principal = f"{username}@{AD_DOMAIN}"
     logger.debug(f"Попытка аутентификации пользователя: {user_principal}")
 
     conn = None
     try:
-        # Подключаемся с учетными данными пользователя
         conn = get_ad_connection(user_principal, password)
         
-        # Если подключение успешно, ищем детали пользователя
-        # Используем то же соединение или открываем новое от имени сервиса?
-        # Лучше открыть новое, чтобы не мешать сессии пользователя.
-        # Но для простоты используем текущее соединение.
-         
-        # Экранируем имя пользователя для поиска (ldap3 делает это автоматически для фильтров)
         search_filter = f"(sAMAccountName={username})"
         logger.debug(f"Поиск пользователя с фильтром: {search_filter}")
         
@@ -130,7 +120,7 @@ def authenticate_user(username: str, password: str) -> Optional[Dict[str, str]]:
             search_base=BASE_DN,
             search_filter=search_filter,
             search_scope=SUBTREE,
-            attributes=["displayName", "givenName", "sn", "mail", "department"]
+            attributes=["displayName", "givenName", "sn", "mail", "department"] # Атрибуты могут быть пустыми!
         )
         
         if not conn.entries:
@@ -138,26 +128,31 @@ def authenticate_user(username: str, password: str) -> Optional[Dict[str, str]]:
             return None
 
         entry = conn.entries[0]
-        logger.debug(f"Найдена запись пользователя: {entry.entry_dn}")
-
-        # Извлекаем атрибуты
+        # --- ИСПРАВЛЕНИЕ НАЧАЛО ---
+        # entry.entry_attributes_as_dict может возвращать пустой список [] для атрибутов без значений.
+        # Безопасно извлекаем первое значение или используем значение по умолчанию.
         attrs = entry.entry_attributes_as_dict
         
-        given_name_list = attrs.get("givenName", [""])
-        sn_list = attrs.get("sn", [""])
-        display_name_list = attrs.get("displayName", [""])
-        mail_list = attrs.get("mail", [""])
-        department_list = attrs.get("department", [""])
+        # Функция для безопасного получения первого элемента списка
+        def safe_get_first(attr_dict, attr_name, default=""):
+            """Безопасно получить первое значение атрибута из словаря атрибутов ldap3."""
+            value_list = attr_dict.get(attr_name, [])
+            # Проверяем, что список не пустой, и первое значение существует и не None
+            if value_list and value_list[0] is not None:
+                 return str(value_list[0]) # Преобразуем в строку на всякий случай
+            return default
 
-        given_name = given_name_list[0] if given_name_list else ""
-        sn = sn_list[0] if sn_list else ""
-        display_name = display_name_list[0] if display_name_list else ""
-        mail = mail_list[0] if mail_list else ""
-        department = department_list[0] if department_list else ""
+        given_name = safe_get_first(attrs, "givenName")
+        sn = safe_get_first(attrs, "sn")
+        display_name = safe_get_first(attrs, "displayName")
+        mail = safe_get_first(attrs, "mail")
+        department = safe_get_first(attrs, "department")
 
+        # Формируем полное имя
         full_name = display_name or f"{given_name} {sn}".strip() or username
+        # --- ИСПРАВЛЕНИЕ КОНЕЦ ---
         
-        logger.info(f"Успешная аутентификация и получение данных для пользователя: {username}")
+        logger.info(f"Успешная аутентификация для пользователя: {username}")
         return {
             "username": username,
             "full_name": full_name,
@@ -170,17 +165,16 @@ def authenticate_user(username: str, password: str) -> Optional[Dict[str, str]]:
     except LDAPException as e:
         logger.error(f"Ошибка LDAP при аутентификации пользователя {username}: {e}")
         return None
-    except Exception as e:
+    except Exception as e: # Перехватываем общее исключение
         logger.error(f"Неизвестная ошибка при аутентификации пользователя {username}: {e}", exc_info=True)
         return None
     finally:
-        if conn and conn.bound:
+        if conn is not None and conn.bound:
             try:
                 conn.unbind()
                 logger.debug("Соединение LDAP закрыто после аутентификации.")
             except Exception as e:
                 logger.warning(f"Ошибка при закрытии LDAP соединения: {e}")
-
 
 def get_user_details(username: str) -> Optional[Dict[str, str]]:
     """Получение информации о пользователе из AD (от имени сервиса)."""

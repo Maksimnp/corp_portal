@@ -16,7 +16,6 @@ from api.auth import router as auth_router
 from api.contacts import router as contacts_router
 from api.admin import router as admin_router
 from api.request_list import router as request_list_router
-from api.vpn import router as vpn_router
 from api.chat import router as chat_router  
 from api.serverstats import router as serverstats_router
 load_dotenv()
@@ -146,7 +145,6 @@ app.include_router(contacts_router, prefix="/contacts", tags=["contacts"])
 app.include_router(admin_router, prefix="/admin", tags=["admin"])
 app.include_router(request_list_router, prefix="/request_list", tags=["requests"])
 app.include_router(documents_router, prefix="/api", tags=["documents"])
-app.include_router(vpn_router)
 app.include_router(chat_router)
 app.include_router(serverstats_router)
 @app.get("/health", include_in_schema=False)

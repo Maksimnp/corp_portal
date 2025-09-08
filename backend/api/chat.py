@@ -377,14 +377,27 @@ def get_db() -> Session:
 class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[str, List[WebSocket]] = {}
+        self.active_connections_users: Dict[str, str] = {}
 
     async def connect(self, ws: WebSocket, username: str):
+        logger.info(f"Connected to WebSocket")
         if username not in self.active_connections:
             self.active_connections[username] = []
+        if username not in self.active_connections_users:
+            self.active_connections_users[username] = "online"
         self.active_connections[username].append(ws)
         logger.debug(f"User {username} connected to WebSocket")
+        logger.info(f"active_connections con - {self.active_connections}")
+        logger.info(f"active_connections_users  con - {self.active_connections_users}")
+        for user in self.active_connections:
+            try:
+                for ws in self.active_connections[user]:
+                    await ws.send_json({"type": "user_status", "data": self.active_connections_users})
+            except Exception as e:
+                logger.error(f"Failed to send connection confirmation to {username}: {e}")              
 
-    def disconnect(self, ws: WebSocket, username: str):
+    async def disconnect(self, ws: WebSocket, username: str):
+        logger.info(f"Disconnected from WebSocket")
         if username in self.active_connections:
             conns = self.active_connections[username]
             if ws in conns:
@@ -393,6 +406,19 @@ class ConnectionManager:
             if not conns:
                 del self.active_connections[username]
                 logger.debug(f"No active connections for {username}")
+        if username in self.active_connections_users:
+            self.active_connections_users.pop(username)
+        logger.info(f"active_connections disc - {self.active_connections}")
+        logger.info(f"active_connections_users disc - {self.active_connections_users}")
+        for user in self.active_connections:
+            for ws in self.active_connections[user]:
+                try:
+                    logger.info(f"send conn to user - {user}")
+                    await ws.send_json({"type": "user_status", "data": self.active_connections_users})
+                except Exception as e:
+                    logger.error(f"Failed to send connection confirmation to {username}: {e}")       
+               
+
 
     async def broadcast_to_channel_members(self, payload: Dict[str, Any], channel_id: UUIDType, db: Session):
         channel = db.query(Channel).filter(Channel.id == channel_id).first()
@@ -407,6 +433,7 @@ class ConnectionManager:
                     await ws.send_json(payload)
                 except Exception as e:
                     logger.error(f"WS send error to {uname}: {e}")
+
 
 # Инициализация менеджера WebSocket
 manager = ConnectionManager()
@@ -1330,7 +1357,8 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
         logger.error(f"WS error for {username}: {e}", exc_info=True)
         await websocket.send_json({"type": "error", "error": f"Ошибка WebSocket: {str(e)}"})
     finally:
-        manager.disconnect(websocket, username)
+        logger.info("disco")
+        await manager.disconnect(websocket, username)
         if db.in_transaction():
             db.rollback()
         db.close()
