@@ -8,7 +8,7 @@ type AuthContextType = {
   isAuthenticated: boolean;
   isAdmin: boolean;
   loading: boolean;
-  login: (token: string, role: string, refreshToken: string) => void;
+  login: (token: string, role: string) => void;
   logout: () => void;
   refreshToken: () => Promise<string | null>;
 };
@@ -100,12 +100,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isAuthenticated = !!token;
   const isAdmin = role === 'admin';
-
-  return (
-    <AuthContext.Provider value={{ token, role, username, isAuthenticated, isAdmin, loading, login, logout, refreshToken }}>
-      {children}
-    </AuthContext.Provider>
-  );
+const loginWrapper = (token: string, role: string) => {
+  login(token, role, '');
+};
+return (
+  <AuthContext.Provider value={{
+    token,
+    role,
+    username,
+    isAuthenticated,
+    isAdmin,
+    loading,
+    logout,
+    login: loginWrapper,
+    refreshToken,
+  }}>
+    {children}
+  </AuthContext.Provider>
+);
 };
 
 export const useAuth = () => {

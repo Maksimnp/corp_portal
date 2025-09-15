@@ -14,18 +14,17 @@ from concurrent.futures import ThreadPoolExecutor
 import asyncio
 import sqlalchemy
 from api.auth import verify_token
-# Создаём маршрутизатор только для FAQ
+from services.ad_auth import get_all_departments
+
 faq_router = APIRouter(tags=["faq"])
 
 logger = logging.getLogger(__name__)
 
-# Конфигурация базы данных
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://portal_admin:season@localhost/faq_database")
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# Логирование версии SQLAlchemy и схемы таблицы
 logger.info(f"SQLAlchemy version: {sqlalchemy.__version__}")
 inspector = inspect(engine)
 if 'faqs' in inspector.get_table_names():
@@ -34,7 +33,6 @@ if 'faqs' in inspector.get_table_names():
 else:
     logger.warning("Таблица faqs не существует в базе данных")
 
-# Директория для загрузки изображений
 UPLOAD_DIR = "uploads/faq_images"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -45,7 +43,7 @@ class FAQ(Base):
     question = Column(String, nullable=False)
     content_html = Column(Text)
     category = Column(String, index=True, nullable=True)
-    department = Column(String, index=True, nullable=True)  # Опциональный столбец
+    department = Column(String, index=True, nullable=True)
     is_general = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
@@ -120,11 +118,12 @@ def get_db_session():
     finally:
         db.close()
 
-def get_faqs_sync(db: Session, category: Optional[str] = None, search_query: Optional[str] = None, department: Optional[str] = None):
+def get_faqs_sync(db: Session, category: Optional[str] = None, search_query: Optional[str] = None, department: Optional[str] = None, user_data: dict = None):
     try:
-        cache_key = f"faqs_{category}_{search_query}_{department}"
+        cache_key = f"faqs_{category}_{search_query}_{department}_{user_data.get('username')}"
         cached_data = cache.get(cache_key)
         if cached_data:
+            logger.debug(f"Возвращены кэшированные данные для ключа: {cache_key}")
             return cached_data
 
         query = db.query(FAQ)
@@ -139,13 +138,17 @@ def get_faqs_sync(db: Session, category: Optional[str] = None, search_query: Opt
                 (FAQ.content_html.ilike(search_filter))
             )
         
-        if department and department != 'all':
-            if department == 'general':
-                query = query.filter(FAQ.is_general == True)
-            else:
-                query = query.filter(
-                    (FAQ.department == department) | (FAQ.is_general == True)
-                )
+        # Фильтрация для не-администраторов
+        if not user_data.get('isAdmin', False):
+            user_department = user_data.get('department') or None
+            query = query.filter(
+                (FAQ.is_general == True) | 
+                ((FAQ.department == user_department) & (FAQ.department.isnot(None)))
+            )
+        elif department and department != 'all' and department != 'general':
+            query = query.filter(
+                (FAQ.department == department) | (FAQ.is_general == True)
+            )
         
         faqs = query.order_by(FAQ.created_at.desc()).all()
         
@@ -163,147 +166,22 @@ def get_faqs_sync(db: Session, category: Optional[str] = None, search_query: Opt
         }
         
         cache[cache_key] = result
+        logger.debug(f"Кэшированы данные для ключа: {cache_key}")
         return result
-
     except Exception as e:
         logger.error(f"Ошибка в get_faqs_sync: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка получения FAQ: {str(e)}")
 
-def get_faq_by_id_sync(db: Session, faq_id: int):
+def get_faq_stats_sync(db: Session, user_data: dict):
     try:
-        faq = db.query(FAQ).filter(FAQ.id == faq_id).first()
-        if not faq:
-            raise HTTPException(status_code=404, detail="FAQ не найден")
+        if not user_data.get('isAdmin', False):
+            logger.warning(f"Попытка доступа к статистике FAQ неадминистратором: {user_data.get('username')}")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступ к статистике FAQ разрешён только администраторам")
         
-        faq.views_count += 1
-        db.commit()
-        db.refresh(faq)
-        
-        return FAQResponse.from_orm(faq)
-
-    except Exception as e:
-        logger.error(f"Ошибка в get_faq_by_id_sync: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка получения FAQ: {str(e)}")
-
-def create_faq_sync(db: Session, faq_data: FAQCreate):
-    try:
-        db_faq = FAQ(**faq_data.dict())
-        db.add(db_faq)
-        db.commit()
-        db.refresh(db_faq)
-        
-        clear_faq_cache()
-        
-        return FAQResponse.from_orm(db_faq)
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Ошибка в create_faq_sync: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail=str(e))
-
-def update_faq_sync(db: Session, faq_id: int, faq_data: FAQUpdate):
-    try:
-        db_faq = db.query(FAQ).filter(FAQ.id == faq_id).first()
-        if not db_faq:
-            raise HTTPException(status_code=404, detail="FAQ не найден")
-        
-        for key, value in faq_data.dict(exclude_unset=True).items():
-            if value is not None:
-                setattr(db_faq, key, value)
-        
-        db.commit()
-        db.refresh(db_faq)
-        
-        clear_faq_cache()
-        
-        return FAQResponse.from_orm(db_faq)
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Ошибка в update_faq_sync: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail=str(e))
-
-def delete_faq_sync(db: Session, faq_id: int):
-    try:
-        db_faq = db.query(FAQ).filter(FAQ.id == faq_id).first()
-        if not db_faq:
-            raise HTTPException(status_code=404, detail="FAQ не найден")
-        
-        db.delete(db_faq)
-        db.commit()
-        
-        clear_faq_cache()
-        
-        return {"message": "FAQ успешно удалён"}
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Ошибка в delete_faq_sync: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail=str(e))
-
-def search_faqs_sync(db: Session, search_data: SearchRequest):
-    try:
-        cache_key = f"search_{search_data.query}_{search_data.category}_{search_data.limit}_{search_data.offset}"
-        cached_data = cache.get(cache_key)
-        if cached_data:
-            return cached_data
-
-        query = db.query(FAQ)
-        
-        if search_data.query:
-            search_filter = f"%{search_data.query}%"
-            query = query.filter(
-                (FAQ.question.ilike(search_filter)) | 
-                (FAQ.content_html.ilike(search_filter))
-            )
-        
-        if search_data.category and search_data.category != 'all':
-            query = query.filter(FAQ.category == search_data.category)
-        
-        total_count = query.count()
-        faqs = query.order_by(FAQ.created_at.desc()).offset(search_data.offset).limit(search_data.limit).all()
-        
-        result = {
-            "faqs": [FAQResponse.from_orm(faq) for faq in faqs],
-            "total_count": total_count,
-            "has_more": (search_data.offset + len(faqs)) < total_count
-        }
-        
-        cache[cache_key] = result
-        return result
-
-    except Exception as e:
-        logger.error(f"Ошибка в search_faqs_sync: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка поиска FAQ: {str(e)}")
-
-def submit_feedback_sync(db: Session, faq_id: int, feedback_data: FeedbackRequest):
-    try:
-        db_faq = db.query(FAQ).filter(FAQ.id == faq_id).first()
-        if not db_faq:
-            raise HTTPException(status_code=404, detail="FAQ не найден")
-        
-        if feedback_data.helpful:
-            db_faq.helpful_count += 1
-        else:
-            db_faq.not_helpful_count += 1
-        
-        db.commit()
-        db.refresh(db_faq)
-        
-        clear_faq_cache()
-        
-        return {
-            "message": "Отзыв успешно отправлен",
-            "helpful_count": db_faq.helpful_count,
-            "not_helpful_count": db_faq.not_helpful_count
-        }
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Ошибка в submit_feedback_sync: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail=str(e))
-
-def get_faq_stats_sync(db: Session):
-    try:
         cache_key = "faq_stats"
         cached_data = cache.get(cache_key)
         if cached_data:
+            logger.debug("Возвращены кэшированные данные статистики FAQ")
             return cached_data
 
         total_faqs = db.query(func.count(FAQ.id)).scalar()
@@ -329,187 +207,261 @@ def get_faq_stats_sync(db: Session):
         )
         
         cache[cache_key] = stats
+        logger.debug("Кэшированы данные статистики FAQ")
         return stats
-
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Ошибка в get_faq_stats_sync: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка получения статистики FAQ: {str(e)}")
 
-def clear_faq_cache():
-    keys_to_remove = [key for key in list(cache.keys()) if key.startswith(('faqs_', 'faq_', 'search_', 'faq_stats'))]
-    for key in keys_to_remove:
-        del cache[key]
-
-@faq_router.post("/upload-image")
-async def upload_faq_image(
-    file: UploadFile = File(...),
-    _: dict = Depends(verify_token_dependency)
-):
+def get_all_departments_endpoint_sync(user_data: dict):
     try:
-        if not file.content_type.startswith("image/"):
-            raise HTTPException(status_code=400, detail="Разрешены только изображения")
+        if not user_data.get('isAdmin', False):
+            logger.warning(f"Попытка доступа к списку отделов неадминистратором: {user_data.get('username')}")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступ к списку отделов разрешён только администраторам")
         
-        max_size = 5 * 1024 * 1024  # 5MB
-        content = await file.read()
-        if len(content) > max_size:
-            raise HTTPException(status_code=400, detail="Размер файла превышает 5MB")
+        departments = get_all_departments()
+        if not departments:
+            logger.warning("Список отделов пуст или не удалось получить данные из LDAP")
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Не удалось получить список отделов: LDAP сервис недоступен")
         
-        file_extension = file.filename.split(".")[-1] if "." in file.filename else "jpg"
-        if file_extension.lower() not in ["jpg", "jpeg", "png", "gif"]:
-            raise HTTPException(status_code=400, detail="Разрешены только JPG, PNG или GIF")
-        
-        filename = f"{uuid.uuid4()}.{file_extension}"
-        filepath = os.path.join(UPLOAD_DIR, filename)
-        
-        with open(filepath, "wb") as buffer:
-            buffer.write(content)
-        
-        image_url = f"/static/uploads/faq_images/{filename}"
-        return {"url": image_url}
+        return {"departments": departments}
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Ошибка загрузки изображения: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Ошибка загрузки изображения")
+        logger.error(f"Ошибка получения списка отделов: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Не удалось получить список отделов: {str(e)}")
 
-@faq_router.get("", response_model=FAQListResponse)
+@faq_router.get("/all-departments")
+async def get_all_departments_endpoint(user_data: dict = Depends(verify_token_dependency)):
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, get_all_departments_endpoint_sync, user_data)
+
+@faq_router.get("/stats-overview", response_model=FAQStatsResponse)
+async def get_faq_stats(
+    user_data: dict = Depends(verify_token_dependency),
+    db: Session = Depends(get_db_session)
+):
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, get_faq_stats_sync, db, user_data)
+
+@faq_router.get("/", response_model=FAQListResponse)
 async def get_faqs(
     category: Optional[str] = None,
     search: Optional[str] = None,
     department: Optional[str] = None,
-    _: dict = Depends(verify_token_dependency),
+    user_data: dict = Depends(verify_token_dependency),
     db: Session = Depends(get_db_session)
 ):
-    try:
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(executor, get_faqs_sync, db, category, search, department)
-    except Exception as e:
-        logger.error(f"Ошибка получения FAQ: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка сервера: {str(e)}")
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, get_faqs_sync, db, category, search, department, user_data)
 
 @faq_router.get("/{faq_id}", response_model=FAQResponse)
 async def get_faq(
     faq_id: int,
-    _: dict = Depends(verify_token_dependency),
+    user_data: dict = Depends(verify_token_dependency),
     db: Session = Depends(get_db_session)
 ):
     try:
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(executor, get_faq_by_id_sync, db, faq_id)
+        faq = db.query(FAQ).filter(FAQ.id == faq_id).first()
+        if not faq:
+            logger.warning(f"FAQ с id {faq_id} не найден")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="FAQ не найден")
+        
+        if faq.department and not faq.is_general:
+            if not user_data.get('isAdmin', False) and faq.department != user_data.get('department'):
+                logger.warning(f"Пользователь {user_data.get('username')} пытался получить доступ к FAQ с id {faq_id} из чужого отдела")
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступ к этому FAQ ограничен вашим отделом")
+        
+        faq.views_count += 1
+        db.commit()
+        db.refresh(faq)
+        logger.info(f"FAQ с id {faq_id} просмотрен пользователем {user_data.get('username')}")
+        return FAQResponse.from_orm(faq)
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Ошибка получения FAQ: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка сервера: {str(e)}")
+        logger.error(f"Ошибка получения FAQ с id {faq_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка получения FAQ: {str(e)}")
 
-@faq_router.post("", response_model=FAQResponse)
+@faq_router.post("/", response_model=FAQResponse)
 async def create_faq(
     faq: FAQCreate,
-    _: dict = Depends(verify_token_dependency),
+    user_data: dict = Depends(verify_token_dependency),
     db: Session = Depends(get_db_session)
 ):
     try:
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(executor, create_faq_sync, db, faq)
+        if not user_data.get('isAdmin', False):
+            logger.warning(f"Попытка создания FAQ неадминистратором: {user_data.get('username')}")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Создание FAQ разрешено только администраторам")
+        
+        if not faq.question.strip():
+            logger.warning("Попытка создания FAQ с пустым вопросом")
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Вопрос не может быть пустым")
+        
+        if not faq.is_general and not faq.department:
+            logger.warning("Попытка создания FAQ с is_general=false без указания отдела")
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Для не-общего FAQ необходимо указать отдел")
+        
+        db_faq = FAQ(
+            question=faq.question.strip(),
+            content_html=faq.content_html.strip() if faq.content_html else None,
+            category=faq.category.strip() if faq.category else None,
+            department=faq.department.strip() if faq.department and not faq.is_general else None,
+            is_general=faq.is_general
+        )
+        db.add(db_faq)
+        db.commit()
+        db.refresh(db_faq)
+        cache.clear()
+        logger.info(f"FAQ создан пользователем {user_data.get('username')}: {faq.question}")
+        return FAQResponse.from_orm(db_faq)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Ошибка создания FAQ: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка сервера: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка создания FAQ: {str(e)}")
 
 @faq_router.put("/{faq_id}", response_model=FAQResponse)
 async def update_faq(
     faq_id: int,
     faq: FAQUpdate,
-    _: dict = Depends(verify_token_dependency),
+    user_data: dict = Depends(verify_token_dependency),
     db: Session = Depends(get_db_session)
 ):
     try:
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(executor, update_faq_sync, db, faq_id, faq)
+        if not user_data.get('isAdmin', False):
+            logger.warning(f"Попытка обновления FAQ с id {faq_id} неадминистратором: {user_data.get('username')}")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Обновление FAQ разрешено только администраторам")
+        
+        db_faq = db.query(FAQ).filter(FAQ.id == faq_id).first()
+        if not db_faq:
+            logger.warning(f"FAQ с id {faq_id} не найден")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="FAQ не найден")
+        
+        if not faq.question.strip():
+            logger.warning("Попытка обновления FAQ с пустым вопросом")
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Вопрос не может быть пустым")
+        
+        if not faq.is_general and not faq.department:
+            logger.warning("Попытка обновления FAQ с is_general=false без указания отдела")
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Для не-общего FAQ необходимо указать отдел")
+        
+        db_faq.question = faq.question.strip()
+        db_faq.content_html = faq.content_html.strip() if faq.content_html else None
+        db_faq.category = faq.category.strip() if faq.category else None
+        db_faq.department = faq.department.strip() if faq.department and not faq.is_general else None
+        db_faq.is_general = faq.is_general
+        db_faq.updated_at = func.now()
+        
+        db.commit()
+        db.refresh(db_faq)
+        cache.clear()
+        logger.info(f"FAQ с id {faq_id} обновлён пользователем {user_data.get('username')}")
+        return FAQResponse.from_orm(db_faq)
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Ошибка обновления FAQ: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка сервера: {str(e)}")
+        logger.error(f"Ошибка обновления FAQ с id {faq_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка обновления FAQ: {str(e)}")
 
 @faq_router.delete("/{faq_id}")
 async def delete_faq(
     faq_id: int,
-    _: dict = Depends(verify_token_dependency),
+    user_data: dict = Depends(verify_token_dependency),
     db: Session = Depends(get_db_session)
 ):
     try:
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(executor, delete_faq_sync, db, faq_id)
+        if not user_data.get('isAdmin', False):
+            logger.warning(f"Попытка удаления FAQ с id {faq_id} неадминистратором: {user_data.get('username')}")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Удаление FAQ разрешено только администраторам")
+        
+        db_faq = db.query(FAQ).filter(FAQ.id == faq_id).first()
+        if not db_faq:
+            logger.warning(f"FAQ с id {faq_id} не найден")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="FAQ не найден")
+        
+        db.delete(db_faq)
+        db.commit()
+        cache.clear()
+        logger.info(f"FAQ с id {faq_id} удалён пользователем {user_data.get('username')}")
+        return {"detail": "FAQ успешно удалён"}
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Ошибка удаления FAQ: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка сервера: {str(e)}")
-
-@faq_router.post("/search")
-async def search_faqs(
-    search_data: SearchRequest,
-    _: dict = Depends(verify_token_dependency),
-    db: Session = Depends(get_db_session)
-):
-    try:
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(executor, search_faqs_sync, db, search_data)
-    except Exception as e:
-        logger.error(f"Ошибка поиска FAQ: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка сервера: {str(e)}")
+        logger.error(f"Ошибка удаления FAQ с id {faq_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка удаления FAQ: {str(e)}")
 
 @faq_router.post("/{faq_id}/feedback")
 async def submit_feedback(
     faq_id: int,
     feedback: FeedbackRequest,
-    _: dict = Depends(verify_token_dependency),
+    user_data: dict = Depends(verify_token_dependency),
     db: Session = Depends(get_db_session)
 ):
     try:
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(executor, submit_feedback_sync, db, faq_id, feedback)
+        db_faq = db.query(FAQ).filter(FAQ.id == faq_id).first()
+        if not db_faq:
+            logger.warning(f"FAQ с id {faq_id} не найден")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="FAQ не найден")
+        
+        if db_faq.department and not db_faq.is_general:
+            if not user_data.get('isAdmin', False) and db_faq.department != user_data.get('department'):
+                logger.warning(f"Пользователь {user_data.get('username')} пытался отправить отзыв на FAQ с id {faq_id} из чужого отдела")
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступ к этому FAQ ограничен вашим отделом")
+        
+        if feedback.helpful:
+            db_faq.helpful_count += 1
+        else:
+            db_faq.not_helpful_count += 1
+        
+        db_faq.updated_at = func.now()
+        db.commit()
+        db.refresh(db_faq)
+        cache.clear()
+        logger.info(f"Отзыв отправлен для FAQ с id {faq_id} пользователем {user_data.get('username')}: helpful={feedback.helpful}")
+        return {"detail": "Отзыв успешно отправлен"}
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Ошибка отправки отзыва: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка сервера: {str(e)}")
+        logger.error(f"Ошибка отправки отзыва для FAQ с id {faq_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка отправки отзыва: {str(e)}")
 
-@faq_router.get("/stats-overview", response_model=FAQStatsResponse)
-async def get_faq_stats(
-    _: dict = Depends(verify_token_dependency),
+@faq_router.post("/{faq_id}/upload-image")
+async def upload_image(
+    faq_id: int,
+    file: UploadFile = File(...),
+    user_data: dict = Depends(verify_token_dependency),
     db: Session = Depends(get_db_session)
 ):
     try:
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(executor, get_faq_stats_sync, db)
+        if not user_data.get('isAdmin', False):
+            logger.warning(f"Попытка загрузки изображения для FAQ с id {faq_id} неадминистратором: {user_data.get('username')}")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Загрузка изображений разрешена только администраторам")
+        
+        db_faq = db.query(FAQ).filter(FAQ.id == faq_id).first()
+        if not db_faq:
+            logger.warning(f"FAQ с id {faq_id} не найден")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="FAQ не найден")
+        
+        file_extension = file.filename.split('.')[-1].lower()
+        if file_extension not in ['jpg', 'jpeg', 'png', 'gif']:
+            logger.warning(f"Недопустимый формат файла: {file.filename}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Допустимы только файлы .jpg, .jpeg, .png, .gif")
+        
+        file_name = f"{uuid.uuid4()}.{file_extension}"
+        file_path = os.path.join(UPLOAD_DIR, file_name)
+        
+        with open(file_path, "wb") as buffer:
+            content = await file.read()
+            buffer.write(content)
+        
+        relative_path = f"/{UPLOAD_DIR}/{file_name}"
+        logger.info(f"Изображение загружено для FAQ с id {faq_id} пользователем {user_data.get('username')}: {relative_path}")
+        return {"url": relative_path}
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Ошибка получения статистики FAQ: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка сервера: {str(e)}")
-
-@faq_router.get("/health/check")
-async def health_check(db: Session = Depends(get_db_session)):
-    try:
-        db.execute("SELECT 1")
-        faq_count = db.query(func.count(FAQ.id)).scalar()
-        return {
-            "status": "healthy",
-            "database": "connected",
-            "faq_count": faq_count,
-            "timestamp": datetime.now().isoformat()
-        }
-    except Exception as e:
-        logger.error(f"Ошибка проверки состояния: {e}", exc_info=True)
-        return {
-            "status": "unhealthy",
-            "database": "disconnected",
-            "error": str(e),
-            "timestamp": datetime.now().isoformat()
-        }
-
-@faq_router.post("/cache/clear")
-async def clear_cache(_: dict = Depends(verify_token_dependency)):
-    try:
-        count = len(cache)
-        clear_faq_cache()
-        return {"message": "Кэш успешно очищен", "cleared_items": count}
-    except Exception as e:
-        logger.error(f"Ошибка очистки кэша: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка сервера: {str(e)}")
-
-# Создание таблиц в базе данных
-try:
-    Base.metadata.create_all(bind=engine)
-except Exception as e:
-    logger.error(f"Ошибка создания таблиц: {e}", exc_info=True)
-    raise
+        logger.error(f"Ошибка загрузки изображения для FAQ с id {faq_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка загрузки изображения: {str(e)}")

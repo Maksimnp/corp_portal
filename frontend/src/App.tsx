@@ -4,7 +4,7 @@ import Login from './pages/Login';
 import { Dashboard } from './pages/Dashboard/Dashboard';
 import Chat from './pages/Chat/Chat';
 import Contacts from './pages/Contacts/Contacts';
-import { Admin } from './pages/Admin/Admin';
+import Admin from './pages/Admin/Admin';
 import { RequestList } from './pages/Request/RequestList';
 import HomePage from './pages/HomePage/HomePage';
 import EditADContacts from './components/EditADContacts';

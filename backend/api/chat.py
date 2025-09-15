@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Body, Query, UploadFile, File, Path 
-from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean, create_engine
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, create_engine, desc, distinct, func
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
 from sqlalchemy.sql import func
@@ -28,7 +28,6 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("chat")
-
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 # -----------------------------
@@ -73,6 +72,7 @@ class Channel(Base):
     members = Column(ARRAY(String), nullable=False, default=[])
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     messages = relationship("Message", back_populates="channel", cascade="all, delete-orphan")
+    user_statuses = relationship("UserChannelStatus", back_populates="channel", cascade="all, delete-orphan")
 
 class Message(Base):
     __tablename__ = "messages"
@@ -88,11 +88,74 @@ class Message(Base):
     channel = relationship("Channel", back_populates="messages")
     quoted_message_id = Column(UUID(as_uuid=True), ForeignKey("messages.id", ondelete="SET NULL"), nullable=True)
 
+class UserChannelStatus(Base):
+    __tablename__ = "user_channel_status"
+    
+    user_id = Column(String, primary_key=True, nullable=False)
+    channel_id = Column(UUID(as_uuid=True), ForeignKey("channels.id", ondelete="CASCADE"), primary_key=True, nullable=False)
+    last_read_message_id = Column(UUID(as_uuid=True), ForeignKey("messages.id", ondelete="SET NULL"), nullable=True)
+    last_read_timestamp = Column(DateTime(timezone=True), nullable=True)
+    unread_count = Column(Integer, default=0, nullable=False)
+    
+    # Relationships
+    channel = relationship("Channel", back_populates="user_statuses")
+    last_read_message = relationship("Message", foreign_keys=[last_read_message_id])
+
+def initialize_user_statuses(db: Session):
+    """Инициализирует статусы пользователей для существующих чатов"""
+    try:
+        logger.info("Initializing user statuses for existing chats...")
+        
+        channels = db.query(Channel).all()
+        for channel in channels:
+            for username in channel.members:
+                existing_status = db.query(UserChannelStatus).filter(
+                    UserChannelStatus.user_id == username,
+                    UserChannelStatus.channel_id == channel.id
+                ).first()
+                
+                if not existing_status:
+                    unread_count = db.query(func.count(Message.id)).filter(
+                        Message.channel_id == channel.id,
+                        Message.is_read == False,
+                        Message.sender != username
+                    ).scalar()
+                    
+                    last_message = db.query(Message).filter(
+                        Message.channel_id == channel.id
+                    ).order_by(Message.timestamp.desc()).first()
+                    
+                    user_status = UserChannelStatus(
+                        user_id=username,
+                        channel_id=channel.id,
+                        last_read_message_id=last_message.id if last_message else None,
+                        last_read_timestamp=last_message.timestamp if last_message else None,
+                        unread_count=unread_count
+                    )
+                    db.add(user_status)
+                    logger.debug(f"Created status for user {username} in channel {channel.id}")
+        
+        db.commit()
+        logger.info("User statuses initialized successfully")
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error initializing user statuses: {e}")
+        raise
+
+
 # Создание таблиц
 def create_tables():
     try:
         Base.metadata.create_all(bind=engine)
         logger.info("Таблицы успешно созданы или уже существуют.")
+        
+        db = SessionLocal()
+        try:
+            initialize_user_statuses(db)
+        finally:
+            db.close()
+
     except Exception as e:
         logger.error(f"Ошибка при создании таблиц: {e}")
         raise
@@ -111,6 +174,7 @@ class ChatResponse(BaseModel):
     is_channel: bool
     creator_username: str
     members: List[str]
+    unread_count: int = 0 
 
 class MessageResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -445,6 +509,7 @@ manager = ConnectionManager()
 # -----------------------------
 # УТИЛИТЫ
 # -----------------------------
+
 def assert_membership(db: Session, channel_id: UUIDType, username: str):
     channel = db.query(Channel).filter(Channel.id == channel_id).first()
     if not channel:
@@ -452,7 +517,9 @@ def assert_membership(db: Session, channel_id: UUIDType, username: str):
     if username not in channel.members:
         raise HTTPException(status_code=403, detail="Вы не участник этого чата")
 
-def serialize_chat(db: Session, chat: Channel) -> ChatResponse:
+def serialize_chat(db: Session, chat: Channel, username: str) -> ChatResponse:
+    unread_count = get_unread_count(db, username, chat.id)
+    
     return ChatResponse(
         id=chat.id,
         name=chat.name or "",
@@ -460,7 +527,8 @@ def serialize_chat(db: Session, chat: Channel) -> ChatResponse:
         is_group=chat.is_group,
         is_channel=chat.is_channel,
         creator_username=chat.creator_username,
-        members=chat.members
+        members=chat.members,
+        unread_count=unread_count
     )
 
 def sanitize_filename(filename: str) -> str:
@@ -469,6 +537,89 @@ def sanitize_filename(filename: str) -> str:
     filename = re.sub(r'[^a-zA-Z0-9._-]', '_', filename)
     filename = filename.replace('..', '').replace('/', '').replace('\\', '')
     return filename
+
+def update_user_channel_status(db: Session, username: str, channel_id: UUIDType, 
+                             last_read_message_id: Optional[UUIDType] = None, 
+                             last_read_timestamp: Optional[datetime] = None):
+    """Обновляет статус пользователя в канале"""
+    user_status = db.query(UserChannelStatus).filter(
+        UserChannelStatus.user_id == username,
+        UserChannelStatus.channel_id == channel_id
+    ).first()
+    
+    if user_status:
+        if last_read_message_id:
+            user_status.last_read_message_id = last_read_message_id
+        if last_read_timestamp:
+            user_status.last_read_timestamp = last_read_timestamp
+        # При обновлении статуса сбрасываем счетчик непрочитанных
+        user_status.unread_count = 0
+    else:
+        user_status = UserChannelStatus(
+            user_id=username,
+            channel_id=channel_id,
+            last_read_message_id=last_read_message_id,
+            last_read_timestamp=last_read_timestamp,
+            unread_count=0
+        )
+        db.add(user_status)
+    
+    db.commit()
+    return user_status
+
+def get_unread_count(db: Session, username: str, channel_id: UUIDType) -> int:
+    """Получает количество непрочитанных сообщений для конкретного канала"""
+    user_status = db.query(UserChannelStatus).filter(
+        UserChannelStatus.user_id == username,
+        UserChannelStatus.channel_id == channel_id
+    ).first()
+    
+    return user_status.unread_count if user_status else 0
+
+def get_total_unread_count(db: Session, username: str) -> int:
+    """Получает общее количество непрочитанных сообщений по всем чатам"""
+    total = db.query(func.sum(UserChannelStatus.unread_count)).filter(
+        UserChannelStatus.user_id == username
+    ).scalar()
+    
+    return total or 0
+
+def mark_messages_as_read(db: Session, username: str, message_ids: List[UUIDType]):
+    """Помечает сообщения как прочитанные и обновляет счетчики"""
+    if not message_ids:
+        return
+    
+    messages = db.query(Message).filter(Message.id.in_(message_ids)).all()
+    for message in messages:
+        if not message.is_read and message.sender != username:
+            message.is_read = True
+    
+    db.commit()
+    
+    channel_ids = set(msg.channel_id for msg in messages)
+    for channel_id in channel_ids:
+        unread_count = db.query(func.count(Message.id)).filter(
+            Message.channel_id == channel_id,
+            Message.is_read == False,
+            Message.sender != username
+        ).scalar()
+        
+        user_status = db.query(UserChannelStatus).filter(
+            UserChannelStatus.user_id == username,
+            UserChannelStatus.channel_id == channel_id
+        ).first()
+        
+        if user_status:
+            user_status.unread_count = unread_count
+        else:
+            user_status = UserChannelStatus(
+                user_id=username,
+                channel_id=channel_id,
+                unread_count=unread_count
+            )
+            db.add(user_status)
+    
+    db.commit()
 
 # -----------------------------
 # REST МАРШРУТЫ
@@ -487,10 +638,86 @@ def get_chats(
             .order_by(Channel.created_at.desc())
             .all()
         )
-        return [serialize_chat(db, ch) for ch in chats]
+        return [serialize_chat(db, ch, username) for ch in chats]
     except Exception as e:
         logger.error(f"Error fetching chats for {username}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Не удалось загрузить чаты: {str(e)}")
+
+@router.get("/chats-with-last-message", response_model=List[dict])
+def get_chats_with_last_message(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Возвращает список чатов пользователя с информацией о последнем сообщении в каждом.
+    Использует DISTINCT ON для максимальной производительности.
+    """
+    username = current_user["username"]
+    logger.debug(f"Fetching chats with last message for user: {username}")
+
+    try:
+        subq = (
+            db.query(Message)
+            .join(Channel, Message.channel_id == Channel.id)
+            .filter(Channel.members.contains([username]))
+            .distinct(Message.channel_id)
+            .order_by(Message.channel_id, Message.timestamp.desc())
+            .subquery()
+        )
+        result = (
+            db.query(Channel)
+            .outerjoin(subq, Channel.id == subq.c.channel_id)
+            .add_columns(
+                subq.c.id,
+                subq.c.sender,
+                subq.c.content,
+                subq.c.timestamp,
+                subq.c.is_read,
+                subq.c.file_name,
+                subq.c.channel_id.label("last_msg_channel_id")
+            )
+            .filter(Channel.members.contains([username]))
+            .order_by(desc(subq.c.timestamp) if subq.c.timestamp is not None else None)
+            .all()
+        )
+
+        response = []
+        for row in result:
+            chat = row[0]
+            chat_data = serialize_chat(db, chat, username).model_dump() if hasattr(serialize_chat(db, chat, username), 'model_dump') else serialize_chat(db, chat, username).dict()
+
+            if row[1] is not None:
+                chat_data['last_message'] = {
+                    "id": str(row[1]),
+                    "sender": row[2], 
+                    "content": row[3],
+                    "timestamp": row[4].isoformat() if row[4] else None,
+                    "file_name": row[5],
+                    "is_read": row[6],
+                }
+            else:
+                chat_data['last_message'] = None
+
+            response.append(chat_data)
+
+        return response
+
+    except Exception as e:
+        logger.error(f"Error fetching chats with last message for {username}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Не удалось загрузить чаты: {str(e)}")
+
+@router.get("/unread/total")
+def get_total_unread(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    username = current_user["username"]
+    try:
+        total_unread = get_total_unread_count(db, username)
+        return {"total_unread": total_unread}
+    except Exception as e:
+        logger.error(f"Error getting total unread count for {username}: {e}")
+        raise HTTPException(status_code=500, detail="Не удалось получить количество непрочитанных сообщений")
 
 @router.get("/{channel_id}/messages", response_model=List[MessageResponse])
 def get_messages(
@@ -504,6 +731,7 @@ def get_messages(
     logger.debug(f"Fetching messages for channel {channel_id} by {username}")
     try:
         assert_membership(db, channel_id, username)
+        
         messages = (
             db.query(Message)
             .filter(Message.channel_id == channel_id)
@@ -512,7 +740,16 @@ def get_messages(
             .limit(limit)
             .all()
         )
+        
+        if messages and offset == 0:
+            last_message = messages[0]
+            update_user_channel_status(
+                db, username, channel_id, 
+                last_message.id, last_message.timestamp
+            )
+        
         return messages
+        
     except HTTPException as e:
         logger.warning(f"Access denied for channel {channel_id} by {username}: {e}")
         raise
@@ -584,35 +821,17 @@ async def mark_messages_read(
     username = current_user["username"]
     logger.debug(f"Marking messages as read by {username}: {body}")
     message_ids = [UUIDType(id) for id in body.get("message_ids", [])]
+    
     if not message_ids:
         raise HTTPException(status_code=400, detail="Не предоставлены ID сообщений")
+    
     try:
-        messages = db.query(Message).filter(Message.id.in_(message_ids)).all()
-        updated = []
-        for message in messages:
-            try:
-                assert_membership(db, message.channel_id, username)
-                if not message.is_read and message.sender != username:
-                    message.is_read = True
-                    updated.append(message)
-            except HTTPException:
-                continue
-        if updated:
-            db.commit()
-            for message in updated:
-                await manager.broadcast_to_channel_members(
-                    {
-                        "type": "message_read",
-                        "data": {"message_id": str(message.id), "channel_id": str(message.channel_id)},
-                    },
-                    message.channel_id,
-                    db,
-                )
+        mark_messages_as_read(db, username, message_ids)
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Error marking messages as read: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Не удалось пометить сообщения как прочитанные: {str(e)}")
-
+    
 @router.post("/upload")
 async def upload_file(
     file: UploadFile = File(...),
@@ -669,7 +888,7 @@ def create_private_chat(
             .first()
         )
         if existing:
-            return serialize_chat(db, existing)
+            return serialize_chat(db, existing, username)
         chat = Channel(
             id=uuid.uuid4(),
             is_group=False,
@@ -697,7 +916,7 @@ def create_private_chat(
             anyio.from_thread.run(manager.broadcast_to_channel_members, payload, chat.id, db)
         except Exception as e:
             logger.warning(f"Failed to broadcast private_chat_created: {e}")
-        return serialize_chat(db, chat)
+        return serialize_chat(db, chat, username)
     except Exception as e:
         db.rollback()
         logger.error(f"Error creating private chat: {e}", exc_info=True)
@@ -755,7 +974,7 @@ def create_group_chat(
             anyio.from_thread.run(manager.broadcast_to_channel_members, payload, chat.id, db)
         except Exception as e:
             logger.warning(f"Failed to broadcast group_created: {e}")
-        return serialize_chat(db, chat)
+        return serialize_chat(db, chat, owner)
     except Exception as e:
         db.rollback()
         logger.error(f"Error creating group chat: {e}", exc_info=True)
@@ -801,7 +1020,7 @@ def create_channel(
             anyio.from_thread.run(manager.broadcast_to_channel_members, payload, chat.id, db)
         except Exception as e:
             logger.warning(f"Failed to broadcast channel_created: {e}")
-        return serialize_chat(db, chat)
+        return serialize_chat(db, chat, owner)
     except Exception as e:
         db.rollback()
         logger.error(f"Error creating channel for {owner}: {e}", exc_info=True)

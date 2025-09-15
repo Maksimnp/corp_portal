@@ -45,7 +45,9 @@ class JWTService:
         to_encode.update({"exp": expire})
 
         try:
-            return jwt.encode(to_encode, secret, algorithm=ALGORITHM)
+            encoded_jwt = jwt.encode(to_encode, secret, algorithm=ALGORITHM)
+            logger.debug(f"Токен создан для пользователя: {data.get('sub')}, department: {data.get('department', 'не указан')}")
+            return encoded_jwt
         except Exception as e:
             logger.error(f"Ошибка создания токена: {e}")
             raise HTTPException(
@@ -53,7 +55,7 @@ class JWTService:
                 detail="Ошибка генерации токена"
             )
 
-    def verify_token(self, token: str, for_onlyoffice: bool = False) -> Optional[Dict[str, str]]:
+    def verify_token(self, token: str, for_onlyoffice: bool = False) -> Optional[Dict[str, Union[str, bool]]]:
         """Верификация JWT токена"""
         secret = ONLYOFFICE_SECRET if for_onlyoffice else SECRET_KEY
 
@@ -68,20 +70,23 @@ class JWTService:
                 logger.warning("Отсутствует subject (sub) в токене")
                 return None
 
-            return {
+            user_data = {
                 "username": username,
                 "full_name": payload.get("full_name", username),
                 "role": str(payload.get("role", "user")),
-                "isAdmin": str(payload.get("role", "user")).lower() == "admin"
+                "isAdmin": str(payload.get("role", "user")).lower() == "admin",
+                "department": payload.get("department", "")  # Извлекаем department из payload
             }
+            logger.debug(f"Токен верифицирован для пользователя: {username}, isAdmin: {user_data['isAdmin']}, department: {user_data['department']}")
+            return user_data
         except JWTError as e:
             logger.warning(f"JWTError при верификации токена: {e}")
             return None
         except Exception as e:
-            logger.error(f"Неожиданная ошибка при верификации токена: {e}")
+            logger.error(f"Неожиданная ошибка при верификации токена: {e}", exc_info=True)
             return None
 
-    async def get_current_user(self, token: str = Depends(oauth2_scheme)) -> Dict[str, str]:
+    async def get_current_user(self, token: str = Depends(oauth2_scheme)) -> Dict[str, Union[str, bool]]:
         """FastAPI-зависимость: получение текущего пользователя"""
         credentials_exception = HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -94,7 +99,7 @@ class JWTService:
             logger.warning(f"Не удалось верифицировать токен: {token[:10]}...")
             raise credentials_exception
 
-        logger.info(f"Успешная аутентификация пользователя: {user_data['username']}")
+        logger.info(f"Успешная аутентификация пользователя: {user_data['username']}, department: {user_data['department']}")
         return user_data
 
     def generate_onlyoffice_token(
@@ -109,7 +114,8 @@ class JWTService:
             "document": {"key": document_key, "permissions": permissions},
             "user": {
                 "id": user_info["username"],
-                "name": user_info.get("full_name", user_info["username"])
+                "name": user_info.get("full_name", user_info["username"]),
+                "department": user_info.get("department", "")  # Добавляем department в токен OnlyOffice
             },
             "iat": datetime.utcnow(),
             "exp": datetime.utcnow() + timedelta(minutes=expires_minutes)
@@ -131,7 +137,7 @@ def create_access_token(
     return jwt_service.create_access_token(data, expires_delta, for_onlyoffice)
 
 
-def verify_token(token: str, for_onlyoffice: bool = False) -> Optional[Dict[str, str]]:
+def verify_token(token: str, for_onlyoffice: bool = False) -> Optional[Dict[str, Union[str, bool]]]:
     """Экспортируемая обёртка для верификации токена."""
     return jwt_service.verify_token(token, for_onlyoffice)
 
@@ -140,7 +146,6 @@ def verify_token(token: str, for_onlyoffice: bool = False) -> Optional[Dict[str,
 get_current_user = jwt_service.get_current_user
 
 
-# Опционально: экспорт generate_onlyoffice_token, если используется вне класса
 def generate_onlyoffice_token(
     document_key: str,
     user_info: Dict[str, str],

@@ -2,17 +2,17 @@ from fastapi import APIRouter, HTTPException, Request, Body, status, Depends
 from pydantic import BaseModel, field_validator
 import logging
 from services.jwt_utils import create_access_token, verify_token
-from services.ad_auth import authenticate_user, get_user_role
+from services.ad_auth import authenticate_user, get_user_role, get_user_details
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.security import OAuth2PasswordBearer
-from services.ad_auth import get_user_details
+
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 security = HTTPBearer()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login") # Убедитесь, что URL правильный
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
     """Получает информацию о текущем пользователе из JWT токена."""
@@ -31,13 +31,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 # --- Функция для WebSocket соединений ---
 async def get_current_user_ws(token: str):
     """
-    Получает информацию о текущем пользователе из JWT токена.
-    Используется для аутентификации в WebSocket эндпоинтах,
-    где токен передается, например, в query-параметрах или cookies.
+    Получает информацию о текущем пользователе из JWT токена для WebSocket.
     """
-    logger.debug(f"Attempting to verify WebSocket token: {token[:10]}...") # Логируем начало токена
+    logger.debug(f"Попытка проверки WebSocket токена: {token[:10]}...")
     if not token:
-        logger.warning("No token provided for WebSocket authentication")
+        logger.warning("Токен не предоставлен для WebSocket аутентификации")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Токен доступа не предоставлен",
@@ -45,17 +43,14 @@ async def get_current_user_ws(token: str):
 
     user = verify_token(token)
     if not user:
-        logger.warning("WebSocket token verification failed or user not found")
+        logger.warning("Проверка WebSocket токена не удалась или пользователь не найден")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Неверный или истекший токен доступа",
-            # Примечание: Заголовки WWW-Authenticate не отправляются через WebSocket
         )
     
-    logger.debug(f"WebSocket user authenticated: {user.get('username', 'Unknown')}")
-    # Дополнительная проверка активности пользователя может быть здесь
+    logger.debug(f"WebSocket пользователь аутентифицирован: {user.get('username', 'Unknown')}")
     return user
-
 
 class LoginData(BaseModel):
     username: str
@@ -71,20 +66,19 @@ class LoginData(BaseModel):
 @router.post("/login")
 async def login(request: Request, login_data: LoginData = Body(...)):
     """
-    Аутентификация через AD.
+    Аутентификация через AD и выдача JWT токена.
     """
-    # Логирование тела запроса (опционально, для отладки)
     try:
         body = await request.json()
-        logger.info(f"Получено тело запроса: {body}")
+        logger.debug(f"Получено тело запроса: {body}")
     except Exception as e:
-        logger.warning(f"Не удалось распарсить тело запроса: {e}")
+        logger.warning(f"Не удалось распарсить тело запроса: {e}", exc_info=True)
         body = None
 
     if not login_data:
         logger.warning("Данные для входа не предоставлены")
         raise HTTPException(
-            status_code=422,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Требуются username и password в теле запроса"
         )
 
@@ -93,21 +87,18 @@ async def login(request: Request, login_data: LoginData = Body(...)):
 
     logger.info(f"Попытка входа для пользователя: {username}")
 
-    # Аутентификация через AD с использованием нового сервиса
+    # Аутентификация через AD
     try:
         user_info = authenticate_user(username, password)
         if not user_info:
             logger.warning(f"Аутентификация в AD не удалась для пользователя: {username}")
-            # ВАЖНО: Возвращаем 401, а не 500, если учетные данные неверны
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, 
                 detail="Неверный логин или пароль"
             )
     except HTTPException:
-        # Пробрасываем HTTPException от authenticate_user (например, 401)
         raise
     except Exception as e:
-        # Любая другая ошибка (проблемы с подключением и т.д.) - это 500
         logger.error(f"Ошибка аутентификации через AD: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -118,22 +109,33 @@ async def login(request: Request, login_data: LoginData = Body(...)):
     try:
         role = get_user_role(username)
     except Exception as e:
-        logger.error(f"Ошибка получения роли пользователя {username}: {str(e)}")
-        # Это не критично, можно продолжить с ролью "user"
-        role = "user" 
+        logger.error(f"Ошибка получения роли пользователя {username}: {str(e)}", exc_info=True)
+        role = "user"
 
-    # Проверка наличия full_name
-    full_name = user_info.get("full_name", username)
-    department = user_info.get("department")
-    logger.info(f"Отдел пользователя - {department}")
-    logger.info(f"Пользователь {username} успешно аутентифицирован с ролью: {role}")
+    # Получаем полные данные пользователя
+    try:
+        ad_user_info = get_user_details(username)
+        if not ad_user_info:
+            logger.warning(f"Не удалось получить данные пользователя {username} из AD")
+            ad_user_info = {"full_name": username, "email": "", "department": ""}
+    except Exception as e:
+        logger.error(f"Ошибка получения данных пользователя {username} из AD: {str(e)}", exc_info=True)
+        ad_user_info = {"full_name": username, "email": "", "department": ""}
 
-    # Создаём токен
+    full_name = ad_user_info.get("full_name", username)
+    department = ad_user_info.get("department", "")
+    isAdmin = role == "admin"
+
+    logger.info(f"Пользователь {username} успешно аутентифицирован с ролью: {role}, отдел: {department}")
+
+    # Создаём токен с дополнительными данными
     access_token = create_access_token(
         data={
             "sub": username,
             "role": role,
-            "full_name": full_name
+            "full_name": full_name,
+            "department": department,
+            "isAdmin": isAdmin
         }
     )
 
@@ -142,7 +144,8 @@ async def login(request: Request, login_data: LoginData = Body(...)):
         "token_type": "bearer",
         "role": role,
         "full_name": full_name,
-        "department": department
+        "department": department,
+        "isAdmin": isAdmin
     }
 
 @router.get("/me")
@@ -157,10 +160,10 @@ async def get_user_info(credentials: HTTPAuthorizationCredentials = Depends(secu
             "username": user_data.get("username"),
             "full_name": user_data.get("full_name", user_data.get("username")),
             "role": user_data.get("role", "user"),
-            "isAdmin": user_data.get("role") == "admin",
-            "department": user_data.get("department", "ТЭРиОВТ")
+            "isAdmin": user_data.get("isAdmin", False),
+            "department": user_data.get("department", "")
         }
-        logger.info(f"User info retrieved for {user_info['username']}")
+        logger.info(f"Информация о пользователе получена для {user_info['username']}")
         return user_info
     except Exception as e:
         logger.error(f"Ошибка в /auth/me: {e}", exc_info=True)
@@ -169,29 +172,28 @@ async def get_user_info(credentials: HTTPAuthorizationCredentials = Depends(secu
 @router.get("/user-departments")
 async def get_user_departments(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
-
         user_data = verify_token(credentials.credentials)
         if not user_data:
-            logger.warning("Invalid or expired token in /user-departments")
+            logger.warning("Недействительный или истёкший токен в /user-departments")
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Недействительный или истёкший токен")
 
         current_username = user_data.get("username")
         if not current_username:
-            logger.warning("Token does not contain username")
-            raise HTTPException(status_code=400, detail="Invalid token: username not found")
+            logger.warning("Токен не содержит имени пользователя")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Недействительный токен: имя пользователя не найдено")
 
         ad_user_info = get_user_details(current_username)
         if not ad_user_info:
-            logger.error(f"Не удалось получить информацию о пользователе {current_username} из AD")
+            logger.warning(f"Не удалось получить информацию о пользователе {current_username} из AD")
             departments = []
         else:
             main_department = ad_user_info.get("department", "").strip()
-            departments = []
-            if main_department:
-                departments.append(main_department)
+            departments = [main_department] if main_department else []
 
-        logger.info(f"Departments retrieved for user {current_username}: {departments}")
+        logger.info(f"Отделы получены для пользователя {current_username}: {departments}")
         return {"departments": departments}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Ошибка получения отделов для пользователя {current_username}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Ошибка получения отделов")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка получения отделов: {str(e)}")

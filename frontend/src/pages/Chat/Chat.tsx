@@ -25,6 +25,15 @@ interface Message {
   quoted_message_id: string | null;
 }
 
+interface LastMessage {
+  id: string;
+  sender: string;
+  content: string | null;
+  timestamp: string;
+  file_name: string | null;
+  is_read: boolean;
+}
+
 interface Chat {
   id: string;
   name: string | null;
@@ -33,6 +42,8 @@ interface Chat {
   is_channel: boolean;
   creator_username: string;
   members: string[];
+  unread_count: number,
+  last_message?: LastMessage | null;
 }
 
 interface Contact {
@@ -102,7 +113,7 @@ const ChatComponent: React.FC = () => {
   const stickerPickerRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const [contextMenu, setContextMenu] = useState<{
+  const [messageContextMenu, setMessageContextMenu] = useState<{
     visible: boolean;
     x: number;
     y: number;
@@ -113,7 +124,7 @@ const ChatComponent: React.FC = () => {
     y: 0,
     message: null,
   })
-  const contextMenuRef = useRef<HTMLDivElement>(null);
+  const messageContextMenuRef = useRef<HTMLDivElement>(null);
   const [quotedMessage, setQuotedMessage] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [quotedMessageData, setQuotedMessageData] = useState<Record<string, Message | null>>({});
@@ -126,6 +137,25 @@ const ChatComponent: React.FC = () => {
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [userContextMenu, setUserContextMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    userId: string | null;  // логин пользователя
+  }>({
+    visible: false,
+    x: 0,
+    y: 0,
+    userId: null,
+  });
+
+  const userContextMenuRef = useRef<HTMLDivElement>(null);
+
+  // Для теста
+  const [testMessages, setTestMessages] = useState(false);
+  const intervalRef = useRef<number | null>(null); 
+  // 
+
   const WS_BASE = import.meta.env.VITE_WS_BASE || (import.meta.env.VITE_ENV === 'production' ? 'wss://192.1.66.117:8000' : 'ws://192.1.66.117:8000');
   const API_BASE = import.meta.env.VITE_API_BASE || 'http://192.1.66.117:8000';
 
@@ -133,7 +163,7 @@ const ChatComponent: React.FC = () => {
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
   });
-
+  console.log(messagesByChat);
   const currentChat = useMemo(() => chats.find(chat => chat.id === activeChat), [chats, activeChat]);
 
   const currentMessages = useMemo(() => {
@@ -162,12 +192,21 @@ const ChatComponent: React.FC = () => {
 
   const unreadCounts = useMemo(() => {
     const counts: { [key: string]: number } = {};
+    console.log(`chats - ${JSON.stringify(chats, null, 2)}`);
+    console.log(`messagesByChat - ${JSON.stringify(messagesByChat, null, 2)}`);
     chats.forEach((chat) => {
       const chatMessages = messagesByChat[chat.id] || [];
-      counts[chat.id] = chatMessages.filter(
-        (m) => !m.is_read && m.sender !== username
-      ).length;
+      console.log(`chatMessages123 - ${JSON.stringify(chatMessages, null, 2)}`)
+      console.log(chatMessages.length === 0);
+      if (chatMessages.length === 0) {
+        counts[chat.id] =  chat.unread_count;
+      } else {
+        counts[chat.id] = chatMessages.filter(
+          (m) => !m.is_read && m.sender !== username
+        ).length + chat.unread_count;
+      }
     });
+    console.log(`counts - ${JSON.stringify(counts, null, 2)}`)
     return counts;
   }, [messagesByChat, chats, username]);
 
@@ -189,16 +228,100 @@ const ChatComponent: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (activeChat) {
+      setChats(prev => prev.map(chat => 
+        chat.id === activeChat 
+          ? { ...chat, unread_count: 0 } 
+          : chat
+      ));
+    }
+  }, [activeChat]);
+
+  // -----------------------------
+  // Контекстное меню полльзователя
+  // -----------------------------
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userContextMenuRef.current && !userContextMenuRef.current.contains(event.target as Node)) {
+        setUserContextMenu(prev => ({ ...prev, visible: false }));
+      }
+    };
+
+    if (userContextMenu.visible) {
+      document.addEventListener('mousedown', handleClickOutside);
+    } else {
+      document.removeEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [userContextMenu.visible]);
+
+  const handleUserContextMenu = (event: React.MouseEvent, userId: string) => {
+    event.preventDefault();
+    setUserContextMenu({
+      visible: true,
+      x: event.clientX,
+      y: event.clientY,
+      userId,
+    });
+  };
+
+  const handleContextMenuSendMessage = () => {
+    if (userContextMenu.userId) {
+      createPrivateChat(userContextMenu.userId);
+      setUserContextMenu(prev => ({ ...prev, visible: false }));
+    }
+  };
+  const renderUserContextMenu = () => {
+    if (!userContextMenu.visible || !userContextMenu.userId) return null;
+    const menuWidth = userContextMenuRef.current?.offsetWidth || 200;
+    const menuHeight = userContextMenuRef.current?.offsetHeight || 100;
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+
+    let left = userContextMenu.x;
+    let top = userContextMenu.y;
+
+    if (left + menuWidth > windowWidth) left = left - menuWidth;
+    if (top + menuHeight > windowHeight) top = top - menuHeight;
+    if (left < 0) left = 0;
+    if (top < 0) top = 0;
+    
+    return (
+      <div
+        ref={userContextMenuRef}
+        className="fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-500 py-1 min-w-[180px]"
+        style={{
+          top: `${top}px`,
+          left: `${left}px`,
+        }}
+      >
+        <>
+          <button
+            onClick={handleContextMenuSendMessage}
+            className="w-full text-left font-semibold gap-4 px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center"
+          >
+            <PaperPlaneRight className="text-xl" />
+            Отправить сообщение
+          </button>
+        </>
+      </div>
+    );
+  };
+
   // -----------------------------
   // Контекстное меню сообщения
   // -----------------------------
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (contextMenuRef.current && !contextMenuRef.current.contains(event.target as Node)) {
-        setContextMenu(prev => ({...prev, visible: false}));
+      if (messageContextMenuRef.current && !messageContextMenuRef.current.contains(event.target as Node)) {
+        setMessageContextMenu(prev => ({...prev, visible: false}));
       }
     }
-    if (contextMenu.visible) {
+    if (messageContextMenu.visible) {
       document.addEventListener('mousedown', handleClickOutside);
     } else {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -206,12 +329,12 @@ const ChatComponent: React.FC = () => {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [contextMenu.visible]);
+  }, [messageContextMenu.visible]);
 
   const handleMessageContextMenu = (event: React.MouseEvent, msg: Message) => {
     event.preventDefault();
     const react = event.currentTarget.getBoundingClientRect();
-    setContextMenu({
+    setMessageContextMenu({
       visible:true,
       x: event.clientX,
       y: event.clientY,
@@ -220,75 +343,64 @@ const ChatComponent: React.FC = () => {
   };
 
   const handleContextMenuEdit = () => {
-    if (contextMenu.message) {
-      startEditMessage(contextMenu.message);
-      setContextMenu(prev => ({ ...prev, visible: false }));
+    if (messageContextMenu.message) {
+      startEditMessage(messageContextMenu.message);
+      setMessageContextMenu(prev => ({ ...prev, visible: false }));
     }
   };
 
   const handleContextMenuDelete = () => {
-    if (contextMenu.message) {
-      deleteMessage(contextMenu.message);
-      setContextMenu(prev => ({ ...prev, visible: false }));
+    if (messageContextMenu.message) {
+      deleteMessage(messageContextMenu.message);
+      setMessageContextMenu(prev => ({ ...prev, visible: false }));
     }
   };
 
 
   const handleContextMenuCopy = () => {
-    if (contextMenu.message?.content) {
+    if (messageContextMenu.message?.content) {
       try {
-        copy(contextMenu.message.content);
+        copy(messageContextMenu.message.content);
       } catch (err) {
         console.error('Failed to copy text: ', err);
       }
-      setContextMenu(prev => ({ ...prev, visible: false }));
+      setMessageContextMenu(prev => ({ ...prev, visible: false }));
     }
   };
   
   const handleContextMenuQuote = () => {
-    if (contextMenu.message) {
-      quoteMessage(contextMenu.message);
-      setContextMenu(prev => ({ ...prev, visible: false }));
+    if (messageContextMenu.message) {
+      quoteMessage(messageContextMenu.message);
+      setMessageContextMenu(prev => ({ ...prev, visible: false }));
     }
   };
 
   const renderContextMenu = () => {
-    if (!contextMenu.visible || !contextMenu.message) return null;
-    const menuWidth = contextMenuRef.current?.offsetWidth || 200; 
-    const menuHeight = contextMenuRef.current?.offsetHeight || 150; 
+    if (!messageContextMenu.visible || !messageContextMenu.message) return null;
+    const menuWidth = messageContextMenuRef.current?.offsetWidth || 200; 
+    const menuHeight = messageContextMenuRef.current?.offsetHeight || 150; 
 
     const windowWidth = window.innerWidth;
     const windowHeight = window.innerHeight;
 
-    let left = contextMenu.x;
-    let top = contextMenu.y;
+    let left = messageContextMenu.x;
+    let top = messageContextMenu.y;
 
-    if (left + menuWidth > windowWidth) {
-      left = left - menuWidth;
-    }
-
-    if (top + menuHeight > windowHeight) {
-      top = top - menuHeight;
-    }
-
-    if (left < 0) {
-      left = 0;
-    }
-
-    if (top < 0) {
-      top = 0;
-    }
+    if (left + menuWidth > windowWidth) left = left - menuWidth;
+    if (top + menuHeight > windowHeight) top = top - menuHeight;
+    if (left < 0) left = 0;
+    if (top < 0) top = 0;
 
     return (
       <div
-        ref={contextMenuRef}
+        ref={messageContextMenuRef}
         className="fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 py-1 min-w-[150px]"
         style={{
           top: `${top}px`,
           left: `${left}px`,
         }}
       >
-        {contextMenu.message.sender === username && (
+        {messageContextMenu.message.sender === username && (
           <>
             <button
               onClick={handleContextMenuEdit}
@@ -329,7 +441,7 @@ const ChatComponent: React.FC = () => {
     if (!token) return;
     setIsLoadingChats(true);
     try {
-      const res = await fetch(`${API_BASE}/chat/chats`, {
+      const res = await fetch(`${API_BASE}/chat/chats-with-last-message`, {
         headers: authHeaders(),
       });
       if (res.status === 401) {
@@ -352,7 +464,7 @@ const ChatComponent: React.FC = () => {
         throw new Error(`Failed to load chats: ${res.status} ${res.statusText}`);
       }
       const data: Chat[] = await res.json();
-      console.log(`fetchChats ${data}`);
+      console.log(`fetchChats ${JSON.stringify(data, null, 2)}`);
       setChats(data);
       if (data.length > 0 && activeChat === null) {
         setActiveChat(data[0].id);
@@ -456,7 +568,7 @@ const ChatComponent: React.FC = () => {
       }
       if (!res.ok) throw new Error(`Failed to load messages: ${res.status} ${res.statusText}`);
       const data: any[] = await res.json();
-      console.log(`loadMessages ${data}`);
+      // console.log(`loadMessages ${data}`);
       if (data.length < limit) {
         setHasMoreByChat(prev => ({ ...prev, [activeChat]: false }));
       }
@@ -464,7 +576,7 @@ const ChatComponent: React.FC = () => {
       setMessagesByChat(prev => {
         const currentMessages = prev[activeChat] || [];
         const currentIds = new Set(currentMessages.map(m => m.id));
-        console.log(`loadMessages: Загружено ${data.length} сообщений.`);
+        // console.log(`loadMessages: Загружено ${data.length} сообщений.`);
 
         const uniqueNewMessages = data.filter(msg => {
             const msgId = String(msg.id);
@@ -483,7 +595,7 @@ const ChatComponent: React.FC = () => {
             edited: Boolean(msg.edited),
         }));
 
-        console.log(`loadMessages: Добавлено ${uniqueNewMessages.length} новых сообщений.`);
+        // console.log(`loadMessages: Добавлено ${uniqueNewMessages.length} новых сообщений.`);
 
         const combinedMessages = [...uniqueNewMessages, ...currentMessages];
         
@@ -677,7 +789,7 @@ const ChatComponent: React.FC = () => {
               }));
             }
             if (data.type === "user_status") {
-              console.log(data.data);
+              // console.log(data.data);
               setUserStatuses(data.data);
             }
             if (data.type === "chat_deleted") {
@@ -770,6 +882,9 @@ const ChatComponent: React.FC = () => {
     };
   }, []);
 
+  // const scrollToBottomChat = () => {
+  //   messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // }
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [filteredMessages]);
@@ -1107,7 +1222,7 @@ const ChatComponent: React.FC = () => {
       toast.error('Не удалось создать личный чат');
     }
   };
-
+  
   const createGroupChat = async () => {
     if (!token || selectedContacts.length < 1) {
       toast.error('Выберите минимум двух участников для создания группы');
@@ -1117,7 +1232,7 @@ const ChatComponent: React.FC = () => {
       setGroupName('Chat');
     }
     try {
-      console.log(groupName);
+      // console.log(groupName);
       const res = await fetch(`${API_BASE}/chat/chats/group`, {
         method: 'POST',
         headers: authHeaders(),
@@ -1146,7 +1261,7 @@ const ChatComponent: React.FC = () => {
         throw new Error(`Failed to create group chat: ${res.status} ${res.statusText} - ${errorData.detail || 'Unknown error'}`);
       }
       const newChat: Chat = await res.json();
-      console.log(newChat);
+      // console.log(`newChat ${newChat}`);
       // setChats((prev) => [...prev, newChat]);
       setActiveChat(newChat.id);
       setShowCreateGroup(false);
@@ -1206,8 +1321,8 @@ const ChatComponent: React.FC = () => {
   const inviteToChat = async (chatId: string, members: string[]) => {
     if (!token) return;
     try {
-      console.log(chatId);
-      console.log(members);
+      // console.log(chatId);
+      // console.log(members);
 
       const res = await fetch(`${API_BASE}/chat/chats/${chatId}/invite`, {
         method: 'POST',
@@ -1354,8 +1469,6 @@ const ChatComponent: React.FC = () => {
       if (!res.ok) {
         throw new Error(`Failed to delete chat: ${res.status} ${res.statusText}`);
       }
-      // setChats(prev => prev.filter(c => c.id !== chatId));
-      // if (activeChat === chatId) setActiveChat(null);
       toast.success('Чат удален');
       setShowDeleteModal(false);
     } catch (e) {
@@ -1368,12 +1481,8 @@ const ChatComponent: React.FC = () => {
       console.log(`filteredChats ${chats}`);
     return chats.filter(chat => {
       if (!chat.members || !Array.isArray(chat.members)) {
-      // Если members нет или это не массив, можно:
-      // 1. Пропустить этот чат (return false)
-      // 2. Обработать иначе
-      // 3. Залогировать предупреждение
       console.warn('Chat object is missing members array or members is not an array:', chat);
-      return false; // Пропускаем такой чат
+      return false;
   }
       const chatName = chat.is_group || chat.is_channel ? chat.name?.toLowerCase() : contactMap[chat.members.find(m => m !== username)!]?.toLowerCase() || 'личный чат';
       return chatName?.includes(searchQuery.toLowerCase());
@@ -1604,7 +1713,7 @@ const ChatComponent: React.FC = () => {
   const renderMessages = () => {
     let lastDate = '';
     const messagesToRender = filteredMessages || [];
-
+    
     return messagesToRender.map((msg) => {
       const messageDate = formatDate(msg.timestamp);
       const showDateHeader = messageDate !== lastDate;
@@ -1667,7 +1776,7 @@ const ChatComponent: React.FC = () => {
           filteredChats.map((chat) => (
             <div
               key={chat.id}
-              onClick={() => setActiveChat(chat.id)}
+              onClick={() => {setActiveChat(chat.id); }}
               className={`flex items-center p-4 border-b border-gray-300 dark:border-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ${activeChat === chat.id ? 'bg-gray-200 dark:bg-gray-700' : ''}`}
             >
               <div className="flex-shrink-0 mr-3 text-gray-500 dark:text-gray-400">
@@ -1688,6 +1797,11 @@ const ChatComponent: React.FC = () => {
                       {unreadCounts[chat.id]}
                     </span>
                   )}
+                  {/* { chat.unread_count > 0 && (
+                    <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full">
+                      {chat.unread_count}
+                    </span>
+                    )} */}
                 </div>
                 <div className="text-sm text-gray-500 dark:text-gray-400 truncate">
                   {/* {isTyping && typingUser !== username && (
@@ -1697,7 +1811,7 @@ const ChatComponent: React.FC = () => {
                   )} */}
                   {messagesByChat[chat.id] && messagesByChat[chat.id].length > 0
                     ? messagesByChat[chat.id][messagesByChat[chat.id].length - 1].content?.split('\n')[0] || 'Новый файл'
-                    : 'Нет сообщений'}
+                    : chat.last_message ? chat.last_message.content: 'Нет сообщений'}
                 </div>
               </div>
             </div>
@@ -1806,10 +1920,14 @@ const ChatComponent: React.FC = () => {
   }, [showChatInfoSidebar]);
 
   const openSidebar = () => {
-    setIsSidebarVisible(true);
-    setTimeout(() => {
-      setShowChatInfoSidebar(true);
-    }, 10);
+    if (!isSidebarVisible) {
+      setIsSidebarVisible(true);
+      setTimeout(() => {
+        setShowChatInfoSidebar(true);
+      }, 10);
+    } else {
+      setShowChatInfoSidebar(false);
+    }
   };
 
   const renderChatInfoSidebar = () => {
@@ -1879,7 +1997,13 @@ const ChatComponent: React.FC = () => {
               <div className="space-y-2 max-h-1/2 overflow-y-auto">
                 {currentChat.members && currentChat.members.length > 0 ? (
                   currentChat.members.map((member, index) => (
-                    <div key={index} className="flex items-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <div
+                      key={index}
+                      id={`user-${index}`}
+                      className="flex items-center p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                      onContextMenu={(e) => handleUserContextMenu(e, member)}
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <div className='relative'>
                         <UserCircle size={26} className="mr-2 text-gray-500 dark:text-gray-400 flex-shrink-0" />
                         {userStatuses[member] === "online" && (
@@ -1921,7 +2045,9 @@ const ChatComponent: React.FC = () => {
               </div>
             ) : null}
           </div>
+          
         </div>
+        
     );
   };
 
@@ -1964,7 +2090,7 @@ const ChatComponent: React.FC = () => {
       }
 
       const updatedChatData: Partial<Chat> = await res.json();
-      console.log('Чат успешно обновлен:', updatedChatData);
+      // console.log('Чат успешно обновлен:', updatedChatData);
 
       setChats(prevChats =>
         prevChats.map(chat =>
@@ -2107,200 +2233,253 @@ const ChatComponent: React.FC = () => {
     );
   };
 
-const renderChatWindow = () => {
-  if (!activeChat || !currentChat) {
+  const handleTestMessage = () => {
+    if (!websocket || websocket.readyState !== WebSocket.OPEN || !activeChat) {
+      toast.error('Нет соединения с сервером');
+      return;
+    }
+    console.log("SENDING TEST MESSAGE");
+    const payload = {
+      type: 'send_message',
+      data: {
+        channel_id: activeChat,
+        content: "test message",
+      }
+    };
+    websocket.send(JSON.stringify(payload));
+    websocket.send(JSON.stringify(payload));
+    websocket.send(JSON.stringify(payload));
+    websocket.send(JSON.stringify(payload));
+    websocket.send(JSON.stringify(payload));
+    websocket.send(JSON.stringify(payload));
+    websocket.send(JSON.stringify(payload));
+    websocket.send(JSON.stringify(payload));
+  };
+
+  useEffect(() => {
+  if (testMessages) {
+    // Запускаем интервал — каждую секунду отправляем сообщение
+    intervalRef.current = window.setInterval(() => {
+      handleTestMessage();
+    }, 1000);
+  } else {
+    // Очищаем интервал, если выключили
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }
+
+  // Cleanup при размонтировании компонента
+  return () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+  };
+}, [testMessages, websocket, activeChat]); // зависимости: чтобы интервал пересоздавался при изменении websocket/activeChat
+
+  const renderChatWindow = () => {
+    if (!activeChat || !currentChat) {
+      return (
+        <div className="flex-1 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+          <div className="text-gray-500 dark:text-gray-400 text-lg">Выберите чат для начала общения</div>
+        </div>
+      );
+    }
+    // console.log(getChatDisplayName(currentChat, "short"));
+    // console.log(JSON.stringify(currentChat, null, 2));
+    // console.log(JSON.stringify(userStatuses, null, 2));
+
+    // console.log(isTyping && typingUser !== username);
+    // console.log(typingUser !== username);
+    // console.log(userStatuses[getChatDisplayName(currentChat, "short")] === "online" && !isTyping  && typingUser !== username);
+    // // console.log(!(getChatDisplayName(currentChat, "short") in userStatuses) && !isTyping  && typingUser !== username);
+    // console.log(`status - ${userStatuses[getChatDisplayName(currentChat, "short")]}, isTyping - ${isTyping}, typingUser - ${typingUser}`)
     return (
-      <div className="flex-1 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-        <div className="text-gray-500 dark:text-gray-400 text-lg">Выберите чат для начала общения</div>
+      <div className="relative flex flex-1 bg-gray-100 dark:bg-gray-800 h-full overflow-hidden">
+        <div className={`flex flex-col flex-1 transition-all duration-300 ease-in-out ${
+          showChatInfoSidebar ? 'mr-[420px]' : ''
+        }`}>
+          <div className="flex items-center justify-between p-4 border-b border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900">
+            {/*  */}
+            <div className="flex items-center hover:cursor-pointer"
+            onClick={() => {openSidebar()}}>
+              <div className="flex-shrink-0 mr-3 text-gray-500 dark:text-gray-400"
+                
+              >
+                {getChatDisplayIcon(currentChat, 48)}
+              </div>
+              <div className="flex flex-col h-[50px]">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{getChatDisplayName(currentChat, 'full')}</h2>
+                {currentChat.is_channel && (
+                  <div className="text-sm text-gray-500 dark:text-gray-400">{currentChat.description}</div>
+                )}
+                {isTyping && typingUser !== username && (
+                  <div className="p-0 text-sm text-gray-500 dark:text-gray-400">
+                    {/* {contactMap[typingUser] || typingUser}  */}печатает...
+                  </div>
+                )}
+                {/*&& userStatuses[getChatDisplayName(currentChat)] === "online"*/}
+                {userStatuses[getChatDisplayName(currentChat, "short")] === "online" && (!isTyping || isTyping && typingUser == username) && (
+                  <div className="p-0 text-sm dark:text-gray-400 text-blue-500">
+                    online
+                  </div>
+                )}
+                {!(getChatDisplayName(currentChat, "short") in userStatuses) && !isTyping  && typingUser !== username && (
+                  <div className="p-0 text-sm dark:text-gray-400 text-gray-500">
+                    last ceen recently
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="relative">
+              <button onClick={() => setShowChatOptions(!showChatOptions)} className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                <DotsThreeVertical size={24} />
+              </button>
+              {showChatOptions && (
+                <div ref={chatOptionsRef} className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-10">
+                  {(currentChat.is_group || currentChat.is_channel) && (
+                    <>
+                      <a onClick={() => { setShowInviteModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                        Пригласить пользователей
+                      </a>
+                      {currentChat.creator_username === username && (
+                        <a onClick={() => { setShowKickModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                          Исключить пользователей
+                        </a>
+                      )}
+                    </>
+                  )}
+                  <a onClick={() => { setShowLeaveModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                    Покинуть чат
+                  </a>
+                  {currentChat.creator_username === username && (
+                    <a onClick={() => { setShowDeleteModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-red-600 hover:bg-red-100 dark:hover:bg-red-900 cursor-pointer">
+                      Удалить чат
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-col flex-1 overflow-y-auto p-4 space-y-2 messages-container relative" onScroll={handleScroll}>
+            {hasMoreByChat[activeChat] && isLoadingMessages && (
+              <div className="text-center text-gray-500">Загрузка сообщений...</div>
+            )}
+            {renderMessages()}
+            <div ref={messagesEndRef} />
+            {renderContextMenu()}
+          </div>
+          {/* INPUT BAR */}
+          <div className="p-4 border-t border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900 relative">
+            {renderQuotedMessage()}
+            {renderEditingMessage()}
+            {showEmojiPicker && (
+              <div className="absolute bottom-16 left-0 z-10">
+                <EmojiPicker onEmojiClick={handleEmojiClick} />
+              </div>
+            )}
+            {showStickerPicker && (
+              <div ref={stickerPickerRef} className="absolute bottom-16 left-0 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 grid grid-cols-4 gap-2">
+                {stickers.map((sticker, index) => (
+                  <button key={index} onClick={() => handleStickerClick(sticker)} className="w-12 h-12">
+                    <img src={sticker} alt={`Sticker ${index + 1}`} className="w-full h-full object-contain" />
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center space-x-2">
+              <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                <Smiley size={24} />
+              </button>
+              <button onClick={() => setShowStickerPicker(!showStickerPicker)} className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                <Sticker size={24} />
+              </button>
+              <label className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer">
+                <Paperclip size={24} />
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+              </label>
+              <input
+                type="text"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onInput={handleTyping}
+                placeholder={editingMessage ? 'Редактировать сообщение...' : 'Напишите сообщение...'}
+                className="flex-1 px-4 py-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
+                ref={inputRef}
+              />
+              {editingMessage ? (
+                <button onClick={cancelEdit} className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900 rounded-full transition-colors">
+                  <X size={24} />
+                </button>
+              ) : (
+                <button onClick={handleSendMessage} className="p-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
+                  <PaperPlaneRight size={24} />
+                </button>
+              )}
+              <button onClick={isRecording ? stopRecording : startRecording} className={`p-2 rounded-full ${isRecording ? 'bg-red-600' : 'bg-gray-200 dark:bg-gray-700'} text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors`}>
+                <Microphone size={24} color={isRecording ? 'white' : 'currentColor'} />
+              </button>
+              {/* TEST BUTTON */}
+              <button
+                onClick={() => setTestMessages(!testMessages)}
+                className={`p-2 rounded-full text-white hover:bg-indigo-700 transition-colors ${testMessages ? "bg-red-500" : "bg-green-500"}`}
+              >
+                {testMessages ? "STOP TEST" : "START TEST"}
+              </button>
+            </div>
+            {selectedFile && (
+              <div className="mt-2 text-sm text-gray-600 dark:text-gray-400 flex items-center">
+                <Paperclip size={16} className="mr-1" />
+                <span>Выбран файл: {selectedFile.name}</span>
+                <button onClick={() => setSelectedFile(null)} className="ml-2 text-red-500 hover:text-red-700">
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+          {showDeleteMessageModal && messageToDelete && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[2000] p-4">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+                  Удалить сообщение
+                </h3>
+                <p className="text-gray-700 dark:text-gray-300 mb-6">
+                  Вы уверены, что хотите удалить это сообщение? Это действие нельзя отменить.
+                </p>
+                {/* Опционально: показать превью удаляемого сообщения */}
+                {/* 
+                <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-700 rounded text-sm break-words">
+                  {messageToDelete.content || messageToDelete.file_name || 'Файл'}
+                </div>
+                */}
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => {
+                      setShowDeleteMessageModal(false);
+                      setMessageToDelete(null);
+                    }}
+                    className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    onClick={confirmDeleteMessage}
+                    className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors"
+                  >
+                    Удалить
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        {renderChatInfoSidebar()}
+        {renderUserContextMenu()}
       </div>
     );
-  }
-  // console.log(getChatDisplayName(currentChat, "short"));
-  // console.log(JSON.stringify(currentChat, null, 2));
-  // console.log(JSON.stringify(userStatuses, null, 2));
-
-  // console.log(isTyping && typingUser !== username);
-  console.log(typingUser !== username);
-  console.log(userStatuses[getChatDisplayName(currentChat, "short")] === "online" && !isTyping  && typingUser !== username);
-  // console.log(!(getChatDisplayName(currentChat, "short") in userStatuses) && !isTyping  && typingUser !== username);
-  console.log(`status - ${userStatuses[getChatDisplayName(currentChat, "short")]}, isTyping - ${isTyping}, typingUser - ${typingUser}`)
-  return (
-    <div className="relative flex flex-1 bg-gray-100 dark:bg-gray-800 h-full overflow-hidden">
-      <div className={`flex flex-col flex-1 transition-all duration-300 ease-in-out ${
-        showChatInfoSidebar ? 'mr-[420px]' : ''
-      }`}>
-        <div className="flex items-center justify-between p-4 border-b border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900">
-          {/*  */}
-          <div className="flex items-center hover:cursor-pointer"
-          onClick={() => {openSidebar()}}> 
-            <div className="flex-shrink-0 mr-3 text-gray-500 dark:text-gray-400"
-              
-            >
-              {getChatDisplayIcon(currentChat, 48)}
-            </div>
-            <div className="flex flex-col h-[50px]">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{getChatDisplayName(currentChat, 'full')}</h2>
-              {currentChat.is_channel && (
-                <div className="text-sm text-gray-500 dark:text-gray-400">{currentChat.description}</div>
-              )}
-              {isTyping && typingUser !== username && (
-                <div className="p-0 text-sm text-gray-500 dark:text-gray-400">
-                  {/* {contactMap[typingUser] || typingUser}  */}печатает...
-                </div>
-              )}
-              {/*&& userStatuses[getChatDisplayName(currentChat)] === "online"*/}
-              {userStatuses[getChatDisplayName(currentChat, "short")] === "online" && (!isTyping || isTyping && typingUser == username) && (
-                <div className="p-0 text-sm dark:text-gray-400 text-blue-500">
-                  online
-                </div>
-              )}
-              {!(getChatDisplayName(currentChat, "short") in userStatuses) && !isTyping  && typingUser !== username && (
-                <div className="p-0 text-sm dark:text-gray-400 text-gray-500">
-                  last ceen recently
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="relative">
-            <button onClick={() => setShowChatOptions(!showChatOptions)} className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-              <DotsThreeVertical size={24} />
-            </button>
-            {showChatOptions && (
-              <div ref={chatOptionsRef} className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-10">
-                {(currentChat.is_group || currentChat.is_channel) && (
-                  <>
-                    <a onClick={() => { setShowInviteModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
-                      Пригласить пользователей
-                    </a>
-                    {currentChat.creator_username === username && (
-                      <a onClick={() => { setShowKickModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
-                        Исключить пользователей
-                      </a>
-                    )}
-                  </>
-                )}
-                <a onClick={() => { setShowLeaveModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
-                  Покинуть чат
-                </a>
-                {currentChat.creator_username === username && (
-                  <a onClick={() => { setShowDeleteModal(true); setShowChatOptions(false); }} className="block px-4 py-2 text-sm text-red-600 hover:bg-red-100 dark:hover:bg-red-900 cursor-pointer">
-                    Удалить чат
-                  </a>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="flex flex-col flex-1 overflow-y-auto p-4 space-y-2 messages-container relative" onScroll={handleScroll}>
-          {hasMoreByChat[activeChat] && isLoadingMessages && (
-            <div className="text-center text-gray-500">Загрузка старых сообщений...</div>
-          )}
-          {renderMessages()}
-          <div ref={messagesEndRef} />
-          {renderContextMenu()}
-        </div>
-        {/* INPUT BAR */}
-        <div className="p-4 border-t border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900 relative">
-          {renderQuotedMessage()}
-          {renderEditingMessage()}
-          {showEmojiPicker && (
-            <div className="absolute bottom-16 left-0 z-10">
-              <EmojiPicker onEmojiClick={handleEmojiClick} />
-            </div>
-          )}
-          {showStickerPicker && (
-            <div ref={stickerPickerRef} className="absolute bottom-16 left-0 z-10 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 grid grid-cols-4 gap-2">
-              {stickers.map((sticker, index) => (
-                <button key={index} onClick={() => handleStickerClick(sticker)} className="w-12 h-12">
-                  <img src={sticker} alt={`Sticker ${index + 1}`} className="w-full h-full object-contain" />
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="flex items-center space-x-2">
-            <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-              <Smiley size={24} />
-            </button>
-            <button onClick={() => setShowStickerPicker(!showStickerPicker)} className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-              <Sticker size={24} />
-            </button>
-            <label className="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer">
-              <Paperclip size={24} />
-              <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-            </label>
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onInput={handleTyping}
-              placeholder={editingMessage ? 'Редактировать сообщение...' : 'Напишите сообщение...'}
-              className="flex-1 px-4 py-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
-              ref={inputRef}
-            />
-            {editingMessage ? (
-              <button onClick={cancelEdit} className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900 rounded-full transition-colors">
-                <X size={24} />
-              </button>
-            ) : (
-              <button onClick={handleSendMessage} className="p-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
-                <PaperPlaneRight size={24} />
-              </button>
-            )}
-            <button onClick={isRecording ? stopRecording : startRecording} className={`p-2 rounded-full ${isRecording ? 'bg-red-600' : 'bg-gray-200 dark:bg-gray-700'} text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors`}>
-              <Microphone size={24} color={isRecording ? 'white' : 'currentColor'} />
-            </button>
-          </div>
-          {selectedFile && (
-            <div className="mt-2 text-sm text-gray-600 dark:text-gray-400 flex items-center">
-              <Paperclip size={16} className="mr-1" />
-              <span>Выбран файл: {selectedFile.name}</span>
-              <button onClick={() => setSelectedFile(null)} className="ml-2 text-red-500 hover:text-red-700">
-                <X size={16} />
-              </button>
-            </div>
-          )}
-        </div>
-        {showDeleteMessageModal && messageToDelete && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[2000] p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-                Удалить сообщение
-              </h3>
-              <p className="text-gray-700 dark:text-gray-300 mb-6">
-                Вы уверены, что хотите удалить это сообщение? Это действие нельзя отменить.
-              </p>
-              {/* Опционально: показать превью удаляемого сообщения */}
-              {/* 
-              <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-700 rounded text-sm break-words">
-                {messageToDelete.content || messageToDelete.file_name || 'Файл'}
-              </div>
-              */}
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => {
-                    setShowDeleteMessageModal(false);
-                    setMessageToDelete(null);
-                  }}
-                  className="px-4 py-2 rounded-md bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-400 dark:hover:bg-gray-500 transition-colors"
-                >
-                  Отмена
-                </button>
-                <button
-                  onClick={confirmDeleteMessage}
-                  className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors"
-                >
-                  Удалить
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-      {renderChatInfoSidebar()}
-    </div>
-  );
-};
+  };
 
   const renderModals = () => {
     if (showContactSearch && !showCreateGroup) {

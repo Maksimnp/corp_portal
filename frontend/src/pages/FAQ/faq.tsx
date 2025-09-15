@@ -33,9 +33,9 @@ interface FAQStats {
 interface UserInfo {
   username: string;
   full_name: string;
-  role: string;
-  isAdmin: boolean;
+  email: string;
   department?: string;
+  isAdmin: boolean; // Исправлено с isAdmin на isAdmin
 }
 
 const FAQ: React.FC = () => {
@@ -50,18 +50,15 @@ const FAQ: React.FC = () => {
   const [stats, setStats] = useState<FAQStats | null>(null);
   const [showStats, setShowStats] = useState(false);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [userDepartments, setUserDepartments] = useState<string[]>([]);
   const [allDepartments, setAllDepartments] = useState<string[]>([]);
-
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newFaq, setNewFaq] = useState({
     question: '',
     content_html: '',
     category: '',
     department: '',
-    is_general: false
+    is_general: false,
   });
-
   const [editingFaq, setEditingFaq] = useState<FAQItem | null>(null);
   const [showEditForm, setShowEditForm] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
@@ -70,66 +67,88 @@ const FAQ: React.FC = () => {
 
   useEffect(() => {
     fetchUserInfo();
-    fetchFAQs();
-    fetchStats();
   }, []);
 
-const fetchUserInfo = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('Токен аутентификации не найден');
-      return;
-    }
-    const response = await fetch(`${API_BASE_URL}/auth/me`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json'
+  useEffect(() => {
+    if (userInfo) {
+      fetchFAQs();
+      if (userInfo.isAdmin) {
+        fetchStats();
+        fetchAllDepartments();
       }
-    });
-    if (!response.ok) {
-      throw new Error(`Ошибка получения данных пользователя: ${response.status}`);
     }
-    const userData = await response.json();
-    setUserInfo(userData);
-    fetchAllDepartments();
-  } catch (err) {
-    console.error('Ошибка получения данных пользователя:', err);
-    setError('Не удалось загрузить информацию о пользователе. Пожалуйста, войдите снова.');
-  }
-};
+  }, [userInfo, selectedCategory, selectedDepartment, searchTerm]);
 
+  useEffect(() => {
+    if (userInfo?.department && !newFaq.is_general) {
+      setNewFaq(prev => ({ ...prev, department: userInfo.department ?? '' }));
+    }
+  }, [userInfo, newFaq.is_general]);
+
+  const fetchUserInfo = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Токен аутентификации не найден');
+      }
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+        mode: 'cors',
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Ошибка получения данных пользователя: ${response.status} - ${errorData.detail || 'Неизвестная ошибка'}`);
+      }
+      const userData = await response.json();
+      console.log('Received userData from /auth/me:', userData);
+      setUserInfo(userData);
+    } catch (err) {
+      console.error('Ошибка получения данных пользователя:', err);
+      setError(err instanceof Error ? err.message : 'Не удалось загрузить информацию о пользователе. Пожалуйста, войдите снова.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchFAQs = async () => {
     try {
       setLoading(true);
       setError('');
-      
       const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Токен аутентификации не найден');
+      }
       const params = new URLSearchParams({
         ...(selectedCategory !== 'all' && { category: selectedCategory }),
         ...(searchTerm && { search: searchTerm }),
-        ...(selectedDepartment !== 'all' && { department: selectedDepartment })
+        ...(selectedDepartment !== 'all' && selectedDepartment !== 'general' && { department: selectedDepartment }),
       });
-      
-      const response = await fetch(`${API_BASE_URL}/faq?${params}`, {  // Изменено с /faqs на /faq
+
+      const response = await fetch(`${API_BASE_URL}/faq?${params}`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
         },
         mode: 'cors',
       });
 
       if (!response.ok) {
-        throw new Error(`Ошибка получения FAQ: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(`Ошибка получения FAQ: ${response.status} - ${errorData.detail || 'Неизвестная ошибка'}`);
       }
-      
+
       const data = await response.json();
+      console.log('Received FAQs:', data.faqs);
       setFaqs(data.faqs || []);
       setCategories(data.categories || []);
     } catch (err) {
+      console.error('Ошибка получения FAQ:', err);
       setError(err instanceof Error ? err.message : 'Не удалось загрузить FAQ');
     } finally {
       setLoading(false);
@@ -139,39 +158,85 @@ const fetchUserInfo = async () => {
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/faq/stats-overview`, {  // Изменено с /faqs на /faq
+      if (!token) {
+        throw new Error('Токен аутентификации не найден');
+      }
+      const response = await fetch(`${API_BASE_URL}/faq/stats-overview`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+        mode: 'cors',
       });
-      
-      if (response.ok) {
-        const statsData = await response.json();
-        setStats(statsData);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Ошибка получения статистики: ${response.status} - ${errorData.detail || 'Неизвестная ошибка'}`);
       }
+
+      const statsData = await response.json();
+      setStats(statsData);
     } catch (err) {
       console.error('Ошибка получения статистики:', err);
+      setError(err instanceof Error ? err.message : 'Не удалось загрузить статистику FAQ');
+      setStats(null);
+    }
+  };
+
+  const fetchAllDepartments = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Токен аутентификации не найден');
+      }
+      const response = await fetch(`${API_BASE_URL}/faq/all-departments`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+        mode: 'cors',
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Ошибка получения списка отделов: ${response.status} - ${errorData.detail || 'Неизвестная ошибка'}`);
+      }
+      const data = await response.json();
+      setAllDepartments(data.departments || []);
+    } catch (err) {
+      console.error('Ошибка получения списка всех отделов:', err);
+      setError(err instanceof Error ? err.message : 'Не удалось загрузить список отделов');
+      setAllDepartments([]);
     }
   };
 
   const handleFeedback = async (faqId: number, helpful: boolean) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/faq/${faqId}/feedback`, {  // Изменено с /faqs на /faq
+      if (!token) {
+        throw new Error('Токен аутентификации не найден');
+      }
+      const response = await fetch(`${API_BASE_URL}/faq/${faqId}/feedback`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
         },
-        body: JSON.stringify({ helpful })
+        body: JSON.stringify({ helpful }),
+        mode: 'cors',
       });
 
-      if (response.ok) {
-        await fetchFAQs();
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Ошибка отправки отзыва: ${response.status} - ${errorData.detail || 'Неизвестная ошибка'}`);
       }
+
+      await fetchFAQs();
     } catch (err) {
       console.error('Ошибка отправки отзыва:', err);
+      setError(err instanceof Error ? err.message : 'Не удалось отправить отзыв');
     }
   };
 
@@ -183,77 +248,67 @@ const fetchUserInfo = async () => {
       newExpanded.add(id);
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`${API_BASE_URL}/faq/${id}`, {  // Изменено с /faqs на /faq
+        if (!token) {
+          throw new Error('Токен аутентификации не найден');
+        }
+        const response = await fetch(`${API_BASE_URL}/faq/${id}`, {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${token}`
-          }
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          },
+          mode: 'cors',
         });
 
-        if (response.ok) {
-          const updatedFaq = await response.json();
-          setFaqs(prev => prev.map(faq => 
-            faq.id === id ? updatedFaq : faq
-          ));
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(`Ошибка обновления просмотров: ${response.status} - ${errorData.detail || 'Неизвестная ошибка'}`);
         }
+
+        const updatedFaq = await response.json();
+        setFaqs(prev => prev.map(faq => (faq.id === id ? updatedFaq : faq)));
       } catch (err) {
         console.error('Ошибка обновления просмотров:', err);
+        setError(err instanceof Error ? err.message : 'Не удалось обновить просмотры');
       }
     }
     setExpandedItems(newExpanded);
   };
-const fetchAllDepartments = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      console.warn('Токен аутентификации не найден, невозможно получить список отделов');
-      return;
-    }
-    const response = await fetch(`${API_BASE_URL}/faq/all-departments`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`, // <-- Ключевая строка
-        'Accept': 'application/json'
-      }
-    });
-    if (response.ok) {
-      const data = await response.json();
-      setAllDepartments(data.departments || []);
-    } else {
-      console.warn('Не удалось получить список всех отделов:', response.status);
-    }
-  } catch (err) {
-    console.error('Ошибка получения списка всех отделов:', err);
-  }
-};
+
   const handleCreateFAQ = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/faq`, {  // Изменено с /faqs на /faq
+      if (!token) {
+        throw new Error('Токен аутентификации не найден');
+      }
+      const response = await fetch(`${API_BASE_URL}/faq`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
         },
         body: JSON.stringify({
           question: newFaq.question,
           content_html: newFaq.content_html,
           category: newFaq.category || null,
-          department: newFaq.department || null,
-          is_general: newFaq.is_general
-        })
+          department: newFaq.is_general ? null : newFaq.department || userInfo?.department || null,
+          is_general: newFaq.is_general,
+        }),
+        mode: 'cors',
       });
 
-      if (response.ok) {
-        setNewFaq({ question: '', content_html: '', category: '', department: '', is_general: false });
-        setShowCreateForm(false);
-        fetchFAQs();
-      } else {
-        throw new Error('Ошибка создания FAQ');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Ошибка создания FAQ: ${response.status} - ${errorData.detail || 'Неизвестная ошибка'}`);
       }
+
+      setNewFaq({ question: '', content_html: '', category: '', department: userInfo?.department || '', is_general: false });
+      setShowCreateForm(false);
+      fetchFAQs();
     } catch (err) {
       console.error('Ошибка создания FAQ:', err);
-      alert('Не удалось создать FAQ');
+      setError(err instanceof Error ? err.message : 'Не удалось создать FAQ');
     }
   };
 
@@ -262,53 +317,65 @@ const fetchAllDepartments = async () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/faq/${editingFaq.id}`, {  // Изменено с /faqs на /faq
+      if (!token) {
+        throw new Error('Токен аутентификации не найден');
+      }
+      const response = await fetch(`${API_BASE_URL}/faq/${editingFaq.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
         },
         body: JSON.stringify({
           question: editingFaq.question,
           content_html: editingFaq.content_html,
           category: editingFaq.category || null,
-          department: editingFaq.department || null,
-          is_general: editingFaq.is_general
-        })
+          department: editingFaq.is_general ? null : editingFaq.department || userInfo?.department || null,
+          is_general: editingFaq.is_general,
+        }),
+        mode: 'cors',
       });
 
-      if (response.ok) {
-        setEditingFaq(null);
-        setShowEditForm(false);
-        fetchFAQs();
-      } else {
-        throw new Error('Ошибка обновления FAQ');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Ошибка обновления FAQ: ${response.status} - ${errorData.detail || 'Неизвестная ошибка'}`);
       }
+
+      setEditingFaq(null);
+      setShowEditForm(false);
+      fetchFAQs();
     } catch (err) {
       console.error('Ошибка обновления FAQ:', err);
-      alert('Не удалось обновить FAQ');
+      setError(err instanceof Error ? err.message : 'Не удалось обновить FAQ');
     }
   };
 
   const handleDeleteFAQ = async (id: number) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/faq/${id}`, {  // Изменено с /faqs на /faq
+      if (!token) {
+        throw new Error('Токен аутентификации не найден');
+      }
+      const response = await fetch(`${API_BASE_URL}/faq/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+        mode: 'cors',
       });
 
-      if (response.ok) {
-        setDeleteConfirm(null);
-        fetchFAQs();
-      } else {
-        throw new Error('Ошибка удаления FAQ');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Ошибка удаления FAQ: ${response.status} - ${errorData.detail || 'Неизвестная ошибка'}`);
       }
+
+      setDeleteConfirm(null);
+      fetchFAQs();
     } catch (err) {
       console.error('Ошибка удаления FAQ:', err);
-      alert('Не удалось удалить FAQ');
+      setError(err instanceof Error ? err.message : 'Не удалось удалить FAQ');
     }
   };
 
@@ -317,10 +384,16 @@ const fetchAllDepartments = async () => {
     setShowEditForm(true);
   };
 
-  const filteredFaqs = useMemo(() => faqs, [faqs]);
+  const filteredFaqs = useMemo(() => {
+    if (!userInfo || userInfo.isAdmin) {
+      return faqs; // Администраторы видят все FAQ
+    }
+    return faqs.filter(faq => 
+      faq.is_general || faq.department === userInfo.department
+    ); // Не-администраторы видят только общие FAQ или FAQ их отдела
+  }, [faqs, userInfo]);
 
   const getAvailableDepartments = () => {
-    const departments = new Set(faqs.map(faq => faq.department).filter(dept => dept != null));
     return allDepartments;
   };
 
@@ -343,7 +416,10 @@ const fetchAllDepartments = async () => {
           <h3 className="font-bold text-xl text-gray-900 mb-2">Ошибка загрузки</h3>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
-            onClick={fetchFAQs}
+            onClick={() => {
+              setError('');
+              fetchUserInfo();
+            }}
             className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
             Попробовать снова
@@ -361,37 +437,37 @@ const fetchAllDepartments = async () => {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Часто задаваемые вопросы</h1>
             <p className="text-gray-600">Найдите ответы на популярные вопросы</p>
             {userInfo && (
-  <div className="mt-2 space-y-1">
-    <p className="text-sm text-blue-600">
-      Пользователь: <span className="font-medium">{userInfo.full_name}</span>
-    </p>
-    {userInfo.department && (
-      <p className="text-sm text-purple-600">
-        Ваш отдел: <span className="font-medium">{userInfo.department}</span>
-      </p>
-    )}
-  </div>
-)}
+              <div className="mt-2 space-y-1">
+                <p className="text-sm text-blue-600">
+                  Пользователь: <span className="font-medium">{userInfo.full_name}</span>
+                </p>
+                {userInfo.department && (
+                  <p className="text-sm text-purple-600">
+                    Ваш отдел: <span className="font-medium">{userInfo.department}</span>
+                  </p>
+                )}
+              </div>
+            )}
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setShowStats(!showStats)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-            >
-              {showStats ? '📊 Скрыть статистику' : '📊 Показать статистику'}
-            </button>
-            {userInfo?.isAdmin && (
+          {userInfo?.isAdmin && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setShowStats(!showStats)}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                {showStats ? '📊 Скрыть статистику' : '📊 Показать статистику'}
+              </button>
               <button
                 onClick={() => setShowCreateForm(true)}
                 className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
               >
                 ➕ Добавить FAQ
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        {showStats && stats && (
+        {showStats && stats && userInfo?.isAdmin && (
           <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
             <h2 className="text-xl font-bold mb-4 text-gray-900">📈 Статистика FAQ</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -423,28 +499,31 @@ const fetchAllDepartments = async () => {
                 type="text"
                 placeholder="Вопрос *"
                 value={newFaq.question}
-                onChange={(e) => setNewFaq({...newFaq, question: e.target.value})}
+                onChange={e => setNewFaq({ ...newFaq, question: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <input
                   type="text"
                   placeholder="Категория (необязательно)"
                   value={newFaq.category}
-                  onChange={(e) => setNewFaq({...newFaq, category: e.target.value})}
+                  onChange={e => setNewFaq({ ...newFaq, category: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
-                
+
                 <select
-                  value={newFaq.department}
-                  onChange={(e) => setNewFaq({...newFaq, department: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={newFaq.is_general ? '' : newFaq.department}
+                  onChange={e => setNewFaq({ ...newFaq, department: e.target.value })}
+                  disabled={newFaq.is_general}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
                 >
                   <option value="">Выберите отдел (необязательно)</option>
                   {getAvailableDepartments().map(dept => (
-                    <option key={dept} value={dept}>{dept}</option>
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -454,7 +533,13 @@ const fetchAllDepartments = async () => {
                   type="checkbox"
                   id="is_general"
                   checked={newFaq.is_general}
-                  onChange={(e) => setNewFaq({...newFaq, is_general: e.target.checked})}
+                  onChange={e =>
+                    setNewFaq({
+                      ...newFaq,
+                      is_general: e.target.checked,
+                      department: e.target.checked ? '' : userInfo?.department || '',
+                    })
+                  }
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                 />
                 <label htmlFor="is_general" className="text-sm text-gray-600">
@@ -467,22 +552,22 @@ const fetchAllDepartments = async () => {
                 <ReactQuill
                   theme="snow"
                   value={newFaq.content_html}
-                  onChange={(val) => setNewFaq({...newFaq, content_html: val})}
+                  onChange={val => setNewFaq({ ...newFaq, content_html: val })}
                   modules={{
                     toolbar: [
-                      [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+                      [{ header: [1, 2, 3, 4, 5, 6, false] }],
                       ['bold', 'italic', 'underline', 'strike'],
-                      [{ 'color': [] }, { 'background': [] }],
-                      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                      [{ color: [] }, { background: [] }],
+                      [{ list: 'ordered' }, { list: 'bullet' }],
                       ['link', 'image', 'video'],
-                      ['clean']
-                    ]
+                      ['clean'],
+                    ],
                   }}
                   placeholder="Введите подробный ответ..."
                   className="bg-white rounded-lg border border-gray-300"
                 />
               </div>
-              
+
               <div className="flex space-x-2 pt-4">
                 <button
                   onClick={handleCreateFAQ}
@@ -510,28 +595,31 @@ const fetchAllDepartments = async () => {
                 type="text"
                 placeholder="Вопрос *"
                 value={editingFaq.question}
-                onChange={(e) => setEditingFaq({...editingFaq, question: e.target.value})}
+                onChange={e => setEditingFaq({ ...editingFaq, question: e.target.value })}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <input
                   type="text"
                   placeholder="Категория (необязательно)"
                   value={editingFaq.category || ''}
-                  onChange={(e) => setEditingFaq({...editingFaq, category: e.target.value})}
+                  onChange={e => setEditingFaq({ ...editingFaq, category: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
-                
+
                 <select
-                  value={editingFaq.department || ''}
-                  onChange={(e) => setEditingFaq({...editingFaq, department: e.target.value})}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={editingFaq.is_general ? '' : editingFaq.department || ''}
+                  onChange={e => setEditingFaq({ ...editingFaq, department: e.target.value })}
+                  disabled={editingFaq.is_general}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
                 >
                   <option value="">Выберите отдел (необязательно)</option>
                   {getAvailableDepartments().map(dept => (
-                    <option key={dept} value={dept}>{dept}</option>
+                    <option key={dept} value={dept}>
+                      {dept}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -541,7 +629,13 @@ const fetchAllDepartments = async () => {
                   type="checkbox"
                   id="edit_is_general"
                   checked={editingFaq.is_general || false}
-                  onChange={(e) => setEditingFaq({...editingFaq, is_general: e.target.checked})}
+                  onChange={e =>
+                    setEditingFaq({
+                      ...editingFaq,
+                      is_general: e.target.checked,
+                      department: e.target.checked ? '' : userInfo?.department || '',
+                    })
+                  }
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                 />
                 <label htmlFor="edit_is_general" className="text-sm text-gray-600">
@@ -554,22 +648,22 @@ const fetchAllDepartments = async () => {
                 <ReactQuill
                   theme="snow"
                   value={editingFaq.content_html || ''}
-                  onChange={(val) => setEditingFaq({...editingFaq, content_html: val})}
+                  onChange={val => setEditingFaq({ ...editingFaq, content_html: val })}
                   modules={{
                     toolbar: [
-                      [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+                      [{ header: [1, 2, 3, 4, 5, 6, false] }],
                       ['bold', 'italic', 'underline', 'strike'],
-                      [{ 'color': [] }, { 'background': [] }],
-                      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                      [{ color: [] }, { background: [] }],
+                      [{ list: 'ordered' }, { list: 'bullet' }],
                       ['link', 'image', 'video'],
-                      ['clean']
-                    ]
+                      ['clean'],
+                    ],
                   }}
                   placeholder="Введите подробный ответ..."
                   className="bg-white rounded-lg border border-gray-300"
                 />
               </div>
-              
+
               <div className="flex space-x-2 pt-4">
                 <button
                   onClick={handleEditFAQ}
@@ -601,7 +695,7 @@ const fetchAllDepartments = async () => {
                 type="text"
                 placeholder="Поиск вопросов..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={e => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -614,22 +708,18 @@ const fetchAllDepartments = async () => {
                 <button
                   onClick={() => setSelectedCategory('all')}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    selectedCategory === 'all'
-                      ? 'bg-blue-600 text-white shadow-md'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    selectedCategory === 'all' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
                   Все ({faqs.length})
                 </button>
-                
-                {categories.map((category) => (
+
+                {categories.map(category => (
                   <button
                     key={category.name}
                     onClick={() => setSelectedCategory(category.name)}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                      selectedCategory === category.name
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      selectedCategory === category.name ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
                     {category.name} ({category.count})
@@ -644,9 +734,7 @@ const fetchAllDepartments = async () => {
                 <button
                   onClick={() => setSelectedDepartment('all')}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    selectedDepartment === 'all'
-                      ? 'bg-green-600 text-white shadow-md'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    selectedDepartment === 'all' ? 'bg-green-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
                   Все
@@ -654,23 +742,21 @@ const fetchAllDepartments = async () => {
                 <button
                   onClick={() => setSelectedDepartment('general')}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    selectedDepartment === 'general'
-                      ? 'bg-green-600 text-white shadow-md'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    selectedDepartment === 'general' ? 'bg-green-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
                   Общие
                 </button>
-                <button
-                  onClick={() => setSelectedDepartment('my_departments')}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                    selectedDepartment === 'my_departments'
-                      ? 'bg-green-600 text-white shadow-md'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  Мои отделы
-                </button>
+                {userInfo?.department && (
+                  <button
+                    onClick={() => setSelectedDepartment(userInfo.department ?? '')}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                      selectedDepartment === userInfo.department ? 'bg-green-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Мой отдел
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -684,7 +770,7 @@ const fetchAllDepartments = async () => {
               <p className="text-gray-600">Попробуйте изменить параметры поиска или фильтры</p>
             </div>
           ) : (
-            filteredFaqs.map((faq) => (
+            filteredFaqs.map(faq => (
               <div key={faq.id} className="bg-white rounded-xl shadow-lg overflow-hidden transition-all hover:shadow-xl">
                 <button
                   onClick={() => toggleItem(faq.id)}
@@ -692,9 +778,7 @@ const fetchAllDepartments = async () => {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <h3 className="text-lg font-medium text-gray-900 pr-4">
-                        {faq.question}
-                      </h3>
+                      <h3 className="text-lg font-medium text-gray-900 pr-4">{faq.question}</h3>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {faq.category && (
                           <span className="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
@@ -705,101 +789,77 @@ const fetchAllDepartments = async () => {
                           <span className="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
                             🌐 Общий FAQ
                           </span>
-                        ) : faq.department && (
-                          <span className="inline-flex items-center px-3 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">
-                            🏢 {faq.department}
-                          </span>
+                        ) : (
+                          faq.department && (
+                            <span className="inline-flex items-center px-3 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">
+                              🏢 {faq.department}
+                            </span>
+                          )
                         )}
                       </div>
                     </div>
                     <svg
-                      className={`w-6 h-6 transform transition-transform flex-shrink-0 text-gray-400 ${
-                        expandedItems.has(faq.id) ? 'rotate-180' : ''
-                      }`}
+                      className={`w-6 h-6 text-gray-400 transition-transform ${expandedItems.has(faq.id) ? 'rotate-180' : ''}`}
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </div>
-                  
-                  <div className="flex items-center mt-3 text-sm text-gray-500 space-x-4">
-                    <span className="flex items-center">👁️ {faq.views_count}</span>
-                    <span className="flex items-center">👍 {faq.helpful_count}</span>
-                    <span className="flex items-center">👎 {faq.not_helpful_count}</span>
-                  </div>
                 </button>
-                
+
                 {expandedItems.has(faq.id) && (
-                  <div className="px-6 pb-5 border-t border-gray-100">
-                    <div 
-                      className="pt-4 prose prose-sm max-w-none text-gray-700"
-                      dangerouslySetInnerHTML={{ 
-                        __html: faq.content_html || '<p className="text-gray-400">Ответ не предоставлен</p>' 
-                      }} 
-                    />
-                    
-                    <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                      <div className="flex items-center space-x-4">
+                  <div className="px-6 py-4 border-t border-gray-200">
+                    <div className="prose prose-sm max-w-none text-gray-700" dangerouslySetInnerHTML={{ __html: faq.content_html || '' }} />
+                    <div className="mt-4 flex items-center justify-between">
+                      <div className="flex gap-2">
                         <button
                           onClick={() => handleFeedback(faq.id, true)}
-                          className="flex items-center text-green-600 hover:text-green-700 font-medium"
+                          className="text-green-600 hover:text-green-800 flex items-center gap-1"
                         >
-                          <span className="mr-1">👍</span>
-                          Полезно ({faq.helpful_count})
+                          👍 Полезно ({faq.helpful_count})
                         </button>
                         <button
                           onClick={() => handleFeedback(faq.id, false)}
-                          className="flex items-center text-red-600 hover:text-red-700 font-medium"
+                          className="text-red-600 hover:text-red-800 flex items-center gap-1"
                         >
-                          <span className="mr-1">👎</span>
-                          Неполезно ({faq.not_helpful_count})
+                          👎 Не полезно ({faq.not_helpful_count})
                         </button>
                       </div>
-                      
                       {userInfo?.isAdmin && (
-                        <div className="flex items-center space-x-2">
+                        <div className="flex gap-2">
                           <button
                             onClick={() => startEdit(faq)}
-                            className="text-blue-600 hover:text-blue-800 px-4 py-2 border border-blue-300 rounded-lg text-sm font-medium transition-colors"
+                            className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
                           >
                             ✏️ Редактировать
                           </button>
                           <button
                             onClick={() => setDeleteConfirm(faq.id)}
-                            className="text-red-600 hover:text-red-800 px-4 py-2 border border-red-300 rounded-lg text-sm font-medium transition-colors"
+                            className="text-red-600 hover:text-red-800 flex items-center gap-1"
                           >
                             🗑️ Удалить
                           </button>
                         </div>
                       )}
                     </div>
-                    
-                    <div className="mt-4 text-xs text-gray-400">
-                      Обновлено: {new Date(faq.updated_at).toLocaleDateString('ru-RU')}
-                    </div>
                   </div>
                 )}
-                
+
                 {deleteConfirm === faq.id && (
-                  <div className="px-6 py-4 bg-red-50 border-t border-red-200">
-                    <p className="text-red-700 mb-3 font-medium">Вы уверены, что хотите удалить этот вопрос?</p>
-                    <div className="flex space-x-2">
+                  <div className="px-6 py-4 border-t border-gray-200 bg-red-50">
+                    <p className="text-red-700 mb-4">Вы уверены, что хотите удалить этот FAQ?</p>
+                    <div className="flex gap-2">
                       <button
                         onClick={() => handleDeleteFAQ(faq.id)}
-                        className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
+                        className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
                       >
-                        Да, удалить
+                        Удалить
                       </button>
                       <button
                         onClick={() => setDeleteConfirm(null)}
-                        className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-400 transition-colors"
+                        className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition-colors"
                       >
                         Отмена
                       </button>
