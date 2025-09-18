@@ -20,7 +20,9 @@ faq_router = APIRouter(tags=["faq"])
 
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://portal_admin:season@localhost/faq_database")
+# DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://portal_admin:season@localhost/faq_database")
+DATABASE_URL = os.getenv("DATABASE_URL", "mysql+pymysql://minskhleb_portal_admin:hLb&aafLejCc@localhost/faq_database")
+
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()

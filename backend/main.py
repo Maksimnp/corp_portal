@@ -17,7 +17,7 @@ from api.request_list import router as request_list_router
 from api.chat import router as chat_router
 from api.serverstats import router as serverstats_router
 from api.faqs import faq_router
-
+from api.emp import employee_tracker_router as employee_tracker_router
 load_dotenv()
 
 # Настройка логирования
@@ -109,8 +109,8 @@ async def add_cors_headers(request: Request, call_next):
     if origin in get_cors_origins():
         response.headers['Access-Control-Allow-Origin'] = origin
         response.headers['Access-Control-Allow-Credentials'] = 'true'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS, PATCH'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response.headers['Access-Control-Allow-Methods'] = '*'
+        response.headers['Access-Control-Allow-Headers'] = '*'
     return response
 
 # HTTP маршруты
@@ -148,6 +148,7 @@ app.include_router(documents_router, prefix="/api", tags=["documents"])
 app.include_router(chat_router)
 app.include_router(serverstats_router)
 app.include_router(faq_router, prefix="/faq")
+app.include_router(employee_tracker_router, prefix="/emp")
 
 @app.get("/health", include_in_schema=False)
 async def health_check():

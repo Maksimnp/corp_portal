@@ -210,57 +210,57 @@ const DocumentsPage: React.FC = () => {
   };
 
   const handleFileUpload = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!selectedFile) {
-    toast.error('Выберите файл для загрузки');
-    return;
-  }
-  toast.info('Начало загрузки документа...');
-
-  showBrowserNotification("Загрузка документа", {
-    body: `Началась загрузка файла: ${selectedFile.name || title}`,
-    icon: "/favicon.ico" 
-  });
-  setIsUploading(true);
-  const formData = new FormData();
-  formData.append('file', selectedFile);
-  formData.append('title', title);
-  try {
-    const response = await fetch(`${BASE_URL}/api/documents/documents`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-      body: formData,
-    });
-    if (response.ok) {
-      toast.success('Документ успешно загружен');
-      showBrowserNotification("Загрузка завершена", {
-        body: `Файл "${title || selectedFile.name}" успешно загружен.`,
-        icon: "/favicon.ico"
-      });
-      fetchMyDocuments();
-      setTitle('');
-      setSelectedFile(null);
-    } else {
-      const errorData = await response.json().catch(() => ({}));
-      toast.error(`Ошибка загрузки документа: ${errorData.detail || response.statusText}`);
-      showBrowserNotification("Ошибка загрузки", {
-        body: `Не удалось загрузить файл "${title || selectedFile.name}".`,
-        icon: "/favicon.ico"
-      });
+    e.preventDefault();
+    if (!selectedFile) {
+      toast.error('Выберите файл для загрузки');
+      return;
     }
-  } catch (error) {
-    toast.error('Ошибка сети при загрузке документа');
-    showBrowserNotification("Ошибка сети", {
-        body: `Ошибка сети при загрузке файла "${title || selectedFile.name}".`,
-        icon: "/favicon.ico" 
-    });
-    console.error('Ошибка загрузки документа:', error);
-  } finally {
-    setIsUploading(false);
-  }
-};
+    toast.info('Начало загрузки документа...');
+
+    // showBrowserNotification("Загрузка документа", {
+    //   body: `Началась загрузка файла: ${selectedFile.name || title}`,
+    //   icon: "/favicon.ico" 
+    // });
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('title', title);
+    try {
+      const response = await fetch(`${BASE_URL}/api/documents/documents`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+      if (response.ok) {
+        toast.success('Документ успешно загружен');
+        // showBrowserNotification("Загрузка завершена", {
+        //   body: `Файл "${title || selectedFile.name}" успешно загружен.`,
+        //   icon: "/favicon.ico"
+        // });
+        fetchMyDocuments();
+        setTitle('');
+        setSelectedFile(null);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(`Ошибка загрузки документа: ${errorData.detail || response.statusText}`);
+        // showBrowserNotification("Ошибка загрузки", {
+        //   body: `Не удалось загрузить файл "${title || selectedFile.name}".`,
+        //   icon: "/favicon.ico"
+        // });
+      }
+    } catch (error) {
+      toast.error('Ошибка сети при загрузке документа');
+      // showBrowserNotification("Ошибка сети", {
+      //     body: `Ошибка сети при загрузке файла "${title || selectedFile.name}".`,
+      //     icon: "/favicon.ico" 
+      // });
+      console.error('Ошибка загрузки документа:', error);
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleShareDocument = async () => {
     if (!currentDoc || !recipient) {

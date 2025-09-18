@@ -1214,3 +1214,753 @@ WHERE user_channel_status.user_id = %(user_id_1)s AND user_channel_status.channe
 2025-09-12 15:58:43,608 - INFO - User statuses initialized successfully
 2025-09-12 15:58:43,648 - INFO - SQLAlchemy version: 2.0.41
 2025-09-12 15:58:43,689 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 11:27:57,201 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 11:27:57,201 - INFO - Initializing user statuses for existing chats...
+2025-09-15 11:27:57,222 - INFO - User statuses initialized successfully
+2025-09-15 11:27:57,307 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 11:27:57,345 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 11:37:08,551 - ERROR - Missing environment variable for autocommit
+2025-09-15 11:38:37,727 - ERROR - Missing environment variable for autocommit
+2025-09-15 11:51:40,992 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 11:51:40,993 - INFO - Initializing user statuses for existing chats...
+2025-09-15 11:51:41,009 - INFO - User statuses initialized successfully
+2025-09-15 11:51:41,086 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 11:51:41,116 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 11:51:45,851 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 11:51:45,852 - INFO - Initializing user statuses for existing chats...
+2025-09-15 11:51:45,872 - INFO - User statuses initialized successfully
+2025-09-15 11:51:45,951 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 11:51:45,977 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 11:59:00,107 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 11:59:00,107 - INFO - Initializing user statuses for existing chats...
+2025-09-15 11:59:00,132 - INFO - User statuses initialized successfully
+2025-09-15 11:59:00,218 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 11:59:00,252 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 11:59:03,357 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 11:59:03,357 - INFO - Initializing user statuses for existing chats...
+2025-09-15 11:59:03,378 - INFO - User statuses initialized successfully
+2025-09-15 11:59:03,462 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 11:59:03,501 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 12:02:00,008 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 12:02:00,009 - INFO - Initializing user statuses for existing chats...
+2025-09-15 12:02:00,040 - INFO - User statuses initialized successfully
+2025-09-15 12:02:00,131 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 12:02:00,164 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 12:02:05,165 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 12:02:05,165 - INFO - Initializing user statuses for existing chats...
+2025-09-15 12:02:05,184 - INFO - User statuses initialized successfully
+2025-09-15 12:02:05,268 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 12:02:05,299 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 12:03:07,102 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 12:03:07,102 - INFO - Initializing user statuses for existing chats...
+2025-09-15 12:03:07,121 - INFO - User statuses initialized successfully
+2025-09-15 12:03:07,203 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 12:03:07,237 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 12:06:32,487 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 12:06:32,487 - INFO - Initializing user statuses for existing chats...
+2025-09-15 12:06:32,508 - INFO - User statuses initialized successfully
+2025-09-15 12:06:32,599 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 12:06:32,634 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 12:21:47,504 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 12:21:47,504 - INFO - Initializing user statuses for existing chats...
+2025-09-15 12:21:47,526 - INFO - User statuses initialized successfully
+2025-09-15 12:21:47,612 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 12:21:47,646 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 12:21:53,435 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 12:21:53,435 - INFO - Initializing user statuses for existing chats...
+2025-09-15 12:21:53,456 - INFO - User statuses initialized successfully
+2025-09-15 12:21:53,546 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 12:21:53,582 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 12:22:30,378 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 12:22:30,378 - INFO - Initializing user statuses for existing chats...
+2025-09-15 12:22:30,402 - INFO - User statuses initialized successfully
+2025-09-15 12:22:30,487 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 12:22:30,523 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 12:23:42,100 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 12:23:42,100 - INFO - Initializing user statuses for existing chats...
+2025-09-15 12:23:42,124 - INFO - User statuses initialized successfully
+2025-09-15 12:23:42,214 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 12:23:42,253 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 12:24:15,691 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 12:24:15,691 - INFO - Initializing user statuses for existing chats...
+2025-09-15 12:24:15,710 - INFO - User statuses initialized successfully
+2025-09-15 12:24:15,790 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 12:24:15,826 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 12:24:38,313 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 12:24:38,314 - INFO - Initializing user statuses for existing chats...
+2025-09-15 12:24:38,336 - INFO - User statuses initialized successfully
+2025-09-15 12:24:38,424 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 12:24:38,458 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 12:25:23,533 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 12:25:23,533 - INFO - Initializing user statuses for existing chats...
+2025-09-15 12:25:23,556 - INFO - User statuses initialized successfully
+2025-09-15 12:25:23,640 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 12:25:23,672 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 12:25:25,315 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 12:25:25,315 - INFO - Initializing user statuses for existing chats...
+2025-09-15 12:25:25,333 - INFO - User statuses initialized successfully
+2025-09-15 12:25:25,412 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 12:25:25,444 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 12:25:55,946 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 12:25:55,947 - INFO - Initializing user statuses for existing chats...
+2025-09-15 12:25:55,969 - INFO - User statuses initialized successfully
+2025-09-15 12:25:56,054 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 12:25:56,085 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:08:41,402 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:08:41,402 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:08:41,424 - INFO - User statuses initialized successfully
+2025-09-15 13:08:41,509 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:08:41,544 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:10:32,628 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:10:32,628 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:10:32,655 - INFO - User statuses initialized successfully
+2025-09-15 13:10:32,745 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:10:32,780 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:10:59,512 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:10:59,512 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:10:59,536 - INFO - User statuses initialized successfully
+2025-09-15 13:10:59,616 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:10:59,648 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:11:11,605 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:11:11,605 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:11:11,625 - INFO - User statuses initialized successfully
+2025-09-15 13:11:11,714 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:11:11,750 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:11:22,386 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:11:22,386 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:11:22,411 - INFO - User statuses initialized successfully
+2025-09-15 13:11:22,498 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:11:22,530 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:11:53,344 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:11:53,344 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:11:53,364 - INFO - User statuses initialized successfully
+2025-09-15 13:11:53,445 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:11:53,475 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:11:57,895 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:11:57,896 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:11:57,923 - INFO - User statuses initialized successfully
+2025-09-15 13:11:58,011 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:11:58,045 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:12:34,779 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:12:34,779 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:12:34,798 - INFO - User statuses initialized successfully
+2025-09-15 13:12:34,882 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:12:34,916 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:12:38,331 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:12:38,332 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:12:38,352 - INFO - User statuses initialized successfully
+2025-09-15 13:12:38,435 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:12:38,472 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:12:57,246 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:12:57,246 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:12:57,263 - INFO - User statuses initialized successfully
+2025-09-15 13:12:57,343 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:12:57,377 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:13:25,228 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:13:25,228 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:13:25,249 - INFO - User statuses initialized successfully
+2025-09-15 13:13:25,335 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:13:25,368 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:13:27,219 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:13:27,219 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:13:27,241 - INFO - User statuses initialized successfully
+2025-09-15 13:13:27,329 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:13:27,362 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:14:05,236 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:14:05,236 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:14:05,258 - INFO - User statuses initialized successfully
+2025-09-15 13:14:05,337 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:14:05,370 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:14:07,945 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:14:07,946 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:14:07,974 - INFO - User statuses initialized successfully
+2025-09-15 13:14:08,072 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:14:08,104 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:14:29,959 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:14:29,959 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:14:29,981 - INFO - User statuses initialized successfully
+2025-09-15 13:14:30,068 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:14:30,107 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:14:31,926 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:14:31,926 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:14:31,947 - INFO - User statuses initialized successfully
+2025-09-15 13:14:32,027 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:14:32,058 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:15:54,213 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:15:54,214 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:15:54,240 - INFO - User statuses initialized successfully
+2025-09-15 13:15:54,329 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:15:54,361 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:15:59,635 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:15:59,635 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:15:59,654 - INFO - User statuses initialized successfully
+2025-09-15 13:15:59,739 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:15:59,772 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:16:11,530 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:16:11,531 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:16:11,549 - INFO - User statuses initialized successfully
+2025-09-15 13:16:11,642 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:16:11,677 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:16:15,383 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:16:15,383 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:16:15,404 - INFO - User statuses initialized successfully
+2025-09-15 13:16:15,482 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:16:15,513 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:22:16,386 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:22:16,386 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:22:16,406 - INFO - User statuses initialized successfully
+2025-09-15 13:22:16,489 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:22:16,518 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:23:56,437 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:23:56,437 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:23:56,459 - INFO - User statuses initialized successfully
+2025-09-15 13:23:56,554 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:23:56,586 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:24:07,128 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:24:07,128 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:24:07,146 - INFO - User statuses initialized successfully
+2025-09-15 13:24:07,222 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:24:07,252 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:27:49,866 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:27:49,866 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:27:49,886 - INFO - User statuses initialized successfully
+2025-09-15 13:27:49,970 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:27:50,002 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:27:52,292 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:27:52,293 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:27:52,314 - INFO - User statuses initialized successfully
+2025-09-15 13:27:52,396 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:27:52,432 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:28:19,786 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:28:19,786 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:28:19,806 - INFO - User statuses initialized successfully
+2025-09-15 13:28:19,890 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:28:19,928 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:30:43,595 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:30:43,595 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:30:43,617 - INFO - User statuses initialized successfully
+2025-09-15 13:30:43,700 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:30:43,734 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:30:48,483 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:30:48,483 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:30:48,509 - INFO - User statuses initialized successfully
+2025-09-15 13:30:48,609 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:30:48,646 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:31:05,901 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:31:05,901 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:31:05,923 - INFO - User statuses initialized successfully
+2025-09-15 13:31:06,009 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:31:06,043 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-15 13:32:36,335 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-15 13:32:36,335 - INFO - Initializing user statuses for existing chats...
+2025-09-15 13:32:36,358 - INFO - User statuses initialized successfully
+2025-09-15 13:32:36,442 - INFO - SQLAlchemy version: 2.0.41
+2025-09-15 13:32:36,474 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 09:01:36,987 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 09:01:36,987 - INFO - Initializing user statuses for existing chats...
+2025-09-16 09:01:37,004 - INFO - User statuses initialized successfully
+2025-09-16 09:01:37,081 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 09:01:37,110 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 09:04:14,194 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 09:04:14,194 - INFO - Initializing user statuses for existing chats...
+2025-09-16 09:04:14,216 - INFO - User statuses initialized successfully
+2025-09-16 09:04:14,297 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 09:04:14,326 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 09:08:20,072 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 09:08:20,072 - INFO - Initializing user statuses for existing chats...
+2025-09-16 09:08:20,092 - INFO - User statuses initialized successfully
+2025-09-16 09:08:20,182 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 09:08:20,230 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 09:41:14,474 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 09:41:14,475 - INFO - Initializing user statuses for existing chats...
+2025-09-16 09:41:14,492 - INFO - User statuses initialized successfully
+2025-09-16 09:41:14,568 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 09:41:14,598 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 09:45:57,355 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 09:45:57,356 - INFO - Initializing user statuses for existing chats...
+2025-09-16 09:45:57,374 - INFO - User statuses initialized successfully
+2025-09-16 09:45:57,458 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 09:45:57,490 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 09:49:03,466 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 09:49:03,467 - INFO - Initializing user statuses for existing chats...
+2025-09-16 09:49:03,490 - INFO - User statuses initialized successfully
+2025-09-16 09:49:03,570 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 09:49:03,601 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 09:49:28,843 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 09:49:28,843 - INFO - Initializing user statuses for existing chats...
+2025-09-16 09:49:28,862 - INFO - User statuses initialized successfully
+2025-09-16 09:49:28,943 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 09:49:28,971 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 09:50:28,296 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 09:50:28,296 - INFO - Initializing user statuses for existing chats...
+2025-09-16 09:50:28,314 - INFO - User statuses initialized successfully
+2025-09-16 09:50:28,389 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 09:50:28,417 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 10:10:00,244 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 10:10:00,244 - INFO - Initializing user statuses for existing chats...
+2025-09-16 10:10:00,267 - INFO - User statuses initialized successfully
+2025-09-16 10:10:00,353 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 10:10:00,386 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 10:27:29,380 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 10:27:29,380 - INFO - Initializing user statuses for existing chats...
+2025-09-16 10:27:29,398 - INFO - User statuses initialized successfully
+2025-09-16 10:27:29,478 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 10:27:29,508 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 10:27:55,018 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 10:27:55,019 - INFO - Initializing user statuses for existing chats...
+2025-09-16 10:27:55,049 - INFO - User statuses initialized successfully
+2025-09-16 10:27:55,153 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 10:27:55,195 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 10:30:58,560 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 10:30:58,560 - INFO - Initializing user statuses for existing chats...
+2025-09-16 10:30:58,580 - INFO - User statuses initialized successfully
+2025-09-16 10:30:58,658 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 10:30:58,687 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 10:31:03,701 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 10:31:03,701 - INFO - Initializing user statuses for existing chats...
+2025-09-16 10:31:03,722 - INFO - User statuses initialized successfully
+2025-09-16 10:31:03,803 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 10:31:03,832 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 10:44:26,091 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 10:44:26,091 - INFO - Initializing user statuses for existing chats...
+2025-09-16 10:44:26,113 - INFO - User statuses initialized successfully
+2025-09-16 10:44:26,197 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 10:44:26,228 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 10:50:32,925 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 10:50:32,926 - INFO - Initializing user statuses for existing chats...
+2025-09-16 10:50:32,957 - INFO - User statuses initialized successfully
+2025-09-16 10:50:33,056 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 10:50:33,134 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 10:52:57,693 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 10:52:57,693 - INFO - Initializing user statuses for existing chats...
+2025-09-16 10:52:57,711 - INFO - User statuses initialized successfully
+2025-09-16 10:52:57,793 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 10:52:57,825 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 10:53:31,736 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 10:53:31,736 - INFO - Initializing user statuses for existing chats...
+2025-09-16 10:53:31,754 - INFO - User statuses initialized successfully
+2025-09-16 10:53:31,828 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 10:53:31,854 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 10:53:46,124 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 10:53:46,124 - INFO - Initializing user statuses for existing chats...
+2025-09-16 10:53:46,143 - INFO - User statuses initialized successfully
+2025-09-16 10:53:46,218 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 10:53:46,249 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 11:00:04,676 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 11:00:04,677 - INFO - Initializing user statuses for existing chats...
+2025-09-16 11:00:04,705 - INFO - User statuses initialized successfully
+2025-09-16 11:00:04,785 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 11:00:04,815 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 11:00:14,933 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 11:00:14,933 - INFO - Initializing user statuses for existing chats...
+2025-09-16 11:00:14,953 - INFO - User statuses initialized successfully
+2025-09-16 11:00:15,028 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 11:00:15,057 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 11:01:32,454 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 11:01:32,454 - INFO - Initializing user statuses for existing chats...
+2025-09-16 11:01:32,472 - INFO - User statuses initialized successfully
+2025-09-16 11:01:32,552 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 11:01:32,582 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 11:01:38,363 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 11:01:38,363 - INFO - Initializing user statuses for existing chats...
+2025-09-16 11:01:38,381 - INFO - User statuses initialized successfully
+2025-09-16 11:01:38,455 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 11:01:38,482 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 11:04:57,596 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 11:04:57,597 - INFO - Initializing user statuses for existing chats...
+2025-09-16 11:04:57,618 - INFO - User statuses initialized successfully
+2025-09-16 11:04:57,701 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 11:04:57,736 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 11:06:02,337 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 11:06:02,337 - INFO - Initializing user statuses for existing chats...
+2025-09-16 11:06:02,355 - INFO - User statuses initialized successfully
+2025-09-16 11:06:02,435 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 11:06:02,463 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 11:06:05,297 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 11:06:05,298 - INFO - Initializing user statuses for existing chats...
+2025-09-16 11:06:05,314 - INFO - User statuses initialized successfully
+2025-09-16 11:06:05,391 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 11:06:05,421 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 11:08:07,377 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 11:08:07,377 - INFO - Initializing user statuses for existing chats...
+2025-09-16 11:08:07,396 - INFO - User statuses initialized successfully
+2025-09-16 11:08:07,477 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 11:08:07,504 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 11:08:19,410 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 11:08:19,411 - INFO - Initializing user statuses for existing chats...
+2025-09-16 11:08:19,431 - INFO - User statuses initialized successfully
+2025-09-16 11:08:19,517 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 11:08:19,548 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 11:09:01,410 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 11:09:01,410 - INFO - Initializing user statuses for existing chats...
+2025-09-16 11:09:01,427 - INFO - User statuses initialized successfully
+2025-09-16 11:09:01,504 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 11:09:01,533 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 11:09:24,436 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 11:09:24,436 - INFO - Initializing user statuses for existing chats...
+2025-09-16 11:09:24,454 - INFO - User statuses initialized successfully
+2025-09-16 11:09:24,534 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 11:09:24,561 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 11:55:29,074 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 11:55:29,074 - INFO - Initializing user statuses for existing chats...
+2025-09-16 11:55:29,094 - INFO - User statuses initialized successfully
+2025-09-16 11:55:29,184 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 11:55:29,218 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 13:54:31,730 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 13:54:31,730 - INFO - Initializing user statuses for existing chats...
+2025-09-16 13:54:31,797 - INFO - User statuses initialized successfully
+2025-09-16 13:54:31,832 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 13:54:31,862 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 13:56:33,256 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 13:56:33,256 - INFO - Initializing user statuses for existing chats...
+2025-09-16 13:56:33,318 - INFO - User statuses initialized successfully
+2025-09-16 13:56:33,349 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 13:56:33,377 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 13:59:12,077 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 13:59:12,077 - INFO - Initializing user statuses for existing chats...
+2025-09-16 13:59:12,137 - INFO - User statuses initialized successfully
+2025-09-16 13:59:12,170 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 13:59:12,199 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 13:59:57,153 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 13:59:57,153 - INFO - Initializing user statuses for existing chats...
+2025-09-16 13:59:57,218 - INFO - User statuses initialized successfully
+2025-09-16 13:59:57,252 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 13:59:57,282 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 14:00:14,408 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 14:00:14,408 - INFO - Initializing user statuses for existing chats...
+2025-09-16 14:00:14,474 - INFO - User statuses initialized successfully
+2025-09-16 14:00:14,507 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 14:00:14,539 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 14:01:04,287 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 14:01:04,287 - INFO - Initializing user statuses for existing chats...
+2025-09-16 14:01:04,354 - INFO - User statuses initialized successfully
+2025-09-16 14:01:04,388 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 14:01:04,419 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 14:04:29,762 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 14:04:29,762 - INFO - Initializing user statuses for existing chats...
+2025-09-16 14:04:29,825 - INFO - User statuses initialized successfully
+2025-09-16 14:04:29,865 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 14:04:29,896 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 14:14:07,500 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 14:14:07,501 - INFO - Initializing user statuses for existing chats...
+2025-09-16 14:14:07,569 - INFO - User statuses initialized successfully
+2025-09-16 14:14:07,610 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 14:14:14,517 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 14:14:14,517 - INFO - Initializing user statuses for existing chats...
+2025-09-16 14:14:14,581 - INFO - User statuses initialized successfully
+2025-09-16 14:14:14,616 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 14:15:21,520 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 14:15:21,521 - INFO - Initializing user statuses for existing chats...
+2025-09-16 14:15:21,584 - INFO - User statuses initialized successfully
+2025-09-16 14:15:21,624 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 14:15:21,645 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 14:32:36,107 - ERROR - Ошибка при создании таблиц: (pymysql.err.OperationalError) (1045, "Access denied for user 'portal_admin'@'localhost' (using password: YES)")
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-09-16 14:33:12,711 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 14:33:12,711 - INFO - Initializing user statuses for existing chats...
+2025-09-16 14:33:12,725 - INFO - User statuses initialized successfully
+2025-09-16 14:33:12,802 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 14:33:12,816 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 14:55:45,957 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 14:55:45,958 - INFO - Initializing user statuses for existing chats...
+2025-09-16 14:55:45,969 - INFO - User statuses initialized successfully
+2025-09-16 14:55:46,049 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 14:55:46,060 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 14:57:28,524 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 14:57:28,525 - INFO - Initializing user statuses for existing chats...
+2025-09-16 14:57:28,535 - ERROR - Error initializing user statuses: a bytes-like object is required, not 'str'
+2025-09-16 14:57:28,535 - ERROR - Ошибка при создании таблиц: a bytes-like object is required, not 'str'
+2025-09-16 14:57:56,694 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 14:57:56,694 - INFO - Initializing user statuses for existing chats...
+2025-09-16 14:57:56,705 - ERROR - Error initializing user statuses: a bytes-like object is required, not 'str'
+2025-09-16 14:57:56,705 - ERROR - Ошибка при создании таблиц: a bytes-like object is required, not 'str'
+2025-09-16 15:24:36,370 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 15:24:36,371 - INFO - Initializing user statuses for existing chats...
+2025-09-16 15:24:36,393 - DEBUG - Created status for user [ in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:36,396 - DEBUG - Created status for user " in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:36,399 - DEBUG - Created status for user k in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:36,401 - DEBUG - Created status for user . in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:36,404 - DEBUG - Created status for user d in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:36,406 - DEBUG - Created status for user y in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:36,409 - DEBUG - Created status for user a in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:36,411 - DEBUG - Created status for user t in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:36,413 - DEBUG - Created status for user e in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:36,415 - DEBUG - Created status for user l in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:36,417 - DEBUG - Created status for user " in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:36,419 - DEBUG - Created status for user , in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:36,422 - DEBUG - Created status for user   in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:36,424 - DEBUG - Created status for user " in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:36,426 - DEBUG - Created status for user m in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:36,430 - DEBUG - Created status for user n in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:36,432 - DEBUG - Created status for user p in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:36,435 - DEBUG - Created status for user " in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:36,439 - DEBUG - Created status for user ] in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:36,498 - ERROR - Error initializing user statuses: (pymysql.err.IntegrityError) (1062, 'Duplicate entry \'"-\\xB4\\x0E5\\xA3\\xB0\\x0FJ`\\x84\\xC7n\\xF7~\\xF8\\xE5Y\' for key \'user_channel_status.PRIMARY\'')
+[SQL: INSERT INTO user_channel_status (user_id, channel_id, last_read_message_id, last_read_timestamp, unread_count) VALUES (%(user_id)s, %(channel_id)s, %(last_read_message_id)s, %(last_read_timestamp)s, %(unread_count)s)]
+[parameters: [{'user_id': '[', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': '"', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'k', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': '.', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'd', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'y', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'a', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 't', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}  ... displaying 10 of 19 total bound parameter sets ...  {'user_id': '"', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': ']', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}]]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2025-09-16 15:24:36,498 - ERROR - Ошибка при создании таблиц: (pymysql.err.IntegrityError) (1062, 'Duplicate entry \'"-\\xB4\\x0E5\\xA3\\xB0\\x0FJ`\\x84\\xC7n\\xF7~\\xF8\\xE5Y\' for key \'user_channel_status.PRIMARY\'')
+[SQL: INSERT INTO user_channel_status (user_id, channel_id, last_read_message_id, last_read_timestamp, unread_count) VALUES (%(user_id)s, %(channel_id)s, %(last_read_message_id)s, %(last_read_timestamp)s, %(unread_count)s)]
+[parameters: [{'user_id': '[', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': '"', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'k', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': '.', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'd', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'y', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'a', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 't', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}  ... displaying 10 of 19 total bound parameter sets ...  {'user_id': '"', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': ']', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}]]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2025-09-16 15:24:52,068 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 15:24:52,068 - INFO - Initializing user statuses for existing chats...
+2025-09-16 15:24:52,128 - DEBUG - Created status for user [ in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:52,131 - DEBUG - Created status for user " in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:52,133 - DEBUG - Created status for user k in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:52,135 - DEBUG - Created status for user . in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:52,137 - DEBUG - Created status for user d in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:52,139 - DEBUG - Created status for user y in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:52,141 - DEBUG - Created status for user a in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:52,144 - DEBUG - Created status for user t in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:52,146 - DEBUG - Created status for user e in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:52,149 - DEBUG - Created status for user l in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:52,151 - DEBUG - Created status for user " in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:52,153 - DEBUG - Created status for user , in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:52,154 - DEBUG - Created status for user   in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:52,156 - DEBUG - Created status for user " in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:52,158 - DEBUG - Created status for user m in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:52,160 - DEBUG - Created status for user n in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:52,162 - DEBUG - Created status for user p in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:52,164 - DEBUG - Created status for user " in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:52,166 - DEBUG - Created status for user ] in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:24:52,170 - ERROR - Error initializing user statuses: (pymysql.err.IntegrityError) (1062, 'Duplicate entry \'"-\\xB4\\x0E5\\xA3\\xB0\\x0FJ`\\x84\\xC7n\\xF7~\\xF8\\xE5Y\' for key \'user_channel_status.PRIMARY\'')
+[SQL: INSERT INTO user_channel_status (user_id, channel_id, last_read_message_id, last_read_timestamp, unread_count) VALUES (%(user_id)s, %(channel_id)s, %(last_read_message_id)s, %(last_read_timestamp)s, %(unread_count)s)]
+[parameters: [{'user_id': '[', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': '"', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'k', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': '.', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'd', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'y', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'a', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 't', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}  ... displaying 10 of 19 total bound parameter sets ...  {'user_id': '"', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': ']', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}]]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2025-09-16 15:24:52,170 - ERROR - Ошибка при создании таблиц: (pymysql.err.IntegrityError) (1062, 'Duplicate entry \'"-\\xB4\\x0E5\\xA3\\xB0\\x0FJ`\\x84\\xC7n\\xF7~\\xF8\\xE5Y\' for key \'user_channel_status.PRIMARY\'')
+[SQL: INSERT INTO user_channel_status (user_id, channel_id, last_read_message_id, last_read_timestamp, unread_count) VALUES (%(user_id)s, %(channel_id)s, %(last_read_message_id)s, %(last_read_timestamp)s, %(unread_count)s)]
+[parameters: [{'user_id': '[', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': '"', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'k', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': '.', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'd', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'y', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'a', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 't', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}  ... displaying 10 of 19 total bound parameter sets ...  {'user_id': '"', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': ']', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}]]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2025-09-16 15:26:29,433 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 15:26:29,433 - INFO - Initializing user statuses for existing chats...
+2025-09-16 15:26:29,500 - DEBUG - Created status for user [ in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:26:29,503 - DEBUG - Created status for user " in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:26:29,505 - DEBUG - Created status for user k in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:26:29,508 - DEBUG - Created status for user . in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:26:29,510 - DEBUG - Created status for user d in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:26:29,513 - DEBUG - Created status for user y in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:26:29,515 - DEBUG - Created status for user a in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:26:29,517 - DEBUG - Created status for user t in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:26:29,520 - DEBUG - Created status for user e in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:26:29,522 - DEBUG - Created status for user l in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:26:29,525 - DEBUG - Created status for user " in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:26:29,527 - DEBUG - Created status for user , in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:26:29,530 - DEBUG - Created status for user   in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:26:29,533 - DEBUG - Created status for user " in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:26:29,536 - DEBUG - Created status for user m in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:26:29,539 - DEBUG - Created status for user n in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:26:29,542 - DEBUG - Created status for user p in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:26:29,545 - DEBUG - Created status for user " in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:26:29,548 - DEBUG - Created status for user ] in channel b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y'
+2025-09-16 15:26:29,553 - ERROR - Error initializing user statuses: (pymysql.err.IntegrityError) (1062, 'Duplicate entry \'"-\\xB4\\x0E5\\xA3\\xB0\\x0FJ`\\x84\\xC7n\\xF7~\\xF8\\xE5Y\' for key \'user_channel_status.PRIMARY\'')
+[SQL: INSERT INTO user_channel_status (user_id, channel_id, last_read_message_id, last_read_timestamp, unread_count) VALUES (%(user_id)s, %(channel_id)s, %(last_read_message_id)s, %(last_read_timestamp)s, %(unread_count)s)]
+[parameters: [{'user_id': '[', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': '"', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'k', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': '.', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'd', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'y', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'a', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 't', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}  ... displaying 10 of 19 total bound parameter sets ...  {'user_id': '"', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': ']', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}]]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2025-09-16 15:26:29,553 - ERROR - Ошибка при создании таблиц: (pymysql.err.IntegrityError) (1062, 'Duplicate entry \'"-\\xB4\\x0E5\\xA3\\xB0\\x0FJ`\\x84\\xC7n\\xF7~\\xF8\\xE5Y\' for key \'user_channel_status.PRIMARY\'')
+[SQL: INSERT INTO user_channel_status (user_id, channel_id, last_read_message_id, last_read_timestamp, unread_count) VALUES (%(user_id)s, %(channel_id)s, %(last_read_message_id)s, %(last_read_timestamp)s, %(unread_count)s)]
+[parameters: [{'user_id': '[', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': '"', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'k', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': '.', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'd', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'y', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 'a', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': 't', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}  ... displaying 10 of 19 total bound parameter sets ...  {'user_id': '"', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}, {'user_id': ']', 'channel_id': b'\xb4\x0e5\xa3\xb0\x0fJ`\x84\xc7n\xf7~\xf8\xe5Y', 'last_read_message_id': b'T)w\xe33`F1\x82L\xf6\xf3\xdb\xec C', 'last_read_timestamp': datetime.datetime(2025, 9, 16, 14, 56, 19), 'unread_count': 3}]]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2025-09-16 15:31:02,880 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 15:31:02,881 - INFO - Initializing user statuses for existing chats...
+2025-09-16 15:31:02,894 - INFO - User statuses initialized successfully
+2025-09-16 15:31:02,972 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 15:31:02,984 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 15:37:54,042 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 15:37:54,042 - INFO - Initializing user statuses for existing chats...
+2025-09-16 15:37:54,057 - INFO - User statuses initialized successfully
+2025-09-16 15:37:54,145 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 15:37:54,156 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 16:02:09,587 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 16:02:09,588 - INFO - Initializing user statuses for existing chats...
+2025-09-16 16:02:09,614 - DEBUG - Created status for user k.dyatel in channel 6890ac8d-43c0-4113-8ac3-be2d510d8ca4
+2025-09-16 16:02:09,618 - DEBUG - Created status for user m.biznes in channel 6890ac8d-43c0-4113-8ac3-be2d510d8ca4
+2025-09-16 16:02:09,621 - DEBUG - Created status for user k.dyatel in channel 9b74b5c1-e67e-471b-ac67-0ed610209fc4
+2025-09-16 16:02:09,624 - DEBUG - Created status for user mnp in channel 9b74b5c1-e67e-471b-ac67-0ed610209fc4
+2025-09-16 16:02:09,628 - INFO - User statuses initialized successfully
+2025-09-16 16:02:09,705 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 16:02:09,717 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 16:31:08,369 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 16:36:36,374 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 16:36:36,457 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 16:36:36,471 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-16 17:05:06,253 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-16 17:05:06,330 - INFO - SQLAlchemy version: 2.0.41
+2025-09-16 17:05:06,341 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 09:53:40,773 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 09:53:40,872 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 09:53:40,888 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 09:53:54,522 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 09:53:54,608 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 09:53:54,627 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 09:54:04,782 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 09:54:04,859 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 09:54:04,873 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 09:56:12,938 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 09:56:13,025 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 09:56:13,041 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:03:21,249 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:03:21,334 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:03:21,347 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:03:35,805 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:03:35,887 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:03:35,901 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:04:02,662 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:04:02,746 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:04:02,759 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:04:13,513 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:04:13,597 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:04:13,608 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:04:25,397 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:04:25,480 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:04:25,490 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:43:53,688 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:43:53,773 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:43:53,787 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:43:56,933 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:43:57,015 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:43:57,029 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:44:22,756 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:44:22,842 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:44:22,858 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:45:10,643 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:45:10,717 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:45:10,728 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:45:47,333 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:45:47,408 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:45:47,419 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:46:36,998 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:46:37,077 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:46:37,090 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:52:45,207 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:52:45,284 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:52:45,296 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:54:26,609 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:54:26,683 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:54:26,694 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:54:45,137 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:54:45,213 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:54:45,224 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:56:09,869 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:56:09,966 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:56:09,978 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:56:13,290 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:56:13,363 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:56:13,374 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:57:09,199 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:57:09,276 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:57:09,287 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:58:19,769 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:58:19,860 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:58:19,878 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:58:24,944 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:58:25,028 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:58:25,040 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 10:59:48,715 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 10:59:48,791 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 10:59:48,803 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 11:00:01,721 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 11:00:01,801 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 11:00:01,812 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 11:00:18,563 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 11:00:18,647 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 11:00:18,659 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 11:02:57,527 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 11:02:57,610 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 11:02:57,623 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 11:08:11,350 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 11:08:11,427 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 11:08:11,439 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 11:10:12,593 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 11:10:12,686 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 11:10:12,710 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 11:13:51,965 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 11:13:52,046 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 11:13:52,056 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 11:24:02,923 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 11:24:03,007 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 11:24:03,020 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 11:24:52,122 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 11:24:52,197 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 11:24:52,209 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 11:31:46,463 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 11:31:46,547 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 11:31:46,563 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 11:34:40,368 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 11:34:40,449 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 11:34:40,462 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 11:36:40,457 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 11:36:40,534 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 11:36:40,545 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 11:37:28,227 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 11:37:28,309 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 11:37:28,320 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 11:37:54,326 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 11:37:54,406 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 11:37:54,420 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 11:38:05,483 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 11:38:05,565 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 11:38:05,575 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 11:39:04,795 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 11:39:04,889 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 11:39:04,900 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 12:10:47,438 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 12:10:47,523 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 12:10:47,536 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 12:14:17,605 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 12:14:17,683 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 12:14:17,695 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 12:18:24,549 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 12:18:24,638 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 12:18:24,654 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 12:20:46,948 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 12:20:47,050 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 12:20:47,066 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 16:03:33,260 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 16:03:33,338 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 16:03:33,351 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 16:03:44,964 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 16:03:45,042 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 16:03:45,055 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-17 16:04:07,714 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-17 16:04:07,796 - INFO - SQLAlchemy version: 2.0.41
+2025-09-17 16:04:07,809 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-18 09:02:02,565 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-18 09:02:02,655 - INFO - SQLAlchemy version: 2.0.41
+2025-09-18 09:02:02,667 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-18 09:02:08,738 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-18 09:02:08,829 - INFO - SQLAlchemy version: 2.0.41
+2025-09-18 09:02:08,844 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-18 09:06:34,388 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-18 09:06:34,477 - INFO - SQLAlchemy version: 2.0.41
+2025-09-18 09:06:34,491 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-18 09:06:39,933 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-18 09:06:40,020 - INFO - SQLAlchemy version: 2.0.41
+2025-09-18 09:06:40,033 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-18 09:08:05,487 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-18 09:08:05,581 - INFO - SQLAlchemy version: 2.0.41
+2025-09-18 09:08:05,599 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-18 09:08:44,674 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-18 09:08:44,759 - INFO - SQLAlchemy version: 2.0.41
+2025-09-18 09:08:44,771 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-18 09:15:04,597 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-18 09:15:04,679 - INFO - SQLAlchemy version: 2.0.41
+2025-09-18 09:15:04,690 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-18 09:27:39,898 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-18 09:27:39,983 - INFO - SQLAlchemy version: 2.0.41
+2025-09-18 09:27:39,994 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-18 09:27:51,055 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-18 09:27:51,138 - INFO - SQLAlchemy version: 2.0.41
+2025-09-18 09:27:51,152 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-18 09:33:16,566 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-18 09:33:16,659 - INFO - SQLAlchemy version: 2.0.41
+2025-09-18 09:33:16,670 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-18 09:33:32,767 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-18 09:33:32,845 - INFO - SQLAlchemy version: 2.0.41
+2025-09-18 09:33:32,857 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-18 10:21:02,270 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-18 10:21:02,357 - INFO - SQLAlchemy version: 2.0.41
+2025-09-18 10:21:02,374 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-09-18 10:24:32,988 - INFO - Таблицы успешно созданы или уже существуют.
+2025-09-18 10:24:33,078 - INFO - SQLAlchemy version: 2.0.41
+2025-09-18 10:24:33,090 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']

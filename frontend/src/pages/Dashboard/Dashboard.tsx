@@ -10,9 +10,10 @@ const services = [
   { title: 'Редактирование контактов', description: 'Управление контактами Active Directory', to: '/edit-contacts', icon: <EditOutlined style={{ fontSize: '24px' }} />, isAdminOnly: true },
   { title: 'Админ-панель', description: 'Управление пользователями и настройками системы', to: '/admin', icon: '👮‍♂️', isAdminOnly: true },
   { title: 'Документы', description: 'Центр хранения внутренних документов и инструкций', to: '/docs', icon: '📄' },
-  { title: 'Статистика серверов', description: 'Просмотр статистики серверов', to: '/serverstats', icon: '📊', disabled: false },
+  { title: 'Статистика серверов', description: 'Просмотр статистики серверов', to: '/serverstats', icon: '📊', disabled: false, isAdminOnly: true },
   { title: 'VPN Управление', description: 'Управление подключениями и профилями OpenVPN', to: '/VPNManagement', icon: '🔒', isAdminOnly: true },
   { title: 'Часто задаваемые вопросы', description: 'Ответы на популярные вопросы', to: '/faq', icon: <QuestionCircleOutlined style={{ fontSize: '24px' }} /> },
+  { title: 'Статистика персонала', description: 'Статистика персонала', to: '/EmployeeTrackerApp', icon: <QuestionCircleOutlined style={{ fontSize: '24px' }} />, isAdminOnly: true },
 ];
 const JITSI_URL = import.meta.env.VITE_API_JITSI_URL;
 

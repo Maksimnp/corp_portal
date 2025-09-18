@@ -67,7 +67,7 @@ async def upload_document(
             )
     await file.seek(0)
     # Сохраняем файл
-    file_id = uuid.uuid4()
+    file_id = str(uuid.uuid4())
     file_path = os.path.join(UPLOAD_DIR, f"{str(file_id)}{file_ext}")
     
     try:
@@ -155,7 +155,7 @@ async def share_document_endpoint(
     user = verify_token(token)
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    
+    shared_doc_id = str(uuid.uuid4())
     # Проверяем, существует ли документ и принадлежит ли он пользователю
     document = get_document(db, document_id)
     if not document or document.owner_username != user['username']:
@@ -164,6 +164,7 @@ async def share_document_endpoint(
     try:
         logger.info(f"типа файла - {fil_type}")
         shared_doc = share_document(db, SharedDocumentCreate(
+            id=shared_doc_id,
             document_id=document_id,
             recipient_username=recipient,
             permission=permission,

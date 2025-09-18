@@ -63,6 +63,7 @@
     "@types/rollup": "^0.51.4",
     "@types/sanitize-html": "^2.16.0",
     "@types/socket.io-client": "^1.4.36",
+    "@types/styled-jsx": "^2.2.9",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.30.1",

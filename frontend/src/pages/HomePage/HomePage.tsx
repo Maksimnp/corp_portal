@@ -15,8 +15,8 @@ interface LoginError {
 }
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const YOUTUBE_URL = import.meta.env.YOUTUBE_CHANEL_URL;
-const INST_URL = import.meta.env.INSTAGRAM_URL;
+const YOUTUBE_URL = import.meta.env.VITE_YOUTUBE_CHANEL_URL;
+const INST_URL = import.meta.env.VITE_INSTAGRAM_URL;
 
 const HomePage: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -266,7 +266,7 @@ const HomePage: React.FC = () => {
         <div className="max-w-7xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 flex items-center justify-center shadow-lg animate-pulse-slow">
-              <span className="text-white font-bold text-lg">MXP</span>
+              <span className="text-white font-bold text-lg">МХП</span>
             </div>
             <span className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
               Минскхлебпром
@@ -756,7 +756,7 @@ const HomePage: React.FC = () => {
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         @keyframes float {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-10px); }

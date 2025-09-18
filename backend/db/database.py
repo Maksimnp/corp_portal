@@ -11,13 +11,13 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-DB_HOST = os.getenv("DOCUMENTS_DB_HOST", "localhost")
-DB_DATABASE = os.getenv("DOCUMENTS_DB_DATABASE", "portal_db")
-DB_USER = os.getenv("DOCUMENTS_DB_USER", "portal_admin")
-DB_PASSWORD = os.getenv("DOCUMENTS_DB_PASSWORD", "season")
-DB_PORT = os.getenv("DB_PORT", "5432")
+DB_HOST = os.getenv("DOCUMENTS_DB_HOST")
+DB_DATABASE = os.getenv("DOCUMENTS_DB_DATABASE")
+DB_USER = os.getenv("DOCUMENTS_DB_USER")
+DB_PASSWORD = os.getenv("DOCUMENTS_DB_PASSWORD")
+DB_PORT = os.getenv("DB_PORT")
 
-SQLALCHEMY_DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_DATABASE}"
+SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_DATABASE}"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

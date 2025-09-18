@@ -13,7 +13,7 @@ import { AuthProvider, useAuth } from './pages/AuthContext';
 import JitsiWrapper from './pages/meet/JitsiWrapper';
 import ServerStats from './pages/ServerStats/ServerStats'; 
 import FAQ from './pages/FAQ/faq';
-
+import EmployeeTrackerApp from './pages/EmplStat/EmployeeTrackerApp';
 const PrivateRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
     const { isAuthenticated, loading } = useAuth();
     if (loading) return <div>Загрузка...</div>;
@@ -112,6 +112,14 @@ const App: React.FC = () => {
                         element={
                             <PrivateRoute>
                                 <ServerStats />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/EmployeeTrackerApp"
+                        element={
+                            <PrivateRoute>
+                                <EmployeeTrackerApp />
                             </PrivateRoute>
                         }
                     />
