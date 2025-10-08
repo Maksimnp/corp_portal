@@ -26,6 +26,9 @@ export default defineConfig({
   },
 
   server: {
+    allowedHosts: [
+      'cloud.minskhleb.by'
+    ],
     proxy: {
       // Унифицированный прокси для всех API эндпоинтов
       '^/api/.*': {
@@ -80,6 +83,7 @@ export default defineConfig({
     open: true,
     strictPort: true,
     cors: true,
+    
   },
 
   build: {

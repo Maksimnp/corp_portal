@@ -14,6 +14,10 @@ import JitsiWrapper from './pages/meet/JitsiWrapper';
 import ServerStats from './pages/ServerStats/ServerStats'; 
 import FAQ from './pages/FAQ/faq';
 import EmployeeTrackerApp from './pages/EmplStat/EmployeeTrackerApp';
+import Software from './pages/Software/software';
+import { useTheme } from './hooks/ThemeContext';
+import { ConfigProvider, theme as antdTheme } from 'antd';
+
 const PrivateRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
     const { isAuthenticated, loading } = useAuth();
     if (loading) return <div>Загрузка...</div>;
@@ -27,106 +31,121 @@ const AdminRoute: React.FC<{ children: React.ReactElement }> = ({ children }) =>
 };
 
 const App: React.FC = () => {
+    const { theme } = useTheme();
     return (
-        <AuthProvider>
-            <Router>
-                <Routes>
-                    <Route path="/" element={<HomePage />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route
-                        path="/dashboard"
-                        element={
-                            <PrivateRoute>
-                                <Dashboard />
-                            </PrivateRoute>
-                        }
-                    />
-                    <Route
-                        path="/chat"
-                        element={
-                            <PrivateRoute>
-                                <Chat />
-                            </PrivateRoute>
-                        }
-                    />
-                    <Route
-                        path="/requests_list"
-                        element={
-                            <PrivateRoute>
-                                <RequestList />
-                            </PrivateRoute>
-                        }
-                    />
-                    <Route
-                        path="/contacts"
-                        element={
-                            <PrivateRoute>
-                                <Contacts />
-                            </PrivateRoute>
-                        }
-                    />
-                    <Route
-                        path="/admin"
-                        element={
-                            <PrivateRoute>
-                                <AdminRoute>
-                                    <Admin />
-                                </AdminRoute>
-                            </PrivateRoute>
-                        }
-                    />
-                    <Route
-                        path="/jitsi"
-                        element={
-                            <PrivateRoute>
-                                <JitsiWrapper />
-                            </PrivateRoute>
-                        }
-                    />
-                    <Route
-                        path="/edit-contacts"
-                        element={
-                            <PrivateRoute>
-                                <EditADContacts />
-                            </PrivateRoute>
-                        }
-                    />
-                    <Route
-                        path="/docs"
-                        element={
-                            <PrivateRoute>
-                                <DocumentsPage />
-                            </PrivateRoute>
-                        }
-                    />
-                <Route
-                        path="/FAQ"
-                        element={
-                            <PrivateRoute>
-                                <FAQ />
-                            </PrivateRoute>
-                        }
-                    />
-                    <Route
-                        path="/serverstats"
-                        element={
-                            <PrivateRoute>
-                                <ServerStats />
-                            </PrivateRoute>
-                        }
-                    />
-                    <Route
-                        path="/EmployeeTrackerApp"
-                        element={
-                            <PrivateRoute>
-                                <EmployeeTrackerApp />
-                            </PrivateRoute>
-                        }
-                    />
-                    <Route path="*" element={<div>Страница не найдена</div>} />
-                </Routes>
-            </Router>
-        </AuthProvider>
+        <ConfigProvider
+            theme={{
+                algorithm: theme === 'dark' ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+            }}
+        >
+            <AuthProvider>
+                <Router>
+                    <Routes>
+                        <Route path="/" element={<HomePage />} />
+                        <Route path="/login" element={<Login />} />
+                        <Route
+                            path="/dashboard"
+                            element={
+                                <PrivateRoute>
+                                    <Dashboard />
+                                </PrivateRoute>
+                            }
+                        />
+                        <Route
+                            path="/chat"
+                            element={
+                                <PrivateRoute>
+                                    <Chat />
+                                </PrivateRoute>
+                            }
+                        />
+                        <Route
+                            path="/requests_list"
+                            element={
+                                <PrivateRoute>
+                                    <RequestList />
+                                </PrivateRoute>
+                            }
+                        />
+                        <Route
+                            path="/contacts"
+                            element={
+                                <PrivateRoute>
+                                    <Contacts />
+                                </PrivateRoute>
+                            }
+                        />
+                        <Route
+                            path="/admin"
+                            element={
+                                <PrivateRoute>
+                                    <AdminRoute>
+                                        <Admin />
+                                    </AdminRoute>
+                                </PrivateRoute>
+                            }
+                        />
+                        <Route
+                            path="/jitsi"
+                            element={
+                                <PrivateRoute>
+                                    <JitsiWrapper />
+                                </PrivateRoute>
+                            }
+                        />
+                        <Route
+                            path="/edit-contacts"
+                            element={
+                                <PrivateRoute>
+                                    <EditADContacts />
+                                </PrivateRoute>
+                            }
+                        />
+                        <Route
+                            path="/docs"
+                            element={
+                                <PrivateRoute>
+                                    <DocumentsPage />
+                                </PrivateRoute>
+                            }
+                        />
+                        <Route
+                            path="/faq"
+                            element={
+                                <PrivateRoute>
+                                    <FAQ />
+                                </PrivateRoute>
+                            }
+                        />
+                        <Route
+                            path="/serverstats"
+                            element={
+                                <PrivateRoute>
+                                    <ServerStats />
+                                </PrivateRoute>
+                            }
+                        />
+                        <Route
+                            path="/EmployeeTrackerApp"
+                            element={
+                                <PrivateRoute>
+                                    <EmployeeTrackerApp />
+                                </PrivateRoute>
+                            }
+                        />
+                        <Route
+                            path="/software"
+                            element={
+                                <PrivateRoute>
+                                    <Software />
+                                </PrivateRoute>
+                            }
+                        />
+                        <Route path="*" element={<div>Страница не найдена</div>} />
+                    </Routes>
+                </Router>
+            </AuthProvider>
+        </ConfigProvider>
     );
 };
 

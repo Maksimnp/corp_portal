@@ -4,21 +4,21 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Body, Query, UploadFile, File, Path 
-from sqlalchemy import Text, Column, Integer, String, ForeignKey, DateTime, Boolean, create_engine, desc, distinct, func
-from sqlalchemy.dialects.mysql import VARCHAR, JSON
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Body, Query, UploadFile, File, Path
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, create_engine, desc, distinct, func
+from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
 from sqlalchemy.sql import func
 from pydantic import BaseModel, Field, ConfigDict
 from uuid import UUID as UUIDType
 from services.jwt_utils import get_current_user, verify_token
-# import ldap
 import ldap3
-from ldap.filter import escape_filter_chars
+from ldap3.utils.conv import escape_filter_chars
 from ldap3 import Server, Connection, ALL_ATTRIBUTES, SUBTREE, AUTO_BIND_NO_TLS, SIMPLE
 from ldap3.core.exceptions import LDAPException, LDAPBindError, LDAPSocketOpenError
 import anyio
-
+from sqlalchemy.orm.attributes import flag_modified
+from starlette.websockets import WebSocketState
 
 # -----------------------------
 # Логирование
@@ -41,7 +41,7 @@ DB_NAME = os.getenv("CHAT_DB_DATABASE", "chat_app")
 if not all([DB_USER, DB_PASS, DB_HOST, DB_NAME]):
     raise RuntimeError("CHAT_DB_* переменные окружения не заданы полностью")
 
-DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}"
+DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}"
 engine = create_engine(DATABASE_URL, pool_pre_ping=True, future=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -58,50 +58,59 @@ BASE_DN = os.getenv("BASE_DN", "DC=mhp,DC=net")
 BYPASS_AD_VALIDATION = os.getenv("BYPASS_AD_VALIDATION", "false").lower() == "true"
 LDAP_VALIDATE_CERTS = os.getenv("LDAP_VALIDATE_CERTS")
 LDAP_CA_CERT = os.getenv("LDAP_CA_CERT")
+# -----------------------------
+# МОДЕЛИ SQLAlchemy
+# -----------------------------
 class Channel(Base):
     __tablename__ = "channels"
-    
-    id = Column(VARCHAR(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
-    name = Column(Text, nullable=True)
-    description = Column(Text, nullable=True)
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    name = Column(String, nullable=True)
+    description = Column(String, nullable=True)
     is_group = Column(Boolean, default=False, nullable=False)
     is_channel = Column(Boolean, default=False, nullable=False)
-    creator_username = Column(String(255), nullable=True)
-    members = Column(JSON, nullable=False, default=lambda: json.dumps([]))
-    created_at = Column(DateTime, server_default=func.now())
-    
+    creator_username = Column(String, nullable=False)
+    members = Column(ARRAY(String), nullable=False, default=[])
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     messages = relationship("Message", back_populates="channel", cascade="all, delete-orphan")
     user_statuses = relationship("UserChannelStatus", back_populates="channel", cascade="all, delete-orphan")
+    font_name = Column(String, default="chat_font_1", nullable=False)
 
 class Message(Base):
     __tablename__ = "messages"
-    
-    id = Column(VARCHAR(36), primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
-    channel_id = Column(VARCHAR(36), ForeignKey("channels.id", ondelete="CASCADE"), index=True, nullable=False)
-    sender = Column(String(255), index=True, nullable=False)
-    content = Column(Text, nullable=True)
-    timestamp = Column(DateTime, server_default=func.now(), index=True, nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True, default=uuid.uuid4)
+    channel_id = Column(UUID(as_uuid=True), ForeignKey("channels.id", ondelete="CASCADE"), index=True, nullable=False)
+    sender = Column(String, index=True, nullable=False)
+    content = Column(String, nullable=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True, nullable=False)
     is_read = Column(Boolean, default=False, nullable=False)
-    file_url = Column(Text, nullable=True)
-    file_name = Column(Text, nullable=True)
+    file_url = Column(String, nullable=True)
+    file_name = Column(String, nullable=True)
     edited = Column(Boolean, default=False, nullable=False)
-    quoted_message_id = Column(VARCHAR(36), ForeignKey("messages.id", ondelete="SET NULL"), nullable=True)
-    
     channel = relationship("Channel", back_populates="messages")
-    quoted_message = relationship("Message", remote_side=[id], foreign_keys=[quoted_message_id])
+    quoted_message_id = Column(UUID(as_uuid=True), ForeignKey("messages.id", ondelete="SET NULL"), nullable=True)
+    is_notification = Column(Boolean, default=False, nullable=False)
 
 class UserChannelStatus(Base):
     __tablename__ = "user_channel_status"
     
-    user_id = Column(String(255), primary_key=True, nullable=False)
-    channel_id = Column(VARCHAR(36), ForeignKey("channels.id", ondelete="CASCADE"), primary_key=True, nullable=False)
-    last_read_message_id = Column(VARCHAR(36), ForeignKey("messages.id", ondelete="SET NULL"), nullable=True)
-    last_read_timestamp = Column(DateTime, nullable=True)
+    user_id = Column(String, primary_key=True, nullable=False)
+    channel_id = Column(UUID(as_uuid=True), ForeignKey("channels.id", ondelete="CASCADE"), primary_key=True, nullable=False)
+    last_read_message_id = Column(UUID(as_uuid=True), ForeignKey("messages.id", ondelete="SET NULL"), nullable=True)
+    last_read_timestamp = Column(DateTime(timezone=True), nullable=True)
     unread_count = Column(Integer, default=0, nullable=False)
     
     # Relationships
     channel = relationship("Channel", back_populates="user_statuses")
     last_read_message = relationship("Message", foreign_keys=[last_read_message_id])
+
+
+class User(Base):
+    __tablename__ = "users"
+    username = Column(String(100), primary_key=True, nullable=False)
+    last_online_at = Column(DateTime(timezone=True))
+    description = Column(String)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
 def initialize_user_statuses(db: Session):
     """Инициализирует статусы пользователей для существующих чатов"""
@@ -110,43 +119,40 @@ def initialize_user_statuses(db: Session):
         
         channels = db.query(Channel).all()
         for channel in channels:
-            # Проверяем, что members не None
-            if channel.members:
-                for username in channel.members:
-                    existing_status = db.query(UserChannelStatus).filter(
-                        UserChannelStatus.user_id == username,
-                        UserChannelStatus.channel_id == channel.id
-                    ).first()
+            for username in channel.members:
+                existing_status = db.query(UserChannelStatus).filter(
+                    UserChannelStatus.user_id == username,
+                    UserChannelStatus.channel_id == channel.id
+                ).first()
+                
+                if not existing_status:
+                    unread_count = db.query(func.count(Message.id)).filter(
+                        Message.channel_id == channel.id,
+                        Message.is_read == False,
+                        Message.sender != username
+                    ).scalar()
                     
-                    if not existing_status:
-                        unread_count = db.query(func.count(Message.id)).filter(
-                            Message.channel_id == channel.id,
-                            Message.is_read == False,
-                            Message.sender != username
-                        ).scalar() or 0
-                        
-                        last_message = db.query(Message).filter(
-                            Message.channel_id == channel.id
-                        ).order_by(Message.timestamp.desc()).first()
-                        
-                        user_status = UserChannelStatus(
-                            user_id=username,
-                            channel_id=channel.id,
-                            last_read_message_id=last_message.id if last_message else None,
-                            last_read_timestamp=last_message.timestamp if last_message else None,
-                            unread_count=unread_count
-                        )
-                        db.add(user_status)
-                        logger.debug(f"Created status for user {username} in channel {channel.id}")
+                    last_message = db.query(Message).filter(
+                        Message.channel_id == channel.id
+                    ).order_by(Message.timestamp.desc()).first()
+                    
+                    user_status = UserChannelStatus(
+                        user_id=username,
+                        channel_id=channel.id,
+                        last_read_message_id=last_message.id if last_message else None,
+                        last_read_timestamp=last_message.timestamp if last_message else None,
+                        unread_count=unread_count
+                    )
+                    db.add(user_status)
+                    logger.debug(f"Created status for user {username} in channel {channel.id}")
         
         db.commit()
         logger.info("User statuses initialized successfully")
         
     except Exception as e:
         db.rollback()
-        logger.error(f"Error initializing user statuses: {e}", exc_info=True)
+        logger.error(f"Error initializing user statuses: {e}")
         raise
-
 
 
 # Создание таблиц
@@ -154,8 +160,15 @@ def create_tables():
     try:
         Base.metadata.create_all(bind=engine)
         logger.info("Таблицы успешно созданы или уже существуют.")
+        
+        db = SessionLocal()
+        try:
+            initialize_user_statuses(db)
+        finally:
+            db.close()
+
     except Exception as e:
-        logger.error(f"Ошибка при создании таблиц: {e}", exc_info=True)
+        logger.error(f"Ошибка при создании таблиц: {e}")
         raise
 
 create_tables()
@@ -170,9 +183,10 @@ class ChatResponse(BaseModel):
     description: Optional[str] = None
     is_group: bool
     is_channel: bool
-    creator_username: Optional[str] = None
-    members: List[str]  # Теперь это обязательное поле, так как в базе NOT NULL
+    creator_username: str
+    members: List[str]
     unread_count: int = 0 
+    font_name: str = "chat_font_1"
 
 class MessageResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -186,6 +200,7 @@ class MessageResponse(BaseModel):
     file_name: Optional[str] = None
     edited: bool
     quoted_message_id: Optional[UUIDType] = None
+    is_notification: Optional[bool] = None
 
 class MessageCreate(BaseModel):
     channel_id: UUIDType
@@ -197,6 +212,7 @@ class MessageCreate(BaseModel):
 class ChatUpdateRequest(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    # model_config = ConfigDict(...) если используете Pydantic v2
 
 class EditMessageRequest(BaseModel):
     message_id: UUIDType
@@ -230,6 +246,7 @@ class Contact(BaseModel):
     phone_mobile: Optional[str] = None
     email: Optional[str] = None
     sam_account_name: Optional[str] = None
+
 # -----------------------------
 # Утилиты ldap3
 # -----------------------------
@@ -450,8 +467,13 @@ class ConnectionManager:
         logger.info(f"active_connections con - {self.active_connections}")
         logger.info(f"active_connections_users  con - {self.active_connections_users}")
         for user in self.active_connections:
+            conns = self.active_connections.get(user, [])
             try:
                 for ws in self.active_connections[user]:
+                    if ws.client_state != WebSocketState.CONNECTED:
+                        conns.remove(ws)
+                        logger.warning(f"Removed dead WebSocket for user {user}")
+                        continue
                     await ws.send_json({"type": "user_status", "data": self.active_connections_users})
             except Exception as e:
                 logger.error(f"Failed to send connection confirmation to {username}: {e}")              
@@ -468,20 +490,55 @@ class ConnectionManager:
                 logger.debug(f"No active connections for {username}")
         if username in self.active_connections_users:
             self.active_connections_users.pop(username)
+
         logger.info(f"active_connections disc - {self.active_connections}")
         logger.info(f"active_connections_users disc - {self.active_connections_users}")
+
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.username == username).first()
+            current_time = datetime.now(timezone.utc)
+
+            if not user:
+                user = User(
+                    username=username,
+                    last_online_at=current_time,
+                    created_at=current_time,
+                    updated_at=current_time
+                )
+                db.add(user)
+                logger.info(f"Created new user record for {username}")
+            else:
+                user.last_online_at = current_time
+                user.updated_at = current_time
+                logger.info(f"Updated last_online_at for user {username}")
+
+            db.commit()
+
+        except Exception as e:
+            db.rollback()
+            logger.error(f"Error updating last_online_at for {username}: {e}")
+        finally:
+            db.close()
+        
         for user in self.active_connections:
+            conns = self.active_connections.get(user, [])
             for ws in self.active_connections[user]:
+                if ws.client_state != WebSocketState.CONNECTED:
+                    conns.remove(ws)
+                    logger.warning(f"Removed dead WebSocket for user {user}")
+                    continue
                 try:
                     logger.info(f"send conn to user - {user}")
                     await ws.send_json({"type": "user_status", "data": self.active_connections_users})
                 except Exception as e:
-                    logger.error(f"Failed to send connection confirmation to {username}: {e}")       
+                    logger.error(f"Failed to send connection confirmation to {username}: {e}")
                
 
 
     async def broadcast_to_channel_members(self, payload: Dict[str, Any], channel_id: UUIDType, db: Session):
-        logger.info(f"payload type - {payload}")
+        # logger.info(f"payload type - {payload}")
+        invalid_user = ""
         if payload["type"] == "chat_deleted":
             usernames = payload["data"]["members"]
         else:
@@ -490,9 +547,17 @@ class ConnectionManager:
                 logger.warning(f"Channel {channel_id} not found for broadcast")
                 return
             usernames = channel.members
+        if payload["type"] == "typing_start" or payload["type"] == "typing_stop":
+            invalid_user = payload["data"]["user"]
         for uname in usernames:
+            if uname == invalid_user:
+                continue 
             conns = self.active_connections.get(uname, [])
             for ws in conns:
+                if ws.client_state != WebSocketState.CONNECTED:
+                    conns.remove(ws)
+                    logger.warning(f"Removed dead WebSocket for user {uname}")
+                    continue
                 try:
                     await ws.send_json(payload)
                 except Exception as e:
@@ -508,7 +573,6 @@ manager = ConnectionManager()
 
 def assert_membership(db: Session, channel_id: UUIDType, username: str):
     channel = db.query(Channel).filter(Channel.id == channel_id).first()
-    logger.info(f"channel - {channel_id}")
     if not channel:
         raise HTTPException(status_code=404, detail="Чат не найден")
     if username not in channel.members:
@@ -525,7 +589,8 @@ def serialize_chat(db: Session, chat: Channel, username: str) -> ChatResponse:
         is_channel=chat.is_channel,
         creator_username=chat.creator_username,
         members=chat.members,
-        unread_count=unread_count
+        unread_count=unread_count,
+        font_name=chat.font_name
     )
 
 def sanitize_filename(filename: str) -> str:
@@ -617,7 +682,6 @@ def mark_messages_as_read(db: Session, username: str, message_ids: List[UUIDType
             db.add(user_status)
     
     db.commit()
-
 # -----------------------------
 # REST МАРШРУТЫ
 # -----------------------------
@@ -647,46 +711,62 @@ def get_chats_with_last_message(
 ):
     """
     Возвращает список чатов пользователя с информацией о последнем сообщении в каждом.
+    Использует DISTINCT ON для максимальной производительности.
     """
     username = current_user["username"]
     logger.debug(f"Fetching chats with last message for user: {username}")
 
     try:
-        user_channels = db.query(Channel).filter(Channel.members.contains(username)).all()
-        logger.info(f"user_channels - {user_channels}{username}")
-        response = []
-        for chat in user_channels:
-            chat_data = serialize_chat(db, chat, username).model_dump() if hasattr(serialize_chat(db, chat, username), 'model_dump') else serialize_chat(db, chat, username).dict()
-            
-            last_message = (
-                db.query(Message)
-                .filter(Message.channel_id == chat.id)
-                .order_by(Message.timestamp.desc())
-                .first()
+        subq = (
+            db.query(Message)
+            .join(Channel, Message.channel_id == Channel.id)
+            .filter(Channel.members.contains([username]))
+            .distinct(Message.channel_id)
+            .order_by(Message.channel_id, Message.timestamp.desc())
+            .subquery()
+        )
+        result = (
+            db.query(Channel)
+            .outerjoin(subq, Channel.id == subq.c.channel_id)
+            .add_columns(
+                subq.c.id,
+                subq.c.sender,
+                subq.c.content,
+                subq.c.timestamp,
+                subq.c.is_read,
+                subq.c.file_name,
+                subq.c.channel_id.label("last_msg_channel_id")
             )
-            logger.info(f"last_message - {last_message}")
-            if last_message:
+            .filter(Channel.members.contains([username]))
+            .order_by(desc(subq.c.timestamp) if subq.c.timestamp is not None else None)
+            .all()
+        )
+
+        response = []
+        for row in result:
+            chat = row[0]
+            chat_data = serialize_chat(db, chat, username).model_dump() if hasattr(serialize_chat(db, chat, username), 'model_dump') else serialize_chat(db, chat, username).dict()
+
+            if row[1] is not None:
                 chat_data['last_message'] = {
-                    "id": str(last_message.id),
-                    "sender": last_message.sender, 
-                    "content": last_message.content,
-                    "timestamp": last_message.timestamp.isoformat() if last_message.timestamp else None,
-                    "file_name": last_message.file_name,
-                    "is_read": last_message.is_read,
+                    "id": str(row[1]),
+                    "sender": row[2], 
+                    "content": row[3],
+                    "timestamp": row[4].isoformat() if row[4] else None,
+                    "file_name": row[5],
+                    "is_read": row[6],
                 }
             else:
                 chat_data['last_message'] = None
 
             response.append(chat_data)
 
-        response.sort(key=lambda x: x['last_message']['timestamp'] if x['last_message'] else '', reverse=True)
-        
         return response
 
     except Exception as e:
         logger.error(f"Error fetching chats with last message for {username}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Не удалось загрузить чаты: {str(e)}")
-    
+
 @router.get("/unread/total")
 def get_total_unread(
     current_user: Dict[str, Any] = Depends(get_current_user),
@@ -795,19 +875,32 @@ def post_message(
 
 @router.post("/messages/batch_read")
 async def mark_messages_read(
-    body: Dict[str, List[str]],
+    body: Dict[str, Any],
     db: Session = Depends(get_db),
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     username = current_user["username"]
     logger.debug(f"Marking messages as read by {username}: {body}")
     message_ids = [UUIDType(id) for id in body.get("message_ids", [])]
+    msgs = [id for id in body.get("message_ids", [])]
+    channel_id = body.get("channel_id")
     
     if not message_ids:
         raise HTTPException(status_code=400, detail="Не предоставлены ID сообщений")
     
     try:
         mark_messages_as_read(db, username, message_ids)
+        payload = {
+            "type": "batch_read",
+            "data" : {
+                "channel_id": channel_id,
+                "message_ids": msgs,
+            }
+        }
+        try:
+            await manager.broadcast_to_channel_members(payload, channel_id, db)
+        except Exception as e:
+            logger.warning(f"Failed to broadcast private_chat_created: {e}")
         return {"status": "ok"}
     except Exception as e:
         logger.error(f"Error marking messages as read: {e}", exc_info=True)
@@ -838,7 +931,7 @@ async def upload_file(
         file_path = os.path.join(upload_dir, unique_filename)
         with open(file_path, "wb") as buffer:
             buffer.write(content)
-        file_url = f"/static/{unique_filename}"
+        file_url = f"/static/chat_file/{unique_filename}"
         logger.debug(f"File uploaded: {file_path}, URL: {file_url}")
         return {"url": file_url, "file_name": sanitized_filename}
     except Exception as e:
@@ -950,6 +1043,38 @@ def create_group_chat(
                 "members": chat.members
             }
         }
+        for member in members:
+                try:
+                    msg = Message(
+                        channel_id=chat.id,
+                        sender=owner,
+                        content=f"{member} добавлен(а) в группу",
+                        is_read=False,
+                        is_notification=True
+                    )
+                    db.add(msg)
+                    db.commit()
+                    db.refresh(msg)
+
+                    payload_message = {
+                        "type": "new_message",
+                        "data": {
+                            "id": str(msg.id),
+                            "channel_id": str(msg.channel_id),
+                            "sender": msg.sender,
+                            "content": msg.content,
+                            "timestamp": msg.timestamp.isoformat(),
+                            "is_read": msg.is_read,
+                            "file_url": msg.file_url,
+                            "file_name": msg.file_name,
+                            "edited": msg.edited,
+                            "quoted_message_id": str(msg.quoted_message_id) if msg.quoted_message_id else None,
+                            "is_notification": msg.is_notification,
+                        },
+                    }
+                    anyio.from_thread.run(manager.broadcast_to_channel_members, payload_message, msg.channel_id, db)
+                except Exception as e:
+                    logger.warning(f"Failed to broadcast channel_invite: {e}")
         logger.debug(f"Broadcasting group_created: {payload}")
         try:
             anyio.from_thread.run(manager.broadcast_to_channel_members, payload, chat.id, db)
@@ -1046,8 +1171,9 @@ def invite_to_channel(
             channel.members = list(set(channel.members + valid_members))
             db.commit()
             db.refresh(channel)
+
             logger.info(f"Successfully invited {valid_members} to channel {channel_id}. New members: {channel.members}")
-            payload = {
+            payload_channel = {
                 "type": "channel_invite",
                 "data": {
                     "channel_id": str(channel_id),
@@ -1056,9 +1182,42 @@ def invite_to_channel(
                     "members": valid_members,
                 }
             }
-            logger.info(f"Broadcasting channel_invite: {payload}")
+            
+            for member in valid_members:
+                try:
+                    msg = Message(
+                        channel_id=channel_id,
+                        sender=username,
+                        content=f"{member} добавлен(а) в группу",
+                        is_read=False,
+                        is_notification=True
+                    )
+                    db.add(msg)
+                    db.commit()
+                    db.refresh(msg)
+
+                    payload_message = {
+                        "type": "new_message",
+                        "data": {
+                            "id": str(msg.id),
+                            "channel_id": str(msg.channel_id),
+                            "sender": msg.sender,
+                            "content": msg.content,
+                            "timestamp": msg.timestamp.isoformat(),
+                            "is_read": msg.is_read,
+                            "file_url": msg.file_url,
+                            "file_name": msg.file_name,
+                            "edited": msg.edited,
+                            "quoted_message_id": str(msg.quoted_message_id) if msg.quoted_message_id else None,
+                            "is_notification": msg.is_notification,
+                        },
+                    }
+                    anyio.from_thread.run(manager.broadcast_to_channel_members, payload_message, msg.channel_id, db)
+                except Exception as e:
+                    logger.warning(f"Failed to broadcast channel_invite: {e}")
+            logger.info(f"Broadcasting channel_invite: {payload_channel}")
             try:
-                anyio.from_thread.run(manager.broadcast_to_channel_members, payload, channel_id, db)
+                anyio.from_thread.run(manager.broadcast_to_channel_members, payload_channel, channel_id, db)
             except Exception as e:
                 logger.warning(f"Failed to broadcast channel_invite: {e}")
         if invalid_members:
@@ -1092,6 +1251,7 @@ def kick_from_channel(
         if member in channel.members:
             channel.members.remove(member)
             kicked.append(member)
+            flag_modified(channel, "members")
         else:
             not_found.append(member)
     try:
@@ -1106,6 +1266,38 @@ def kick_from_channel(
             }
         }
         logger.debug(f"Broadcasting channel_kick: {payload}")
+        for member in body.members:
+                try:
+                    msg = Message(
+                        channel_id=channel_id,
+                        sender=username,
+                        content=f"{member} исключен(а) из группу",
+                        is_read=False,
+                        is_notification=True
+                    )
+                    db.add(msg)
+                    db.commit()
+                    db.refresh(msg)
+
+                    payload_message = {
+                        "type": "new_message",
+                        "data": {
+                            "id": str(msg.id),
+                            "channel_id": str(msg.channel_id),
+                            "sender": msg.sender,
+                            "content": msg.content,
+                            "timestamp": msg.timestamp.isoformat(),
+                            "is_read": msg.is_read,
+                            "file_url": msg.file_url,
+                            "file_name": msg.file_name,
+                            "edited": msg.edited,
+                            "quoted_message_id": str(msg.quoted_message_id) if msg.quoted_message_id else None,
+                            "is_notification": msg.is_notification,
+                        },
+                    }
+                    anyio.from_thread.run(manager.broadcast_to_channel_members, payload_message, msg.channel_id, db)
+                except Exception as e:
+                    logger.warning(f"Failed to broadcast channel_invite: {e}")
         try:
             anyio.from_thread.run(manager.broadcast_to_channel_members, payload, channel_id, db)
         except Exception as e:
@@ -1192,6 +1384,7 @@ def leave_chat(
         raise HTTPException(status_code=403, detail="Создатель не может покинуть чат; удалите его")
     try:
         channel.members.remove(username)
+        flag_modified(channel, "members")
         db.commit()
         db.refresh(channel)
         payload = {
@@ -1202,6 +1395,37 @@ def leave_chat(
             }
         }
         logger.debug(f"Broadcasting user_left: {payload}")
+        try:
+            msg = Message(
+                channel_id=channel_id,
+                sender=username,
+                content=f"{username} покинул(а) группу",
+                is_read=False,
+                is_notification=True
+            )
+            db.add(msg)
+            db.commit()
+            db.refresh(msg)
+
+            payload_message = {
+                "type": "new_message",
+                "data": {
+                    "id": str(msg.id),
+                    "channel_id": str(msg.channel_id),
+                    "sender": msg.sender,
+                    "content": msg.content,
+                    "timestamp": msg.timestamp.isoformat(),
+                    "is_read": msg.is_read,
+                    "file_url": msg.file_url,
+                    "file_name": msg.file_name,
+                    "edited": msg.edited,
+                    "quoted_message_id": str(msg.quoted_message_id) if msg.quoted_message_id else None,
+                    "is_notification": msg.is_notification,
+                },
+            }
+            anyio.from_thread.run(manager.broadcast_to_channel_members, payload_message, msg.channel_id, db)
+        except Exception as e:
+            logger.warning(f"Failed to broadcast channel_invite: {e}")
         try:
             anyio.from_thread.run(manager.broadcast_to_channel_members, payload, channel_id, db)
         except Exception as e:
@@ -1518,14 +1742,14 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
                     db.rollback()
                     logger.error(f"Error saving message from WS for {username}: {e}", exc_info=True)
                     await websocket.send_json({"type": "error", "message": "Не удалось сохранить сообщение"})
-            elif action == "typing":
+            elif action == "typing_start" or action == "typing_stop":
                 channel_id_str = payload.get("channel_id")
                 if channel_id_str:
                     try:
                         channel_id = UUIDType(channel_id_str)
                         assert_membership(db, channel_id, username)
                         await manager.broadcast_to_channel_members({
-                            "type": "typing",
+                            "type": action,
                             "data": {"channel_id": str(channel_id), "user": username}
                         }, channel_id, db)
                     except (ValueError, HTTPException):

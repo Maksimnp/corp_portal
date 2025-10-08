@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { CountUp } from 'countup.js';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
 import { useAuth } from '../AuthContext';
 
 interface LoginResponse {
@@ -15,62 +16,208 @@ interface LoginError {
 }
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const YOUTUBE_URL = import.meta.env.VITE_YOUTUBE_CHANEL_URL;
+const YOUTUBE_URL = import.meta.env.VITE_YOUTUBE_CHANNEL_URL;
 const INST_URL = import.meta.env.VITE_INSTAGRAM_URL;
+
+// Улучшенный LoginModal с премиальным эффектом стекла
+const LoginModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onLogin: (username: string, password: string) => Promise<void>;
+  isLoading: boolean;
+  error: string | null;
+}> = ({ isOpen, onClose, onLogin, isLoading, error }) => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await onLogin(username, password);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      onClose();
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      setUsername('');
+      setPassword('');
+    }
+  }, [isOpen]);
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          className="fixed inset-0 bg-black/90 backdrop-blur-2xl flex items-center justify-center z-50 p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={onClose}
+          onKeyDown={handleKeyDown}
+          tabIndex={-1}
+          role="dialog"
+          aria-labelledby="login-modal-title"
+          aria-modal="true"
+        >
+          {/* Эффект фонового свечения */}
+          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-fuchsia-500/10 to-cyan-500/10 animate-pulse" />
+          
+          <motion.div
+            ref={modalRef}
+            className="relative w-full max-w-md p-8 rounded-3xl bg-gray-900/40 backdrop-blur-2xl border border-white/20 shadow-2xl shadow-cyan-500/30"
+            initial={{ scale: 0.8, opacity: 0, y: 50 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.8, opacity: 0, y: 50 }}
+            transition={{ duration: 0.4, type: "spring", damping: 25 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Эффект стеклянной поверхности */}
+            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/5 to-white/0 border border-white/10 backdrop-blur-2xl" />
+            
+            {/* Декоративные элементы */}
+            <div className="absolute -top-20 -right-20 w-40 h-40 bg-cyan-500/20 rounded-full blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-fuchsia-500/20 rounded-full blur-3xl" />
+
+            <button
+              onClick={onClose}
+              className="absolute top-5 right-5 text-gray-300 hover:text-cyan-400 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 rounded-full p-2 z-10 backdrop-blur-sm bg-white/5 border border-white/10"
+              aria-label="Закрыть модальное окно входа"
+              tabIndex={0}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div className="relative z-10 text-center mb-2">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-cyan-600 to-fuchsia-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-cyan-500/30">
+                <span className="text-white font-bold text-xl">МХП</span>
+              </div>
+              <h2 id="login-modal-title" className="text-2xl font-bold text-white">
+                Вход в систему
+              </h2>
+              <p className="text-gray-300 mt-2">Введите ваши учетные данные</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="relative z-10 space-y-6 mt-8">
+              <div>
+                <label htmlFor="username" className="block text-sm font-medium mb-3 text-gray-200">
+                  Логин
+                </label>
+                <input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full px-5 py-4 rounded-xl bg-white/5 backdrop-blur-md border border-white/20 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/30 focus:border-transparent text-white placeholder-gray-400 transition-all duration-300 focus:outline-none focus:shadow-lg focus:shadow-cyan-500/20"
+                  placeholder="Введите логин"
+                  disabled={isLoading}
+                  aria-required="true"
+                  autoComplete="username"
+                  aria-describedby="username-help"
+                />
+              </div>
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium mb-3 text-gray-200">
+                  Пароль
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-5 py-4 rounded-xl bg-white/5 backdrop-blur-md border border-white/20 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/30 focus:border-transparent text-white placeholder-gray-400 transition-all duration-300 focus:outline-none focus:shadow-lg focus:shadow-cyan-500/20"
+                  placeholder="Введите пароль"
+                  disabled={isLoading}
+                  aria-required="true"
+                  autoComplete="current-password"
+                  aria-describedby="password-help"
+                />
+              </div>
+
+              {error && (
+                <motion.div
+                  className="p-4 rounded-xl bg-red-500/20 backdrop-blur-md border border-red-500/40 text-red-200 text-sm"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  role="alert"
+                  aria-live="polite"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {error}
+                  </div>
+                </motion.div>
+              )}
+
+              <motion.button
+                type="submit"
+                disabled={isLoading}
+                className={`w-full py-4 mt-2 bg-gradient-to-r from-cyan-600 to-fuchsia-600 text-white rounded-xl font-semibold shadow-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-900 relative overflow-hidden ${
+                  isLoading ? 'opacity-70 cursor-not-allowed' : 'hover:shadow-cyan-500/25 hover:-translate-y-1'
+                }`}
+                whileHover={!isLoading ? { scale: 1.02 } : {}}
+                whileTap={!isLoading ? { scale: 0.98 } : {}}
+                tabIndex={0}
+                aria-label={isLoading ? 'Загрузка...' : 'Войти в систему'}
+              >
+                {/* Эффект блеска при наведении */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 transform translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                
+                {isLoading ? (
+                  <span className="flex items-center justify-center gap-3 relative z-10">
+                    <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                    </svg>
+                    Загрузка...
+                  </span>
+                ) : (
+                  <span className="relative z-10">Войти</span>
+                )}
+              </motion.button>
+            </form>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
 
 const HomePage: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const totalRequestsRef = useRef<HTMLSpanElement>(null);
   const completedRequestsRef = useRef<HTMLSpanElement>(null);
   const completionRateRef = useRef<HTMLSpanElement>(null);
-  const progressCircleRef = useRef<SVGCircleElement>(null);
   const navigate = useNavigate();
   const { isAuthenticated, login, logout } = useAuth();
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [isNavOpen, setIsNavOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const savedMode = localStorage.getItem('darkMode');
-      return savedMode !== null ? savedMode === 'true' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    return false;
-  });
   const [activeFeature, setActiveFeature] = useState(0);
 
-  // Toggle dark mode
-  const toggleDarkMode = () => {
-    const newMode = !darkMode;
-    setDarkMode(newMode);
-    localStorage.setItem('darkMode', String(newMode));
-  };
-
-  // Apply dark mode class to body
-  useEffect(() => {
-    document.body.classList.toggle('dark', darkMode);
-    document.body.classList.toggle('light', !darkMode);
-  }, [darkMode]);
+  // Parallax scroll effects
+  const { scrollYProgress } = useScroll();
+  const heroParallax = useTransform(scrollYProgress, [0, 0.5], [0, -100]);
+  const featureParallax = useTransform(scrollYProgress, [0, 1], [0, 50]);
 
   const openLoginModal = () => setIsLoginModalOpen(true);
   const closeLoginModal = () => {
     setIsLoginModalOpen(false);
-    setUsername('');
-    setPassword('');
     setError(null);
     setIsLoading(false);
   };
-  const openModal = () => setIsModalOpen(true);
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setUsername('');
-    setPassword('');
-    setError(null);
-  };
 
-  const handleLogin = async () => {
+  const handleLogin = async (username: string, password: string) => {
     if (isLoading) return;
     if (!username.trim() || !password.trim()) {
       setError('Пожалуйста, заполните логин и пароль.');
@@ -80,6 +227,7 @@ const HomePage: React.FC = () => {
     setIsLoading(true);
     const maxAttempts = 3;
     const delayMs = 1000;
+    
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
         const response = await fetch(`${BASE_URL}/auth/login`, {
@@ -87,7 +235,9 @@ const HomePage: React.FC = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, password }),
         });
+        
         const data = await response.json();
+        
         if (response.ok) {
           const { access_token, role, full_name = username, department } = data as LoginResponse;
           login(access_token, String(role));
@@ -95,16 +245,19 @@ const HomePage: React.FC = () => {
           localStorage.setItem('role', String(role));
           localStorage.setItem('username', full_name);
           localStorage.setItem('department', department);
-          closeModal();
+          closeLoginModal();
           navigate('/dashboard');
           return;
         }
+        
         const errorData = data as LoginError;
         const errorMessage = errorData.detail || `Ошибка: ${response.status}`;
+        
         if (response.status === 401 && attempt < maxAttempts - 1) {
           await new Promise((resolve) => setTimeout(resolve, delayMs));
           continue;
         }
+        
         setError(
           response.status === 401 ? 'Неверный логин или пароль. Превышено количество попыток.' :
           response.status === 422 ? `Ошибка валидации: ${errorMessage}` :
@@ -130,672 +283,729 @@ const HomePage: React.FC = () => {
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !isLoading) {
-      handleLogin();
-    }
-  };
-
   const handleLogout = () => {
     logout();
     navigate('/');
   };
 
-  // Initialize animations and effects
-  useEffect(() => {
-    const totalRequests = new CountUp(totalRequestsRef.current!, 1247, { duration: 2 });
-    const completedRequests = new CountUp(completedRequestsRef.current!, 1182, { duration: 2 });
-    const completionRate = new CountUp(completionRateRef.current!, 95, { duration: 2, suffix: '%' });
-    if (!totalRequests.error) totalRequests.start();
-    if (!completedRequests.error) completedRequests.start();
-    if (!completionRate.error) completionRate.start();
-
-    if (progressCircleRef.current) {
-      const circumference = 2 * Math.PI * 54;
-      const completionRateValue = 95;
-      const offset = circumference - (completionRateValue / 100) * circumference;
-      progressCircleRef.current.style.strokeDasharray = `${circumference}`;
-      progressCircleRef.current.style.strokeDashoffset = `${offset}`;
-      progressCircleRef.current.style.transition = 'stroke-dashoffset 2s ease-in-out';
-    }
-
+  // Оптимизированная анимация частиц с useCallback
+  const initParticles = useCallback(() => {
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (canvas && ctx) {
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const resizeCanvas = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
-      const particles: Array<{
-        x: number;
-        y: number;
-        size: number;
-        speedX: number;
-        speedY: number;
-        opacity: number;
-        color: string;
-      }> = [];
-      
-      const colors = darkMode 
-        ? ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9c74f', '#ffafcc'] 
-        : ['#e63946', '#2a9d8f', '#1d3557', '#f4a261', '#e76f51'];
-      
-      for (let i = 0; i < 100; i++) {
-        const color = colors[Math.floor(Math.random() * colors.length)];
-        particles.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
-          size: Math.random() * 3 + 1,
-          speedX: Math.random() * 2 - 1,
-          speedY: Math.random() * 2 - 1,
-          opacity: Math.random() * 0.6 + 0.2,
-          color
-        });
-      }
-      
-      let animationFrameId: number;
-      const animate = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Create gradient background
-        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-        if (darkMode) {
-          gradient.addColorStop(0, '#0f172a');
-          gradient.addColorStop(1, '#1e293b');
-        } else {
-          gradient.addColorStop(0, '#f8fafc');
-          gradient.addColorStop(1, '#e2e8f0');
-        }
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        particles.forEach((particle) => {
-          particle.x += particle.speedX;
-          particle.y += particle.speedY;
-          
-          if (particle.x < 0 || particle.x > canvas.width) particle.speedX *= -1;
-          if (particle.y < 0 || particle.y > canvas.height) particle.speedY *= -1;
-          
-          // Draw glow effect
-          ctx.beginPath();
-          ctx.arc(particle.x, particle.y, particle.size * 2, 0, Math.PI * 2);
-          const glowGradient = ctx.createRadialGradient(
-            particle.x, particle.y, 0, 
-            particle.x, particle.y, particle.size * 2
-          );
-          glowGradient.addColorStop(0, `${particle.color}40`);
-          glowGradient.addColorStop(1, 'transparent');
-          ctx.fillStyle = glowGradient;
-          ctx.fill();
-          
-          // Draw particle
-          ctx.beginPath();
-          ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-          ctx.fillStyle = particle.color;
-          ctx.fill();
-        });
-        
-        animationFrameId = requestAnimationFrame(animate);
-      };
-      
-      animate();
-      
-      const handleResize = () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-      };
-      
-      window.addEventListener('resize', handleResize);
-      return () => {
-        window.removeEventListener('resize', handleResize);
-        cancelAnimationFrame(animationFrameId);
-      };
-    }
-  }, [darkMode]);
+    };
 
-  // Auto-rotate features
+    resizeCanvas();
+
+    const isMobile = window.innerWidth < 768;
+    const particleCount = isMobile ? 40 : 80;
+    const particles: Array<{
+      x: number;
+      y: number;
+      size: number;
+      speedX: number;
+      speedY: number;
+      opacity: number;
+      color: string;
+    }> = [];
+
+    const colors = ['#06B6D4', '#D946EF', '#22D3EE', '#34D399'];
+
+    for (let i = 0; i < particleCount; i++) {
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 3 + 1,
+        speedX: Math.random() * 0.8 - 0.4,
+        speedY: Math.random() * 0.8 - 0.4,
+        opacity: Math.random() * 0.5 + 0.3,
+        color,
+      });
+    }
+
+    let animationFrameId: number;
+
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Улучшенный градиентный фон
+      const gradient = ctx.createRadialGradient(
+        canvas.width / 2, 
+        canvas.height / 2, 
+        0, 
+        canvas.width / 2, 
+        canvas.height / 2, 
+        Math.max(canvas.width, canvas.height) * 0.8
+      );
+      
+      gradient.addColorStop(0, 'rgba(15, 23, 42, 0.8)');
+      gradient.addColorStop(0.5, 'rgba(30, 41, 59, 0.6)');
+      gradient.addColorStop(1, 'rgba(51, 65, 85, 0.8)');
+      
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      particles.forEach((particle) => {
+        particle.x += particle.speedX;
+        particle.y += particle.speedY;
+
+        if (particle.x < 0 || particle.x > canvas.width) particle.speedX *= -1;
+        if (particle.y < 0 || particle.y > canvas.height) particle.speedY *= -1;
+
+        // Добавляем свечение частицам
+        ctx.shadowColor = particle.color;
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        ctx.fillStyle = particle.color;
+        ctx.globalAlpha = particle.opacity;
+        ctx.fill();
+      });
+
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+      animationFrameId = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    const handleResize = () => {
+      resizeCanvas();
+    };
+
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
+
   useEffect(() => {
+    const cleanup = initParticles();
+    return cleanup;
+  }, [initParticles]);
+
+  useEffect(() => {
+    if (totalRequestsRef.current && completedRequestsRef.current && completionRateRef.current) {
+      const totalRequests = new CountUp(totalRequestsRef.current, 1247, { duration: 2.5, separator: ' ' });
+      const completedRequests = new CountUp(completedRequestsRef.current, 1182, { duration: 2.5, separator: ' ' });
+      const completionRate = new CountUp(completionRateRef.current, 95, { duration: 2.5, suffix: '%' });
+
+      if (!totalRequests.error) totalRequests.start();
+      if (!completedRequests.error) completedRequests.start();
+      if (!completionRate.error) completionRate.start();
+    }
+  }, []);
+
+  useEffect(() => {
+    const featureCount = features.length;
+    if (featureCount === 0) return;
+    
     const interval = setInterval(() => {
-      setActiveFeature((prev) => (prev + 1) % 4);
-    }, 4000);
+      setActiveFeature((prev) => (prev + 1) % featureCount);
+    }, 6000);
+    
     return () => clearInterval(interval);
   }, []);
 
+  const features = [
+    {
+      icon: (
+        <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+      ),
+      title: 'Умная система заявок',
+      description: 'Интуитивный интерфейс для создания, отслеживания и управления заявками с автоматической маршрутизацией.',
+      color: 'from-cyan-500 to-blue-600',
+    },
+    {
+      icon: (
+        <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      ),
+      title: 'Центр администрирования',
+      description: 'Полный контроль над системой, управление пользователями и настройка рабочих процессов.',
+      color: 'from-blue-500 to-cyan-500',
+    },
+    {
+      icon: (
+        <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+      ),
+      title: 'ИИ-ассистент (В разработке)',
+      description: 'Интеллектуальная система для автоматической категоризации и обработки обращений.',
+      color: 'from-emerald-500 to-cyan-500',
+    },
+    {
+      icon: (
+        <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      ),
+      title: 'Аналитика и отчетность (В разработке)',
+      description: 'Подробная аналитика и интерактивные дашборды для повышения эффективности.',
+      color: 'from-fuchsia-500 to-purple-600',
+    },
+  ];
+
   return (
-    <div className={`min-h-screen font-sans transition-colors duration-500 ${darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'}`}>
-      {/* Header */}
-      <header className={`py-4 px-6 sticky top-0 z-50 ${darkMode ? 'bg-gray-900/95' : 'bg-white/95'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'} backdrop-blur-md`}>
+    <div className="min-h-screen font-sans antialiased bg-slate-900 text-gray-100 overflow-x-hidden">
+      {/* Header с улучшенным эффектом стекла */}
+      <motion.header
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.6, ease: 'easeOut' }}
+        className="fixed top-0 w-full z-50 py-4 px-6"
+      >
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 flex items-center justify-center shadow-lg animate-pulse-slow">
-              <span className="text-white font-bold text-lg">МХП</span>
+          <motion.div
+            className="flex items-center gap-3"
+            whileHover={{ scale: 1.03 }}
+            transition={{ type: 'spring', stiffness: 300 }}
+          >
+            <div className="relative">
+              <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/20 shadow-2xl shadow-cyan-500/20 flex items-center justify-center">
+                <span className="text-white font-extrabold text-lg bg-gradient-to-r from-cyan-500 to-fuchsia-500 bg-clip-text text-transparent">МХП</span>
+              </div>
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
             </div>
-            <span className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-              Минскхлебпром
-            </span>
-          </div>
-          
-          <nav className="hidden md:flex items-center gap-8">
-            <a href="#features" className={`text-sm font-semibold hover:text-red-500 transition-all duration-300 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              Возможности
-            </a>
-            <a href="#stats" className={`text-sm font-semibold hover:text-red-500 transition-all duration-300 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              Результаты
-            </a>
-            <a href={INST_URL} className={`text-sm font-semibold hover:text-red-500 transition-all duration-300 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              Instagram
-            </a>
-            <a href={YOUTUBE_URL} className={`text-sm font-semibold hover:text-red-500 transition-all duration-300 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-              YouTube
-            </a>
+            <span className="text-xl font-bold bg-gradient-to-r from-cyan-500 to-fuchsia-500 bg-clip-text text-transparent hidden md:block">Минскхлебпром</span>
+          </motion.div>
+
+          {/* Кнопка бургер меню для мобильных */}
+          <motion.button
+            onClick={() => setIsNavOpen(!isNavOpen)}
+            className="p-3 rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/20 shadow-lg md:hidden z-60"
+            whileHover={{ backgroundColor: 'rgba(255,255,255,0.15)', scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            aria-label="Открыть меню"
+            aria-expanded={isNavOpen}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isNavOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} />
+            </svg>
+          </motion.button>
+
+          {/* Навигация для десктопа */}
+          <nav className="hidden md:flex items-center gap-2">
+            {['features', 'stats', 'about'].map((section) => (
+              <motion.a
+                key={section}
+                href={`#${section}`}
+                className="px-4 py-2 rounded-xl text-sm font-medium text-gray-200 hover:text-cyan-400 transition-all duration-300 relative group focus:outline-none focus:ring-2 focus:ring-cyan-500/30 backdrop-blur-sm"
+                whileHover={{ y: -2 }}
+                whileFocus={{ scale: 1.05 }}
+              >
+                <div className="absolute inset-0 bg-white/5 rounded-xl border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <span className="relative z-10">
+                  {section === 'features' ? 'Возможности' : section === 'stats' ? 'Результаты' : 'О проекте'}
+                </span>
+                <span className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-cyan-500 to-fuchsia-500 transition-all group-hover:w-3/4"></span>
+              </motion.a>
+            ))}
           </nav>
-          
-          <div className="flex items-center gap-4">
+
+          <div className="hidden md:flex items-center gap-3">
             {isAuthenticated ? (
               <>
-                <button
+                <motion.button
                   onClick={() => navigate('/dashboard')}
-                  className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-lg font-medium hover:shadow-lg transition-all duration-300 hover:scale-105 shadow-md"
+                  className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-fuchsia-600 text-white rounded-2xl font-medium shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900 relative overflow-hidden"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
-                  Панель управления
-                </button>
-                <button
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300" />
+                  <svg className="w-4 h-4 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5a2 2 0 012-2h4a2 2 0 012 2v6H8V5z" /></svg>
+                  <span className="relative z-10">Панель</span>
+                </motion.button>
+                <motion.button
                   onClick={handleLogout}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 dark:text-gray-300 dark:border-gray-600 rounded-lg font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-300"
+                  className="px-6 py-3 rounded-2xl font-medium border transition-all duration-300 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-slate-900 border-white/20 text-gray-200 hover:bg-white/10 backdrop-blur-sm"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                 >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                   Выйти
-                </button>
+                </motion.button>
               </>
             ) : (
-              <button
+              <motion.button
                 onClick={openLoginModal}
-                className="px-4 py-2 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-lg font-medium hover:shadow-lg transition-all duration-300 hover:scale-105 shadow-md"
+                className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-fuchsia-600 text-white rounded-2xl font-medium shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900 relative overflow-hidden"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
-                Войти
-              </button>
-            )}
-            <button
-              onClick={toggleDarkMode}
-              className={`p-3 rounded-xl ${darkMode ? 'bg-gray-800 text-yellow-400' : 'bg-gray-200 text-gray-700'} transition-all duration-300 hover:scale-110`}
-            >
-              {darkMode ? (
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M10 2a1 1 0 011 1v1a1 1 0 01-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-                </svg>
-              )}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Hero Section */}
-      <section className="min-h-screen flex items-center justify-center relative overflow-hidden pt-16">
-        <div id="bg-canvas" className="absolute inset-0 z-0">
-          <canvas ref={canvasRef} id="canvas" className="w-full h-full" />
-        </div>
-        
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-gray-900/80 dark:to-gray-900/90 z-1"></div>
-        
-        <div className="relative z-10 max-w-6xl mx-auto px-6 text-center">
-          <div className="inline-block px-6 py-3 rounded-full bg-red-500/10 dark:bg-red-500/20 backdrop-blur-sm mb-8 border border-red-500/30 animate-float">
-            <span className="text-red-500 dark:text-red-400 font-semibold">Инновационная платформа</span>
-          </div>
-          
-          <h1 className={`text-5xl sm:text-6xl md:text-7xl font-bold mb-8 ${darkMode ? 'text-white' : 'text-gray-800'} leading-tight`}>
-            Корпоративный портал{' '}
-            <span className="bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent animate-gradient">
-              Минскхлебпром
-            </span>
-          </h1>
-          
-          <p className={`text-xl md:text-2xl mb-12 max-w-3xl mx-auto ${darkMode ? 'text-gray-300' : 'text-gray-600'} leading-relaxed`}>
-            Современное решение для автоматизации бизнес-процессов и повышения эффективности работы предприятия
-          </p>
-          
-          <div className="flex flex-col sm:flex-row justify-center gap-6">
-            <a
-              href="#features"
-              className="px-8 py-4 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-xl font-semibold hover:shadow-2xl transition-all duration-300 hover:scale-105 shadow-lg flex items-center justify-center gap-3 group"
-            >
-              <span>Узнать больше</span>
-              <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </a>
-            
-            {!isAuthenticated && (
-              <button
-                onClick={openLoginModal}
-                className={`px-8 py-4 rounded-xl font-semibold border-2 transition-all duration-300 hover:scale-105 flex items-center justify-center gap-3 group ${
-                  darkMode 
-                    ? 'border-red-500 text-white hover:bg-red-500' 
-                    : 'border-red-500 text-red-500 hover:bg-red-500 hover:text-white'
-                }`}
-              >
-                <span>Войти в систему</span>
-                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                </svg>
-              </button>
+                <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300" />
+                <svg className="w-4 h-4 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg>
+                <span className="relative z-10">Войти</span>
+              </motion.button>
             )}
           </div>
         </div>
-        
-        <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 z-10 animate-bounce">
-          <div className={`w-8 h-12 border-2 rounded-full flex justify-center ${darkMode ? 'border-red-500' : 'border-red-500'}`}>
-            <div className={`w-1 h-3 rounded-full mt-2 ${darkMode ? 'bg-red-500' : 'bg-red-500'} animate-ping`}></div>
-          </div>
-        </div>
-      </section>
 
-      {/* Features Section */}
-      <section id="features" className="py-20 lg:py-28 bg-white dark:bg-gray-900 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-gray-50 to-transparent dark:from-gray-900"></div>
-        
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="text-center mb-20">
-            <h2 className="text-4xl lg:text-5xl font-bold mb-6 text-gray-800 dark:text-white">
-              Наши <span className="text-red-500">возможности</span>
-            </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-              Современные инструменты для автоматизации и оптимизации рабочих процессов
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-6xl mx-auto">
-            <div className="flex group" data-aos="fade-up">
-              <div className={`mr-6 mt-2 w-14 h-14 rounded-xl flex items-center justify-center ${darkMode ? 'bg-red-500/20' : 'bg-red-100'} text-red-500 group-hover:scale-110 transition-transform duration-300`}>
-                <span className="text-2xl">📝</span>
-              </div>
-              <div>
-                <h3 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-white group-hover:text-red-500 transition-colors duration-300">Умная система заявок</h3>
-                <p className="text-gray-600 dark:text-gray-300 text-lg">
-                  Интуитивный интерфейс для создания, отслеживания и управления заявками с автоматической маршрутизацией и приоритизацией
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex group" data-aos="fade-up" data-aos-delay="100">
-              <div className={`mr-6 mt-2 w-14 h-14 rounded-xl flex items-center justify-center ${darkMode ? 'bg-blue-500/20' : 'bg-blue-100'} text-blue-500 group-hover:scale-110 transition-transform duration-300`}>
-                <span className="text-2xl">👨‍💼</span>
-              </div>
-              <div>
-                <h3 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-white group-hover:text-blue-500 transition-colors duration-300">Центр администрирования</h3>
-                <p className="text-gray-600 dark:text-gray-300 text-lg">
-                  Полный контроль над системой, управление пользователями, ролями и настройка сложных рабочих процессов
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex group" data-aos="fade-up" data-aos-delay="200">
-              <div className={`mr-6 mt-2 w-14 h-14 rounded-xl flex items-center justify-center ${darkMode ? 'bg-green-500/20' : 'bg-green-100'} text-green-500 group-hover:scale-110 transition-transform duration-300`}>
-                <span className="text-2xl">🤖</span>
-              </div>
-              <div>
-                <h3 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-white group-hover:text-green-500 transition-colors duration-300">ИИ-ассистент</h3>
-                <p className="text-gray-600 dark:text-gray-300 text-lg">
-                  Интеллектуальная система для автоматической категоризации, анализа и обработки обращений с машинным обучением
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex group" data-aos="fade-up" data-aos-delay="300">
-              <div className={`mr-6 mt-2 w-14 h-14 rounded-xl flex items-center justify-center ${darkMode ? 'bg-yellow-500/20' : 'bg-yellow-100'} text-yellow-500 group-hover:scale-110 transition-transform duration-300`}>
-                <span className="text-2xl">📊</span>
-              </div>
-              <div>
-                <h3 className="text-2xl font-semibold mb-4 text-gray-800 dark:text-white group-hover:text-yellow-500 transition-colors duration-300">Аналитика и отчетность</h3>
-                <p className="text-gray-600 dark:text-gray-300 text-lg">
-                  Детальная аналитика, customizable отчеты и интерактивные дашборды для мониторинга эффективности бизнес-процессов
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats Section */}
-      <section id="stats" className="py-20 lg:py-28 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 relative overflow-hidden">
-        <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
-        
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="max-w-5xl mx-auto">
-            <h2 className="text-4xl lg:text-5xl font-bold mb-16 text-center text-gray-800 dark:text-white">
-              Наши <span className="text-red-500">результаты</span>
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-              <div className="text-center group" data-aos="zoom-in">
-                <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl transform transition-all duration-500 group-hover:-translate-y-3">
-                  <span
-                    ref={totalRequestsRef}
-                    className="text-6xl font-bold text-red-500 block mb-4"
-                  >
-                    0
-                  </span>
-                  <h3 className="text-xl font-semibold mb-3 text-gray-800 dark:text-white">Всего запросов</h3>
-                  <p className="text-gray-600 dark:text-gray-300">
-                    Обработано системой с момента запуска платформы
-                  </p>
-                </div>
-              </div>
-              
-              <div className="text-center group" data-aos="zoom-in" data-aos-delay="150">
-                <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl transform transition-all duration-500 group-hover:-translate-y-3">
-                  <span
-                    ref={completedRequestsRef}
-                    className="text-6xl font-bold text-green-500 block mb-4"
-                  >
-                    0
-                  </span>
-                  <h3 className="text-xl font-semibold mb-3 text-gray-800 dark:text-white">Выполнено</h3>
-                  <p className="text-gray-600 dark:text-gray-300">
-                    Успешно закрытых и выполненных запросов пользователей
-                  </p>
-                </div>
-              </div>
-              
-              <div className="text-center group" data-aos="zoom-in" data-aos-delay="300">
-                <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl transform transition-all duration-500 group-hover:-translate-y-3">
-                  <span
-                    ref={completionRateRef}
-                    className="text-6xl font-bold text-blue-500 block mb-4"
-                  >
-                    0%
-                  </span>
-                  <h3 className="text-xl font-semibold mb-3 text-gray-800 dark:text-white">Эффективность</h3>
-                  <p className="text-gray-600 dark:text-gray-300">
-                    Общий показатель эффективности работы системы и сотрудников
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 lg:py-28 bg-gradient-to-r from-red-500 to-orange-500 relative overflow-hidden">
-        <div className="absolute inset-0 bg-dot-pattern opacity-20"></div>
-        
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <h2 className="text-4xl lg:text-5xl font-bold mb-6 text-white">
-            Готовы начать работу?
-          </h2>
-          <p className="text-xl mb-10 max-w-2xl mx-auto text-red-100">
-            Присоединяйтесь к платформе для эффективной организации рабочих процессов и повышения производительности
-          </p>
-          {!isAuthenticated ? (
-            <button
-              onClick={openLoginModal}
-              className="px-10 py-5 bg-white text-red-500 rounded-2xl font-bold text-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 shadow-lg"
+        {/* Мобильное навигационное меню с эффектом стекла */}
+        <AnimatePresence>
+          {isNavOpen && (
+            <motion.nav
+              className="absolute top-0 left-0 w-full h-screen bg-slate-900/95 backdrop-blur-2xl flex flex-col items-center justify-center gap-12 md:hidden z-40"
+              initial={{ opacity: 0, y: "-100vh" }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: "-100vh" }}
+              transition={{ duration: 0.5, ease: "easeInOut" }}
             >
-              Войти в систему
-            </button>
-          ) : (
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="px-10 py-5 bg-gray-800 text-white rounded-2xl font-bold text-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 shadow-lg"
-            >
-              Перейти в панель управления
-            </button>
-          )}
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer id="about" className="py-16 bg-gray-900 text-white">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
-            <div className="md:col-span-2">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">MXP</span>
-                </div>
-                <span className="text-2xl font-bold">Минскхлебпром</span>
-              </div>
-              <p className="text-gray-400 mb-6 text-lg">
-                Корпоративный портал для автоматизации бизнес-процессов и эффективного взаимодействия сотрудников предприятия. 
-                Инновационные решения для повышения производительности и оптимизации workflows.
-              </p>
-              <div className="flex items-center gap-6">
-                <a
-                  href={INST_URL}
+              {/* Фоновые декоративные элементы */}
+              <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-cyan-500/20 rounded-full blur-3xl" />
+              <div className="absolute bottom-1/4 right-1/4 w-32 h-32 bg-fuchsia-500/20 rounded-full blur-3xl" />
+              
+              <button 
+                onClick={() => setIsNavOpen(false)} 
+                className="absolute top-6 right-6 text-2xl text-gray-300 hover:text-cyan-400 p-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20"
+                aria-label="Закрыть меню"
+              >
+                ✕
+              </button>
+              {['features', 'stats', 'about'].map((section) => (
+                <motion.a
+                  key={section}
+                  href={`#${section}`}
+                  className="text-2xl font-medium text-gray-200 hover:text-cyan-400 transition-colors py-4 px-8 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:border-cyan-500/30"
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setIsNavOpen(false)}
+                >
+                  {section === 'features' ? 'Возможности' : section === 'stats' ? 'Результаты' : 'О проекте'}
+                </motion.a>
+              ))}
+              <div className="flex gap-6 mt-8">
+                <motion.a 
+                  href={INST_URL} 
+                  whileHover={{ scale: 1.2, rotate: 10 }} 
+                  className="text-3xl text-gray-300 hover:text-purple-400 p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10"
                   aria-label="Instagram"
-                  className="text-2xl hover:text-red-400 transition-all duration-300 hover:scale-110"
                 >
                   📸
-                </a>
-                <a
-                  href={YOUTUBE_URL}
+                </motion.a>
+                <motion.a 
+                  href={YOUTUBE_URL} 
+                  whileHover={{ scale: 1.2, rotate: -10 }} 
+                  className="text-3xl text-gray-300 hover:text-red-400 p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10"
                   aria-label="YouTube"
-                  className="text-2xl hover:text-red-400 transition-all duration-300 hover:scale-110"
                 >
-                  ▶️
-                </a>
+                  🎥
+                </motion.a>
+              </div>
+              {!isAuthenticated && (
+                <motion.button
+                  onClick={openLoginModal}
+                  className="px-8 py-4 mt-8 bg-gradient-to-r from-cyan-600 to-fuchsia-600 text-white rounded-2xl font-medium text-lg shadow-lg"
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Войти в систему
+                </motion.button>
+              )}
+            </motion.nav>
+          )}
+        </AnimatePresence>
+      </motion.header>
+
+      {/* Hero Section с улучшенным стеклянным эффектом */}
+      <motion.section
+        className="min-h-screen flex items-center justify-center relative overflow-hidden pt-20"
+        style={{ y: heroParallax }}
+      >
+        <canvas ref={canvasRef} className="absolute inset-0 z-0" />
+        
+        {/* Улучшенные градиентные наложения */}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent z-5" />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-slate-900/60 to-transparent z-5" />
+        
+        {/* Декоративные элементы фона */}
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-fuchsia-500/10 rounded-full blur-3xl animate-pulse" />
+
+        <motion.div
+          className="relative z-20 max-w-6xl mx-auto px-6 text-center"
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.9, ease: 'easeOut', delay: 0.2 }}
+        >
+          <motion.div
+            className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-white/10 backdrop-blur-2xl border border-white/20 text-cyan-300 font-medium mb-8"
+            animate={{ y: [-3, 3] }}
+            transition={{ repeat: Infinity, repeatType: 'reverse', duration: 2, ease: 'easeInOut' }}
+          >
+            <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            Инновационная платформа 2.0
+          </motion.div>
+
+          <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black mb-8 leading-tight">
+            <span className="bg-gradient-to-r from-cyan-500 via-fuchsia-500 to-cyan-500 bg-clip-text text-transparent bg-size-200 animate-gradient">
+              Корпоративный портал
+            </span>
+            <br />
+            <span className="text-white drop-shadow-2xl">Минскхлебпром</span>
+          </h1>
+
+          <p className="text-xl md:text-2xl mb-12 max-w-3xl mx-auto text-gray-200 font-light leading-relaxed">
+            Переосмысление эффективности. Единое пространство для ваших идей и задач.
+          </p>
+
+          <div className="flex flex-col sm:flex-row justify-center gap-6">
+            <motion.a
+              href="#features"
+              className="group px-8 py-4 bg-white/10 backdrop-blur-2xl border border-white/20 text-white rounded-2xl font-semibold shadow-lg hover:shadow-cyan-500/20 transition-all duration-300 flex items-center justify-center gap-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900 relative overflow-hidden"
+              whileHover={{ scale: 1.05, y: -5 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-fuchsia-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <span className="relative z-10">Исследовать возможности</span>
+              <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </motion.a>
+
+            {!isAuthenticated && (
+              <motion.button
+                onClick={openLoginModal}
+                className="group px-8 py-4 bg-gradient-to-r from-cyan-600 to-fuchsia-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900 relative overflow-hidden"
+                whileHover={{ scale: 1.05, y: -5 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <span className="relative z-10">Начать работу</span>
+                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+              </motion.button>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Индикатор скролла */}
+        <motion.div
+          className="absolute bottom-10 left-1/2 transform -translate-x-1/2 z-20"
+          animate={{ y: [0, 10, 0] }}
+          transition={{ repeat: Infinity, duration: 2 }}
+        >
+          <div className="w-6 h-10 border-2 border-cyan-500/60 rounded-full flex justify-center backdrop-blur-sm bg-white/5">
+            <motion.div
+              className="w-1 h-3 bg-cyan-500 rounded-full mt-2"
+              animate={{ opacity: [0, 1, 0] }}
+              transition={{ repeat: Infinity, duration: 2, delay: 0.5 }}
+            />
+          </div>
+        </motion.div>
+      </motion.section>
+
+      {/* Features Section с улучшенными стеклянными карточками */}
+      <motion.section
+        id="features"
+        className="py-32 relative overflow-hidden"
+      >
+        {/* Фоновые декоративные элементы */}
+        <div className="absolute top-0 left-0 w-72 h-72 bg-cyan-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-72 h-72 bg-fuchsia-500/10 rounded-full blur-3xl" />
+        
+        <div className="container mx-auto px-6 relative z-10">
+          <motion.div
+            className="text-center mb-20"
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-100px' }}
+            transition={{ duration: 0.8 }}
+          >
+            <h2 className="text-4xl lg:text-5xl font-black mb-6">
+              <span className="bg-gradient-to-r from-cyan-500 to-fuchsia-500 bg-clip-text text-transparent">Возможности</span> будущего
+            </h2>
+            <p className="text-xl text-gray-200 max-w-3xl mx-auto font-light leading-relaxed">
+              Инструменты, которые преобразуют ваш рабочий процесс
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            {/* Текстовая часть */}
+            <div className="space-y-8">
+              {features.map((feature, index) => (
+                <motion.div
+                  key={index}
+                  className={`p-6 rounded-2xl backdrop-blur-2xl border transition-all duration-500 cursor-pointer group relative overflow-hidden ${
+                    activeFeature === index
+                      ? `border-cyan-500/50 shadow-2xl shadow-cyan-500/30 bg-gradient-to-r ${feature.color}`
+                      : 'border-white/20 bg-white/5 hover:border-cyan-500/30 hover:bg-white/10'
+                  }`}
+                  initial={{ opacity: 0, x: -50 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true, margin: '-50px' }}
+                  transition={{ duration: 0.5, delay: index * 0.2 }}
+                  onClick={() => setActiveFeature(index)}
+                  onKeyDown={(e) => e.key === 'Enter' && setActiveFeature(index)}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`Выбрать функцию: ${feature.title}`}
+                >
+                  {/* Эффект блеска */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 transform translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                  
+                  <div className="flex items-start gap-4 relative z-10">
+                    <div className={`p-3 rounded-xl backdrop-blur-sm border flex-shrink-0 transition-colors ${
+                      activeFeature === index 
+                        ? 'bg-white/20 border-white/30 text-white' 
+                        : 'bg-white/10 border-white/20 text-cyan-400 group-hover:text-cyan-300'
+                    }`}>
+                      {feature.icon}
+                    </div>
+                    <div>
+                      <h3 className={`text-xl font-semibold mb-2 transition-colors ${
+                        activeFeature === index ? 'text-white' : 'text-white group-hover:text-cyan-100'
+                      }`}>
+                        {feature.title}
+                      </h3>
+                      <p className={`font-light leading-relaxed ${
+                        activeFeature === index ? 'text-white/90' : 'text-gray-300 group-hover:text-gray-200'
+                      }`}>
+                        {feature.description}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Визуальная часть */}
+            <motion.div
+              className="relative"
+              style={{ y: featureParallax }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true, margin: '-100px' }}
+              transition={{ duration: 0.8 }}
+            >
+              <div className="relative w-full h-[400px] bg-white/10 backdrop-blur-2xl rounded-2xl border border-white/20 overflow-hidden shadow-2xl shadow-cyan-500/20">
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-fuchsia-500/20" />
+                <div className="flex items-center justify-center h-full p-4">
+                  <motion.video
+                    src="/mocaup.mp4"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    className="max-w-full max-h-full object-contain rounded-lg"
+                    animate={{ scale: activeFeature % 2 === 0 ? 1.05 : 1 }}
+                    transition={{ duration: 6, repeat: Infinity, repeatType: 'reverse' }}
+                  >
+                    Ваш браузер не поддерживает видео.
+                  </motion.video>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Stats Section с улучшенным стеклянным дизайном */}
+      <motion.section
+        id="stats"
+        className="py-32 relative bg-gradient-to-b from-slate-900 to-slate-800"
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true, margin: '-100px' }}
+        transition={{ duration: 0.8 }}
+      >
+        <div className="container mx-auto px-6">
+          <motion.div
+            className="text-center mb-20"
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+          >
+            <h2 className="text-4xl lg:text-5xl font-black mb-6">
+              Наши <span className="bg-gradient-to-r from-cyan-500 to-fuchsia-500 bg-clip-text text-transparent">результаты</span>
+            </h2>
+            <p className="text-xl text-gray-200 max-w-3xl mx-auto font-light leading-relaxed">
+              Реальные показатели эффективности нашей платформы (Демо данные)
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+            {[
+              { ref: totalRequestsRef, value: "0", label: "Всего заявок" },
+              { ref: completedRequestsRef, value: "0", label: "Выполнено заявок" },
+              { ref: completionRateRef, value: "0", label: "Процент выполнения" }
+            ].map((stat, index) => (
+              <motion.div
+                key={index}
+                className="p-8 rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/20 text-center group hover:border-cyan-500/50 transition-all duration-300 relative overflow-hidden"
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: index * 0.2 }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-fuchsia-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <h3 className="text-4xl font-bold text-cyan-400 mb-4 group-hover:text-cyan-300 transition-colors relative z-10">
+                  <span ref={stat.ref}>{stat.value}</span>
+                </h3>
+                <p className="text-gray-200 font-light group-hover:text-white transition-colors relative z-10">{stat.label}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </motion.section>
+
+      {/* About Section */}
+      <motion.section
+        id="about"
+        className="py-32 relative"
+      >
+        <div className="container mx-auto px-6">
+          <motion.div
+            className="text-center mb-20"
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+          >
+            <h2 className="text-4xl lg:text-5xl font-black mb-6">
+              О <span className="bg-gradient-to-r from-cyan-500 to-fuchsia-500 bg-clip-text text-transparent">проекте</span>
+            </h2>
+            <p className="text-xl text-gray-200 max-w-3xl mx-auto font-light leading-relaxed">
+              Инновационная платформа Минскхлебпром для оптимизации процессов и повышения эффективности
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+            >
+              <p className="text-gray-200 mb-6 text-lg leading-relaxed">
+                Минскхлебпром — это современная платформа, разработанная для автоматизации и упрощения рабочих процессов. Мы стремимся предоставить интуитивно понятные инструменты, которые помогут вам сосредоточиться на главном.
+              </p>
+              <p className="text-gray-300 font-light leading-relaxed">
+                Наша миссия — трансформировать подход к управлению задачами, обеспечивая прозрачность, эффективность и инновации на каждом этапе.
+              </p>
+              <motion.a
+                href="#features"
+                className="inline-block mt-8 px-8 py-4 bg-gradient-to-r from-cyan-600 to-fuchsia-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Узнать больше
+              </motion.a>
+            </motion.div>
+            <motion.div
+              className="relative"
+              initial={{ opacity: 0, x: 50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+            >
+              <div className="relative w-full h-[300px] bg-white/10 backdrop-blur-2xl rounded-2xl border border-white/20 overflow-hidden shadow-2xl shadow-cyan-500/20">
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-fuchsia-500/20" />
+                <div className="flex items-center justify-center h-full p-4">
+                  <motion.video
+                    src="/mocaup2.mp4" 
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    className="max-w-full max-h-full object-contain rounded-lg"
+                    animate={{ scale: activeFeature % 2 === 0 ? 1.05 : 1 }}
+                    transition={{ duration: 6, repeat: Infinity, repeatType: 'reverse' }}
+                  >
+                    Ваш браузер не поддерживает видео.
+                  </motion.video>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Footer с улучшенным стеклянным эффектом */}
+      <footer className="py-16 bg-white/10 backdrop-blur-2xl border-t border-white/20">
+        <div className="container mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
+                  <span className="text-white font-extrabold text-lg bg-gradient-to-r from-cyan-500 to-fuchsia-500 bg-clip-text text-transparent">МХП</span>
+                </div>
+                <span className="text-xl font-bold text-white">Минскхлебпром</span>
+              </div>
+              <p className="text-gray-300 font-light leading-relaxed">
+                Инновационная платформа для управления задачами и повышения эффективности.
+              </p>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-4">Навигация</h3>
+              <ul className="space-y-3">
+                {['features', 'stats', 'about'].map((section) => (
+                  <li key={section}>
+                    <a
+                      href={`#${section}`}
+                      className="text-gray-300 hover:text-cyan-400 transition-colors font-light"
+                    >
+                      {section === 'features' ? 'Возможности' : section === 'stats' ? 'Результаты' : 'О проекте'}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-4">Связаться с нами</h3>
+              <div className="flex gap-6">
+                <motion.a
+                  href={INST_URL}
+                  className="text-gray-300 hover:text-purple-400 transition-colors p-3 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10"
+                  whileHover={{ scale: 1.2, rotate: 5 }}
+                  aria-label="Instagram"
+                >
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849s-.012 3.584-.069 4.849c-.148 3.252-1.691 4.771-4.919 4.919-1.266.058-1.645.069-4.849.069s-3.584-.012-4.849-.069c-3.252-.148-4.771-1.691-4.919-4.919-.058-1.265-.069-1.645-.069-4.849s.012-3.584.069-4.849c.148-3.252 1.691-4.771 4.919-4.919 1.265-.058 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.058 1.281-.073 1.689-.073 4.948s.014 3.667.072 4.947c.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.073 4.948.073s3.667-.014 4.947-.072c4.358-.2 6.78-2.618 6.98-6.98.058-1.281.072-1.689.072-4.948s-.014-3.667-.072-4.947c-.2-4.358-2.618-6.78-6.98-6.98-1.281-.058-1.689-.073-4.947-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.162 6.162 6.162 6.162-2.759 6.162-6.162-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.791-4-4s1.791-4 4-4 4 1.791 4 4-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.441s.645 1.441 1.441 1.441 1.441-.645 1.441-1.441-.645-1.441-1.441-1.441z" />
+                  </svg>
+                </motion.a>
+                <motion.a
+                  href={YOUTUBE_URL}
+                  className="text-gray-300 hover:text-red-400 transition-colors p-3 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10"
+                  whileHover={{ scale: 1.2, rotate: -5 }}
+                  aria-label="YouTube"
+                >
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
+                  </svg>
+                </motion.a>
               </div>
             </div>
-            
-            <div>
-              <h3 className="text-xl font-semibold mb-6">Разделы</h3>
-              <ul className="space-y-4">
-                <li><a href="#features" className="text-gray-400 hover:text-white transition-colors text-lg">Возможности</a></li>
-                <li><a href="#stats" className="text-gray-400 hover:text-white transition-colors text-lg">Результаты</a></li>
-                <li><button onClick={openModal} className="text-gray-400 hover:text-white transition-colors text-lg">О проекте</button></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="text-xl font-semibold mb-6">Контакты</h3>
-              <ul className="space-y-4 text-gray-400 text-lg">
-                <li className="flex items-center gap-3">
-                  <span className="text-red-500">📞</span> +375 (17) 123-45-67
-                </li>
-                <li className="flex items-center gap-3">
-                  <span className="text-red-500">✉️</span> info@minskhliebprom.by
-                </li>
-                <li className="flex items-center gap-3">
-                  <span className="text-red-500">📍</span> г. Минск, ул. Примерная, 123
-                </li>
-              </ul>
-            </div>
           </div>
-          
-          <div className="border-t border-gray-800 mt-12 pt-8 text-center text-gray-400 text-lg">
-            <p>© 2025 Корпоративный портал Минскхлебпром. Все права защищены.</p>
+          <div className="mt-12 text-center text-gray-400 font-light pt-8 border-t border-white/10">
+            &copy; {new Date().getFullYear()} Минскхлебпром. Все права защищены.
           </div>
         </div>
       </footer>
 
       {/* Login Modal */}
-      {isLoginModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4" role="dialog" aria-labelledby="login-modal-title">
-          <div className={`p-10 rounded-3xl shadow-2xl max-w-md w-full relative ${darkMode ? 'bg-gray-800' : 'bg-white'} animate-modal-in`}>
-            <button
-              onClick={closeLoginModal}
-              className={`absolute top-5 right-5 text-2xl transition-all duration-300 hover:scale-110 ${darkMode ? 'text-gray-400 hover:text-red-500' : 'text-gray-500 hover:text-red-500'}`}
-              aria-label="Закрыть"
-            >
-              ×
-            </button>
-            <h2 id="login-modal-title" className={`text-3xl font-bold text-center mb-8 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-              <span className="bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
-                Вход в систему
-              </span>
-            </h2>
-            {error && (
-              <div className={`mb-6 p-4 rounded-xl text-lg ${darkMode ? 'bg-red-900/50 border border-red-700 text-red-100' : 'bg-red-50 border border-red-200 text-red-700'}`}>
-                {error}
-              </div>
-            )}
-            <div className="space-y-6">
-              <div>
-                <label htmlFor="login-username" className={`block text-lg font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Логин
-                </label>
-                <input
-                  id="login-username"
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Введите ваш логин"
-                  disabled={isLoading}
-                  className={`w-full p-4 border-2 rounded-xl focus:outline-none focus:ring-4 focus:ring-red-500/30 transition ${darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 disabled:bg-gray-600' : 'border-gray-300 text-gray-900 placeholder-gray-400 disabled:bg-gray-100'}`}
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label htmlFor="login-password" className={`block text-lg font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Пароль
-                </label>
-                <input
-                  id="login-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Введите ваш пароль"
-                  disabled={isLoading}
-                  className={`w-full p-4 border-2 rounded-xl focus:outline-none focus:ring-4 focus:ring-red-500/30 transition ${darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 disabled:bg-gray-600' : 'border-gray-300 text-gray-900 placeholder-gray-400 disabled:bg-gray-100'}`}
-                />
-              </div>
-              <button
-                onClick={handleLogin}
-                disabled={isLoading}
-                className="w-full py-4 bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-bold rounded-xl transition-all duration-300 flex items-center justify-center disabled:opacity-50 hover:shadow-xl"
-              >
-                {isLoading ? (
-                  <>
-                    <svg
-                      className="animate-spin -ml-1 mr-3 h-6 w-6 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                    Входим...
-                  </>
-                ) : (
-                  'Войти'
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* About Modal */}
-      {isModalOpen && (
-        <div id="about-modal" className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4" role="dialog" aria-labelledby="about-modal-title">
-          <div className={`p-10 rounded-3xl shadow-2xl max-w-2xl w-full relative ${darkMode ? 'bg-gray-800' : 'bg-white'} animate-modal-in`}>
-            <button
-              onClick={closeModal}
-              className={`absolute top-5 right-5 text-2xl transition-all duration-300 hover:scale-110 ${darkMode ? 'text-gray-400 hover:text-red-500' : 'text-gray-500 hover:text-red-500'}`}
-              aria-label="Закрыть"
-            >
-              ×
-            </button>
-            <h2 id="about-modal-title" className={`text-3xl font-bold mb-8 text-center ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-              <span className="bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
-                О проекте
-              </span>
-            </h2>
-            <div className="space-y-6">
-              <p className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Корпоративный портал Минскхлебпром — это интеллектуальная система поддержки сотрудников и клиентов компании МинскХлеб. 
-                Мы создали современную платформу для автоматизации бизнес-процессов и повышения эффективности работы предприятия.
-              </p>
-              <p className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Наша цель — сделать техническую помощь доступной каждому, автоматизировать процессы обработки запросов 
-                и предоставить инструменты для анализа и оптимизации workflows. Мы используем передовые технологии, 
-                включая искусственный интеллект, для улучшения пользовательского опыта.
-              </p>
-              <div className={`p-6 rounded-2xl border-2 ${darkMode ? 'bg-gray-700/50 border-gray-600' : 'bg-gray-50 border-gray-200'}`}>
-                <h3 className={`text-xl font-semibold mb-4 ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  Основные возможности:
-                </h3>
-                <ul className={`grid grid-cols-1 md:grid-cols-2 gap-4 text-lg ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  <li className="flex items-center gap-3">
-                    <span className="text-red-500">✓</span> Умная система создания заявок
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <span className="text-red-500">✓</span> Автоматическая маршрутизация
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <span className="text-red-500">✓</span> ИИ-ассистент для обработки
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <span className="text-red-500">✓</span> Детальная аналитика и отчетность
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <span className="text-red-500">✓</span> Мобильная адаптивность
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <span className="text-red-500">✓</span> Интеграция с внешними системами
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-10px); }
-        }
-        @keyframes gradient {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-        @keyframes modalIn {
-          0% { opacity: 0; transform: scale(0.8) translateY(20px); }
-          100% { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        .animate-float {
-          animation: float 3s ease-in-out infinite;
-        }
-        .animate-gradient {
-          background: linear-gradient(-45deg, #e63946, #f4a261, #2a9d8f, #1d3557);
-          background-size: 400% 400%;
-          animation: gradient 5s ease infinite;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-        }
-        .animate-modal-in {
-          animation: modalIn 0.3s ease-out forwards;
-        }
-        .animate-pulse-slow {
-          animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-        .bg-grid-pattern {
-          background-image: linear-gradient(to right, #80808012 1px, transparent 1px),
-                            linear-gradient(to bottom, #80808012 1px, transparent 1px);
-          background-size: 50px 50px;
-        }
-        .bg-dot-pattern {
-          background-image: radial-gradient(#ffffff22 1px, transparent 1px);
-          background-size: 25px 25px;
-        }
-      `}</style>
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={closeLoginModal}
+        onLogin={handleLogin}
+        isLoading={isLoading}
+        error={error}
+      />
     </div>
   );
 };

@@ -4,7 +4,7 @@ from models.db_models import DocumentStatus, DocumentPermission
 import uuid
 
 class DocumentCreate(BaseModel):
-    id: str
+    id: uuid.UUID
     title: str
     owner_username: str
     file_path: str
@@ -12,7 +12,6 @@ class DocumentCreate(BaseModel):
     file_type: str
 
 class SharedDocumentCreate(BaseModel):
-    id: str
     document_id: str
     recipient_username: str
     permission: DocumentPermission
@@ -27,7 +26,7 @@ class DocumentStatusCreate(BaseModel):
     status: DocumentStatus
 
 class DocumentResponse(BaseModel):
-    id: str
+    id: uuid.UUID
     title: str
     owner_username: str
     file_path: str

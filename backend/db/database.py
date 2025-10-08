@@ -17,7 +17,7 @@ DB_USER = os.getenv("DOCUMENTS_DB_USER")
 DB_PASSWORD = os.getenv("DOCUMENTS_DB_PASSWORD")
 DB_PORT = os.getenv("DB_PORT")
 
-SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_DATABASE}"
+SQLALCHEMY_DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_DATABASE}"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

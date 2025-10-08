@@ -28,9 +28,9 @@ logger = logging.getLogger(__name__)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 # Конфигурация
-UPLOAD_DIR = os.getenv("DOCUMENTS_UPLOAD_DIR", "uploads/documents")
-ALLOWED_EXTENSIONS = os.getenv("DOCUMENTS_ALLOWED_TYPES", ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt").split(",")
-MAX_FILE_SIZE = int(os.getenv("DOCUMENTS_MAX_SIZE_MB", 50)) * 1024 * 1024  # в байтах
+UPLOAD_DIR = os.getenv("DOCUMENTS_UPLOAD_DIR")
+ALLOWED_EXTENSIONS = os.getenv("DOCUMENTS_ALLOWED_TYPES").split(",")
+MAX_FILE_SIZE = int(os.getenv("DOCUMENTS_MAX_SIZE_MB")) * 1024 * 1024  # в байтах
 ONLYOFFICE_SERVER_URL = os.getenv("ONLYOFFICE_SERVER_URL")
 YOUR_PORTAL_API_BASE_URL = os.getenv("VITE_API_BASE_URL")
 ONLYOFFICE_JWT_SECRET = os.getenv("ONLYOFFICE_SECRET", "your_strong_secret_key_here")
@@ -67,7 +67,7 @@ async def upload_document(
             )
     await file.seek(0)
     # Сохраняем файл
-    file_id = str(uuid.uuid4())
+    file_id = uuid.uuid4()
     file_path = os.path.join(UPLOAD_DIR, f"{str(file_id)}{file_ext}")
     
     try:
@@ -155,7 +155,7 @@ async def share_document_endpoint(
     user = verify_token(token)
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    shared_doc_id = str(uuid.uuid4())
+    
     # Проверяем, существует ли документ и принадлежит ли он пользователю
     document = get_document(db, document_id)
     if not document or document.owner_username != user['username']:
@@ -164,7 +164,6 @@ async def share_document_endpoint(
     try:
         logger.info(f"типа файла - {fil_type}")
         shared_doc = share_document(db, SharedDocumentCreate(
-            id=shared_doc_id,
             document_id=document_id,
             recipient_username=recipient,
             permission=permission,

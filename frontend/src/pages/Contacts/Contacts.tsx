@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTheme } from '../../hooks/ThemeContext';
+import { Moon, Sun, Printer, MagnifyingGlass, ArrowLeft } from 'phosphor-react';
 
 // Интерфейс контакта
 export interface Contact {
@@ -74,16 +76,16 @@ const getInitials = (contact: Contact): string => {
 
 export default function ContactsPage() {
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
   const [query, setQuery] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLimited, setIsLimited] = useState(false);
-  const [highContrast, setHighContrast] = useState(false);
   const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large' | 'xlarge'>('medium');
   const [isPrintMode, setIsPrintMode] = useState(false);
-  console.log(contacts)
+
   // Размеры шрифтов
   const fontSizeClasses = {
     small: 'text-sm',
@@ -331,7 +333,6 @@ export default function ContactsPage() {
     if (query.length < 2) {
       fetchAllContacts();
     }
-    console.log(query);
     const urlSearch = searchParams.get('search');
     if (urlSearch) {
       setQuery(decodeURIComponent(urlSearch));
@@ -408,70 +409,99 @@ export default function ContactsPage() {
           }
         `}
       </style>
+      
+      {/* Glassmorphism Background */}
       <div className={`min-h-screen p-4 md:p-6 transition-colors duration-200 ${
-        highContrast ? 'bg-black text-white' : 'bg-gray-50 text-gray-900'
-      } ${fontSizeClasses[fontSize]}`}>
-        <div className={`max-w-7xl mx-auto ${isPrintMode ? 'print:max-w-none' : ''}`}>
-          {/* Панель управления */}
-          <div className={`flex flex-wrap items-center justify-between mb-6 gap-4 no-print ${
-            highContrast ? 'text-yellow-400' : 'text-gray-800'
-          }`}>
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <svg className="h-5 w-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              Назад в Dashboard
-            </button>
+        theme === 'dark' 
+          ? 'bg-gradient-to-br from-gray-900 via-purple-900 to-blue-900' 
+          : 'bg-gradient-to-br from-blue-50 via-purple-50 to-cyan-50'
+      } ${fontSizeClasses[fontSize]} relative`}>
+        
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className={`absolute -top-40 -right-32 w-80 h-80 rounded-full blur-3xl opacity-20 ${
+            theme === 'dark' ? 'bg-blue-500' : 'bg-blue-300'
+          } animate-pulse`}></div>
+          <div className={`absolute -bottom-40 -left-32 w-80 h-80 rounded-full blur-3xl opacity-20 ${
+            theme === 'dark' ? 'bg-purple-500' : 'bg-purple-300'
+          } animate-pulse delay-1000`}></div>
+        </div>
 
-            <h1 className="text-2xl md:text-3xl font-bold">Телефонный справочник</h1>
-
-            <div className="flex items-center gap-3">
+        <div className={`max-w-7xl mx-auto relative z-10 ${isPrintMode ? 'print:max-w-none' : ''}`}>
+          
+          {/* Glassmorphism Header */}
+          <div className={`backdrop-blur-xl rounded-2xl p-6 mb-6 border ${
+            theme === 'dark' 
+              ? 'bg-gray-900/30 border-gray-700/50 text-white' 
+              : 'bg-white/30 border-white/50 text-gray-800'
+          } shadow-2xl no-print`}>
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <button
-                onClick={() => setHighContrast(!highContrast)}
-                className={`px-3 py-1 rounded ${
-                  highContrast
-                    ? 'bg-yellow-400 text-black hover:bg-yellow-300'
-                    : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                onClick={() => navigate('/dashboard')}
+                className={`flex items-center px-4 py-2 rounded-xl backdrop-blur-md border transition-all duration-300 ${
+                  theme === 'dark'
+                    ? 'bg-gray-800/50 border-gray-600/50 text-gray-200 hover:bg-gray-700/50 hover:border-gray-500'
+                    : 'bg-white/50 border-white/70 text-gray-700 hover:bg-white/70 hover:border-white'
                 }`}
               >
-                {highContrast ? 'Обычный режим' : 'Высокая контрастность'}
+                <ArrowLeft size={20} className="mr-2" />
+                Назад в Dashboard
               </button>
 
-              <select
-                value={fontSize}
-                onChange={(e) => setFontSize(e.target.value as 'small' | 'medium' | 'large' | 'xlarge')}
-                className={`p-1 border rounded ${
-                  highContrast
-                    ? 'bg-black border-yellow-400 text-yellow-400'
-                    : 'bg-white border-gray-300 text-gray-800'
-                }`}
-              >
-                <option value="small">Мелкий</option>
-                <option value="medium">Средний</option>
-                <option value="large">Крупный</option>
-                <option value="xlarge">Очень крупный</option>
-              </select>
+              <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Телефонный справочник
+              </h1>
 
-              <button
-                onClick={handlePrint}
-                className={`px-3 py-1 rounded ${
-                  highContrast
-                    ? 'bg-yellow-400 text-black hover:bg-yellow-300'
-                    : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                }`}
-              >
-                Печать
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={toggleTheme}
+                  className={`w-12 h-12 rounded-2xl backdrop-blur-md border transition-all duration-300 flex items-center justify-center ${
+                    theme === 'dark'
+                      ? 'bg-gray-800/50 border-gray-600/50 text-yellow-300 hover:bg-gray-700/50 hover:border-gray-500'
+                      : 'bg-white/50 border-white/70 text-gray-700 hover:bg-white/70 hover:border-white'
+                  }`}
+                  title={theme === 'dark' ? 'Светлая тема' : 'Темная тема'}
+                >
+                  {theme === 'dark' ? <Sun size={24} weight="regular" /> : <Moon size={24} weight="regular" />}
+                </button>
+
+                <select
+                  value={fontSize}
+                  onChange={(e) => setFontSize(e.target.value as 'small' | 'medium' | 'large' | 'xlarge')}
+                  className={`p-2 rounded-xl backdrop-blur-md border transition-all duration-300 ${
+                    theme === 'dark'
+                      ? 'bg-gray-800/50 border-gray-600/50 text-gray-200'
+                      : 'bg-white/50 border-white/70 text-gray-700'
+                  }`}
+                >
+                  <option value="small">Мелкий</option>
+                  <option value="medium">Средний</option>
+                  <option value="large">Крупный</option>
+                  <option value="xlarge">Очень крупный</option>
+                </select>
+
+                <button
+                  onClick={handlePrint}
+                  className={`px-4 py-2 rounded-xl backdrop-blur-md border transition-all duration-300 flex items-center gap-2 ${
+                    theme === 'dark'
+                      ? 'bg-blue-600/50 border-blue-500/50 text-white hover:bg-blue-500/50'
+                      : 'bg-blue-500/50 border-blue-400/50 text-white hover:bg-blue-400/50'
+                  }`}
+                >
+                  <Printer size={20} />
+                  Печать
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Поле поиска */}
+          {/* Glassmorphism Search */}
           <div className={`relative mb-6 no-print`}>
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <span className={highContrast ? 'text-yellow-400' : 'text-gray-400'}>🔍</span>
+              <MagnifyingGlass 
+                size={20} 
+                className={theme === 'dark' ? 'text-blue-400' : 'text-blue-600'} 
+              />
             </div>
             <input
               type="text"
@@ -480,10 +510,10 @@ export default function ContactsPage() {
                 setQuery(e.target.value);
                 setSearchParams({ search: e.target.value });
               }}
-              className={`block w-full pl-10 pr-3 py-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 transition-all ${
-                highContrast
-                  ? 'bg-black border-yellow-400 text-white focus:ring-yellow-400'
-                  : 'bg-white border-gray-300 text-gray-900 focus:ring-blue-500 focus:border-transparent'
+              className={`block w-full pl-12 pr-3 py-4 rounded-2xl backdrop-blur-md border shadow-lg focus:outline-none focus:ring-2 transition-all ${
+                theme === 'dark'
+                  ? 'bg-gray-800/30 border-gray-600/50 text-white focus:ring-blue-400 focus:border-blue-400'
+                  : 'bg-white/30 border-white/50 text-gray-900 focus:ring-blue-500 focus:border-blue-500'
               }`}
               placeholder="Поиск по сотрудникам (имя, email, телефон, логин)..."
             />
@@ -494,7 +524,7 @@ export default function ContactsPage() {
             <div className="flex justify-center items-center py-12 no-print">
               <div
                 className={`animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 ${
-                  highContrast ? 'border-yellow-400' : 'border-blue-500'
+                  theme === 'dark' ? 'border-blue-400' : 'border-blue-500'
                 }`}
               ></div>
             </div>
@@ -503,13 +533,15 @@ export default function ContactsPage() {
           {/* Ошибки */}
           {error && (
             <div
-              className={`p-4 mb-6 rounded-lg border-l-4 no-print ${
-                highContrast ? 'bg-gray-900 border-red-500 text-red-300' : 'bg-red-50 border-red-500 text-red-800'
+              className={`p-4 mb-6 rounded-2xl backdrop-blur-md border-l-4 no-print ${
+                theme === 'dark' 
+                  ? 'bg-red-900/30 border-red-500 text-red-300' 
+                  : 'bg-red-50/30 border-red-500 text-red-800'
               }`}
             >
-              <div className="flex">
+              <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <span>⚠️</span>
+                  <span className="text-xl">⚠️</span>
                 </div>
                 <div className="ml-3">
                   <h3 className="font-medium">Ошибка</h3>
@@ -522,13 +554,15 @@ export default function ContactsPage() {
           {/* Предупреждение о лимите */}
           {isLimited && !error && !loading && (
             <div
-              className={`p-4 mb-6 rounded-lg border-l-4 no-print ${
-                highContrast ? 'bg-gray-900 border-yellow-500 text-yellow-300' : 'bg-yellow-50 border-yellow-400 text-yellow-800'
+              className={`p-4 mb-6 rounded-2xl backdrop-blur-md border-l-4 no-print ${
+                theme === 'dark' 
+                  ? 'bg-blue-900/30 border-blue-500 text-blue-300' 
+                  : 'bg-blue-50/30 border-blue-400 text-blue-800'
               }`}
             >
-              <div className="flex">
+              <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <span>ℹ️</span>
+                  <span className="text-xl">ℹ️</span>
                 </div>
                 <div className="ml-3">
                   <h3 className="font-medium">Внимание</h3>
@@ -538,7 +572,7 @@ export default function ContactsPage() {
             </div>
           )}
 
-          {/* Список контактов */}
+          {/* Glassmorphism Contact Cards */}
           {!loading && !error && contacts.length > 0 && (
             <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 contact-grid ${
               isPrintMode ? 'print:grid-cols-3 print:gap-4' : ''
@@ -554,16 +588,23 @@ export default function ContactsPage() {
                 return (
                   <div
                     key={contact.id}
-                    className={`relative rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border-2 border-blue-400 contact-card ${
-                      highContrast ? 'bg-gray-900' : 'bg-white'
+                    className={`relative rounded-2xl backdrop-blur-md border-2 shadow-2xl hover:shadow-2xl transition-all duration-500 overflow-hidden hover:scale-105 contact-card ${
+                      theme === 'dark' 
+                        ? 'bg-gray-900/30 border-gray-600/50 hover:border-blue-400/50' 
+                        : 'bg-white/30 border-white/50 hover:border-blue-400/50'
                     } ${isPrintMode ? 'print:shadow-none print:border print:p-2' : ''}`}
                   >
-                    <div className="p-5 print:p-3">
+                    {/* Gradient Border Effect */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
+                    
+                    <div className="relative p-5 print:p-3 z-10">
                       {/* Заголовок карточки */}
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 mb-4">
                         <div
-                          className={`rounded-full w-14 h-14 flex items-center justify-center text-xl font-bold initials-circle ${
-                            highContrast ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-600'
+                          className={`rounded-full w-14 h-14 flex items-center justify-center text-xl font-bold shadow-lg ${
+                            theme === 'dark' 
+                              ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white' 
+                              : 'bg-gradient-to-br from-blue-400 to-purple-400 text-white'
                           }`}
                         >
                           {getInitials(contact)}
@@ -571,14 +612,14 @@ export default function ContactsPage() {
                         <div className="flex-1 min-w-0">
                           <h3
                             className={`text-xl font-bold break-words contact-header ${
-                              highContrast ? 'text-white' : 'text-gray-900'
+                              theme === 'dark' ? 'text-white' : 'text-gray-900'
                             }`}
                           >
                             {contact.displayName || 'Не указано'}
                           </h3>
                           {contact.position && (
                             <p className={`text-sm contact-info ${
-                              highContrast ? 'text-gray-300' : 'text-gray-600'
+                              theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
                             }`}>
                               {contact.position}
                             </p>
@@ -588,8 +629,8 @@ export default function ContactsPage() {
 
                       {/* Если нет данных */}
                       {!hasData && (
-                        <div className={`mt-4 p-3 rounded-lg text-center contact-info ${
-                          highContrast ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'
+                        <div className={`mt-4 p-3 rounded-xl text-center contact-info backdrop-blur-md ${
+                          theme === 'dark' ? 'bg-gray-800/50 text-gray-400' : 'bg-white/50 text-gray-500'
                         }`}>
                           <p>Нет контактных данных</p>
                         </div>
@@ -598,27 +639,27 @@ export default function ContactsPage() {
                       {/* Контактные телефоны */}
                       {hasPhone && (
                         <div className="mt-4">
-                          <h4 className={`text-xs uppercase tracking-wider mb-2 contact-section-title ${
-                            highContrast ? 'text-blue-300' : 'text-blue-600'
+                          <h4 className={`text-xs uppercase tracking-wider mb-3 contact-section-title ${
+                            theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
                           }`}>
                             Телефоны
                           </h4>
-                          <div className="space-y-2">
+                          <div className="space-y-3">
                             {contact.phone_internal && (
                               <div className="flex items-center gap-3 contact-info">
-                                <div className={`p-2 rounded-lg ${
-                                  highContrast ? 'bg-gray-800' : 'bg-blue-50'
+                                <div className={`p-2 rounded-xl backdrop-blur-md ${
+                                  theme === 'dark' ? 'bg-gray-800/50' : 'bg-white/50'
                                 }`}>
-                                  <PhoneIcon className={`contact-icon ${highContrast ? 'text-blue-300' : 'text-blue-500'}`} />
+                                  <PhoneIcon className={`contact-icon ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
                                 </div>
                                 <div>
                                   <p className={`text-xs ${
-                                    highContrast ? 'text-gray-400' : 'text-gray-500'
+                                    theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
                                   }`}>
                                     Внутренний
                                   </p>
                                   <p className={`font-mono font-medium ${
-                                    highContrast ? 'text-white' : 'text-gray-900'
+                                    theme === 'dark' ? 'text-white' : 'text-gray-900'
                                   }`}>
                                     {contact.phone_internal}
                                   </p>
@@ -627,19 +668,19 @@ export default function ContactsPage() {
                             )}
                             {contact.phone_city && (
                               <div className="flex items-center gap-3 contact-info">
-                                <div className={`p-2 rounded-lg ${
-                                  highContrast ? 'bg-gray-800' : 'bg-blue-50'
+                                <div className={`p-2 rounded-xl backdrop-blur-md ${
+                                  theme === 'dark' ? 'bg-gray-800/50' : 'bg-white/50'
                                 }`}>
-                                  <PhoneIcon className={`contact-icon ${highContrast ? 'text-blue-300' : 'text-blue-500'}`} />
+                                  <PhoneIcon className={`contact-icon ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
                                 </div>
                                 <div>
                                   <p className={`text-xs ${
-                                    highContrast ? 'text-gray-400' : 'text-gray-500'
+                                    theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
                                   }`}>
                                     Городской
                                   </p>
                                   <p className={`font-mono font-medium ${
-                                    highContrast ? 'text-white' : 'text-gray-900'
+                                    theme === 'dark' ? 'text-white' : 'text-gray-900'
                                   }`}>
                                     {contact.phone_city}
                                   </p>
@@ -648,19 +689,19 @@ export default function ContactsPage() {
                             )}
                             {contact.phone_mobile && (
                               <div className="flex items-center gap-3 contact-info">
-                                <div className={`p-2 rounded-lg ${
-                                  highContrast ? 'bg-gray-800' : 'bg-blue-50'
+                                <div className={`p-2 rounded-xl backdrop-blur-md ${
+                                  theme === 'dark' ? 'bg-gray-800/50' : 'bg-white/50'
                                 }`}>
-                                  <PhoneIcon className={`contact-icon ${highContrast ? 'text-blue-300' : 'text-blue-500'}`} />
+                                  <PhoneIcon className={`contact-icon ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
                                 </div>
                                 <div>
                                   <p className={`text-xs ${
-                                    highContrast ? 'text-gray-400' : 'text-gray-500'
+                                    theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
                                   }`}>
                                     Мобильный
                                   </p>
                                   <p className={`font-mono font-medium ${
-                                    highContrast ? 'text-white' : 'text-gray-900'
+                                    theme === 'dark' ? 'text-white' : 'text-gray-900'
                                   }`}>
                                     {contact.phone_mobile}
                                   </p>
@@ -674,21 +715,21 @@ export default function ContactsPage() {
                       {/* Электронная почта */}
                       {contact.email && (
                         <div className="mt-4">
-                          <h4 className={`text-xs uppercase tracking-wider mb-2 contact-section-title ${
-                            highContrast ? 'text-blue-300' : 'text-blue-600'
+                          <h4 className={`text-xs uppercase tracking-wider mb-3 contact-section-title ${
+                            theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
                           }`}>
                             Email
                           </h4>
                           <div className="flex items-center gap-3 contact-info">
-                            <div className={`p-2 rounded-lg ${
-                              highContrast ? 'bg-gray-800' : 'bg-blue-50'
+                            <div className={`p-2 rounded-xl backdrop-blur-md ${
+                              theme === 'dark' ? 'bg-gray-800/50' : 'bg-white/50'
                             }`}>
-                              <EmailIcon className={`contact-icon ${highContrast ? 'text-blue-300' : 'text-blue-500'}`} />
+                              <EmailIcon className={`contact-icon ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
                             </div>
                             <a
                               href={`mailto:${contact.email}`}
-                              className={`break-all hover:underline ${
-                                highContrast ? 'text-blue-300' : 'text-blue-600'
+                              className={`break-all hover:underline transition-colors duration-200 ${
+                                theme === 'dark' ? 'text-blue-300 hover:text-blue-200' : 'text-blue-600 hover:text-blue-500'
                               }`}
                             >
                               {contact.email}
@@ -700,24 +741,24 @@ export default function ContactsPage() {
                       {/* Дополнительная информация */}
                       {(hasPosition || hasDepartment || hasLogin) && (
                         <div className="mt-4">
-                          <h4 className={`text-xs uppercase tracking-wider mb-2 contact-section-title ${
-                            highContrast ? 'text-blue-300' : 'text-blue-600'
+                          <h4 className={`text-xs uppercase tracking-wider mb-3 contact-section-title ${
+                            theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
                           }`}>
                             Отдел
                           </h4>
-                          <div className={`p-3 rounded-lg ${
-                            highContrast ? 'bg-gray-800' : 'bg-blue-50'
+                          <div className={`p-3 rounded-xl backdrop-blur-md ${
+                            theme === 'dark' ? 'bg-gray-800/50' : 'bg-white/50'
                           }`}>
                             <div className="space-y-2">
                               {contact.department && (
                                 <div className="flex items-start gap-2 contact-info">
-                                  <BuildingIcon className={`contact-icon ${highContrast ? 'text-blue-300' : 'text-blue-500'}`} />
+                                  <BuildingIcon className={`contact-icon ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
                                   <span className="text-sm">{contact.department}</span>
                                 </div>
                               )}
                               {contact.sam_account_name && (
                                 <div className="flex items-start gap-2 contact-info">
-                                  <UserIcon className={`contact-icon ${highContrast ? 'text-blue-300' : 'text-blue-500'}`} />
+                                  <UserIcon className={`contact-icon ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
                                   <span className="text-sm">{contact.sam_account_name}</span>
                                 </div>
                               )}
@@ -734,17 +775,21 @@ export default function ContactsPage() {
 
           {/* Пустой результат */}
           {!loading && !error && contacts.length === 0 && (
-            <div className="text-center py-12 no-print">
+            <div className={`text-center py-12 no-print rounded-2xl backdrop-blur-md border ${
+              theme === 'dark' 
+                ? 'bg-gray-900/30 border-gray-600/50' 
+                : 'bg-white/30 border-white/50'
+            }`}>
               <div className="text-5xl mb-4">😕</div>
               <h3
                 className={`text-lg font-medium ${
-                  highContrast ? 'text-yellow-400' : 'text-gray-900'
+                  theme === 'dark' ? 'text-blue-400' : 'text-gray-900'
                 }`}
               >
                 {query ? 'Контакты не найдены' : 'Нет доступных контактов'}
               </h3>
               <p
-                className={`mt-1 ${highContrast ? 'text-gray-300' : 'text-gray-500'}`}
+                className={`mt-1 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}`}
               >
                 {query
                   ? 'Попробуйте изменить параметры поиска'

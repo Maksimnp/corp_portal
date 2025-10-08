@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import HTTPException
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -18,7 +18,15 @@ from api.chat import router as chat_router
 from api.serverstats import router as serverstats_router
 from api.faqs import faq_router
 from api.emp import employee_tracker_router as employee_tracker_router
+from api.software import router as software_router
+from api.websocket_manager import websocket_manager
+from pydantic import BaseModel
+from typing import List
+from fastapi import APIRouter
+from services.jwt_utils import verify_token
+
 load_dotenv()
+URL_FONTS = os.getenv("URL_FONTS")
 
 # Настройка логирования
 LOGGING_CONFIG = {
@@ -57,7 +65,16 @@ LOGGING_CONFIG = {
 
 logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger(__name__)
+class EndpointFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        # Пропускаем логи для /chat/unread/total (они слишком частые)
+        if hasattr(record, 'request_path'):
+            if record.request_path == '/chat/unread/total':
+                return False
+        return True
+    
 
+logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
 # Проверка переменных окружения
 def check_env_vars():
     required_vars = [
@@ -78,7 +95,7 @@ def check_env_vars():
 
 # Получение CORS origins
 def get_cors_origins():
-    origins_str = os.getenv("CORS_ORIGINS", "http://192.1.66.117:3000,http://localhost:3000,https://portal.minskhleb.by")
+    origins_str = os.getenv("CORS_ORIGINS", "http://185.179.82.238:3000,http://185.179.82.238/,http://192.1.66.117:3000,http://localhost:3000,https://portal.minskhleb.by")
     origins = [origin.strip() for origin in origins_str.split(",") if origin.strip()]
     return origins
 
@@ -119,6 +136,7 @@ async def list_groups():
     return get_all_groups()
 
 app.mount("/static", StaticFiles(directory="templates/static"), name="static")
+app.mount("/static_chat", StaticFiles(directory="templates/static/chat_file"), name="static_chat")
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -139,6 +157,53 @@ async def log_requests(request: Request, call_next):
         logger.error(f"Unhandled error on {request.url.path}: {e}", exc_info=True)
         raise
 
+# Модель для уведомления
+class Notification(BaseModel):
+    id: str
+    title: str
+    description: str
+    type: str
+    date: str
+    isRead: bool
+    roles: List[str] = ["user", "admin"]
+
+# Пример базы данных уведомлений (замените на реальную базу, например, PostgreSQL)
+notifications_db = []
+
+# Роутер для уведомлений
+notification_router = APIRouter(prefix="/notifications", tags=["notifications"])
+
+@notification_router.get("/", response_model=List[Notification])
+async def get_notifications(current_user: dict = Depends(verify_token)):
+    return notifications_db
+
+@notification_router.post("/")
+async def create_notification(notification: Notification):
+    notifications_db.append(notification)
+    payload = {
+        "type": "notification",
+        "data": notification.dict()
+    }
+    await websocket_manager.broadcast_notification(payload, roles=notification.roles)
+    logger.info(f"Notification created: {notification.title}")
+    return {"status": "Notification sent"}
+
+# WebSocket для software
+@app.websocket("/software/ws")
+async def websocket_software(websocket: WebSocket, token: str):
+    try:
+        user = verify_token(token)
+        await websocket.accept()
+        await websocket_manager.connect(websocket, user.get("roles", ["user"]))
+        try:
+            while True:
+                await websocket.receive_text()
+        except WebSocketDisconnect:
+            websocket_manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {str(e)}")
+        await websocket.close(code=1008)
+
 # Подключение роутеров
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(contacts_router, prefix="/contacts", tags=["contacts"])
@@ -149,6 +214,8 @@ app.include_router(chat_router)
 app.include_router(serverstats_router)
 app.include_router(faq_router, prefix="/faq")
 app.include_router(employee_tracker_router, prefix="/emp")
+app.include_router(notification_router)
+app.include_router(software_router)
 
 @app.get("/health", include_in_schema=False)
 async def health_check():

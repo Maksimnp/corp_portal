@@ -1,4 +1,3 @@
-// src/types/chat.ts
 interface Message {
   id: string;
   channel_id: string;
@@ -9,6 +8,17 @@ interface Message {
   file_url?: string;
   file_name?: string;
   edited?: boolean;
+  quoted_message_id: string | null;
+  is_notification: boolean;
+}
+
+interface LastMessage {
+  id: string;
+  sender: string;
+  content: string | null;
+  timestamp: string;
+  file_name: string | null;
+  is_read: boolean;
 }
 
 interface Chat {
@@ -19,6 +29,9 @@ interface Chat {
   is_channel: boolean;
   creator_username: string;
   members: string[];
+  unread_count: number;
+  last_message?: LastMessage | null;
+  font_name: string;
 }
 
 interface Contact {
@@ -33,5 +46,19 @@ interface Contact {
   sam_account_name?: string;
 }
 
-// Export all interfaces
-export type { Message, Chat, Contact };
+interface MessageContextMenuState {
+  visible: boolean;
+  x: number;
+  y: number;
+  message: Message | null;
+}
+
+interface UserContextMenuState{
+  visible: boolean;
+  x: number;
+  y: number;
+  userId: string | null;
+}
+
+// Используйте export type для реэкспорта интерфейсов
+export type { Message, Chat, Contact, LastMessage, MessageContextMenuState, UserContextMenuState };

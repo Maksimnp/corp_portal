@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button, Input, Card, Spin, Form, Modal, Table, Space, message, Select } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined, CheckCircleOutlined, CloseCircleOutlined, EditOutlined, SearchOutlined, PlusOutlined, DeleteOutlined, PauseOutlined } from '@ant-design/icons';
 import { useAuth } from '../pages/AuthContext';
+import { useTheme } from '../hooks/ThemeContext';
 
 interface Contact {
   id: string;
@@ -66,6 +67,7 @@ const getInitials = (contact: Contact): string => {
 };
 
 const EditADContacts: React.FC = () => {
+  const { theme, toggleTheme } = useTheme();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -699,11 +701,11 @@ const EditADContacts: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen p-4 md:p-6 bg-gray-100">
+    <div className={`min-h-screen p-4 md:p-6 ${theme === 'light' ? 'bg-gray-100': 'bg-gray-950'}`}>
       <div className="max-w-7xl mx-auto">
         <button
           onClick={() => navigate('/dashboard')}
-          className="flex items-center mb-3 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className={`flex items-center mb-3 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium  ${theme === 'light'? 'text-gray-700 hover:bg-gray-50':'text-white hover:bg-gray-700'}`}
         >
           <svg className="h-5 w-5 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -713,7 +715,7 @@ const EditADContacts: React.FC = () => {
 
         <Card
           title="Редактирование контактов Active Directory"
-          className="shadow-sm bg-white rounded-lg"
+          className={`shadow-sm rounded-lg`}
         >
           <div className="mb-4">
             <Button
@@ -731,7 +733,7 @@ const EditADContacts: React.FC = () => {
             prefix={<SearchOutlined />}
             value={searchQuery}
             onChange={handleSearch}
-            className="mb-4 max-w-md rounded-lg border-gray-300"
+            className={`mb-4 max-w-md rounded-lg border-gray-300`}
             allowClear
             title="Введите имя, email или логин для поиска"
           />
@@ -745,7 +747,7 @@ const EditADContacts: React.FC = () => {
               rowKey="id"
               pagination={{ pageSize: 30 }}
               locale={{ emptyText: searchQuery ? 'Контакты не найдены' : 'Нет контактов' }}
-              className="overflow-x-auto"
+              className={`overflow-x-auto`}
             />
           )}
         </Card>
@@ -780,10 +782,10 @@ const EditADContacts: React.FC = () => {
               layout="vertical"
               onFinish={modal.type === 'create' ? createContact : updateContact}
               initialValues={modal.type === 'create' ? { isFrozen: false, groups: [] } : undefined}
-              className="space-y-4"
+              className={`space-y-4 ${theme === 'light'? 'text-gray-700':'text-white'}`}
             >
-              <div className="bg-gray-50 p-4 rounded-md">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Личная информация</h4>
+              <div className={`p-4 rounded-md ${theme === 'light' ? 'bg-gray-50':'bg-black'}`}>
+                <h4 className="text-sm font-medium   mb-2">Личная информация</h4>
                 <Form.Item
                   name="displayName"
                   label="Отображаемое имя"
@@ -813,8 +815,8 @@ const EditADContacts: React.FC = () => {
                   <Input placeholder="Введите имя входа (например: user123)" disabled={modal.type === 'edit'} className="rounded-md" title="Введите уникальное имя входа" />
                 </Form.Item>
               </div>
-              <div className="bg-gray-50 p-4 rounded-md">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Контактная информация</h4>
+              <div className={`${theme === 'light' ? 'bg-gray-50':'bg-black'} p-4 rounded-md`}>
+                <h4 className="text-sm font-medium   mb-2">Контактная информация</h4>
                 <Form.Item
                   name="email"
                   label="Email"
@@ -874,8 +876,8 @@ const EditADContacts: React.FC = () => {
                   />
                 </Form.Item>
               </div>
-              <div className="bg-gray-50 p-4 rounded-md">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Дополнительная информация</h4>
+              <div className={`${theme === 'light' ? 'bg-gray-50':'bg-black'} p-4 rounded-md`}>
+                <h4 className="text-sm font-medium   mb-2">Дополнительная информация</h4>
                 <Form.Item
                   name="department"
                   label="Отдел"
@@ -912,8 +914,8 @@ const EditADContacts: React.FC = () => {
                 </Form.Item>
               </div>
               {modal.type === 'create' && (
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Пароль</h4>
+                <div className={`${theme === 'light' ? 'bg-gray-50':'bg-black'} p-4 rounded-md`}>
+                  <h4 className="text-sm font-medium   mb-2">Пароль</h4>
                   <Form.Item
                     name="password"
                     label="Пароль"
@@ -924,8 +926,8 @@ const EditADContacts: React.FC = () => {
                 </div>
               )}
               {modal.type === 'edit' && (
-                <div className="bg-gray-50 p-4 rounded-md">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Пароль</h4>
+                <div className={`${theme === 'light' ? 'bg-gray-50':'bg-black'} p-4 rounded-md`}>
+                  <h4 className="text-sm font-medium   mb-2">Пароль</h4>
                   <Form.Item
                     name="password"
                     label="Новый пароль (опционально)"
