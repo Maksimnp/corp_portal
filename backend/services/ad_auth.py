@@ -2,7 +2,7 @@ import logging
 import os
 import ssl
 from typing import Optional, Dict, List
-from ldap3 import Server, Connection, Tls, ALL, SUBTREE, SIMPLE
+from ldap3 import Server, Connection, Tls, ALL, SUBTREE, SIMPLE, MODIFY_REPLACE  
 from ldap3.core.exceptions import LDAPException, LDAPInvalidCredentialsResult
 import certifi
 from dotenv import load_dotenv
@@ -162,6 +162,78 @@ def authenticate_user(username: str, password: str) -> Optional[Dict[str, str]]:
             try:
                 conn.unbind()
                 logger.debug("Соединение LDAP закрыто после аутентификации.")
+            except Exception as e:
+                logger.warning(f"Ошибка при закрытии LDAP соединения: {e}")
+
+def find_user_by_email(email: str) -> Optional[Dict[str, str]]:
+    """
+    Поиск пользователя в AD по email адресу.
+    
+    Args:
+        email: Email адрес пользователя
+        
+    Returns:
+        dict: Информация о пользователе или None если не найден
+    """
+    conn = None
+    try:
+        logger.info(f"Поиск пользователя по email: {email}")
+        conn = get_ad_connection()
+        
+        # Пробуем разные атрибуты для поиска по email
+        search_filters = [
+            f"(&(objectClass=user)(mail={email}))",
+            f"(&(objectClass=user)(userPrincipalName={email}))",
+            f"(&(objectClass=user)(proxyAddresses=SMTP:{email}))",
+            f"(&(objectClass=user)(proxyAddresses=smtp:{email}))"
+        ]
+        
+        for search_filter in search_filters:
+            try:
+                logger.debug(f"Попытка поиска с фильтром: {search_filter}")
+                conn.search(
+                    search_base=BASE_DN,
+                    search_filter=search_filter,
+                    search_scope=SUBTREE,
+                    attributes=["sAMAccountName", "displayName", "mail", "department", "userPrincipalName"]
+                )
+                
+                if conn.entries:
+                    entry = conn.entries[0]
+                    attrs = entry.entry_attributes_as_dict
+                    
+                    username = attrs.get("sAMAccountName", [""])[0] if attrs.get("sAMAccountName") else ""
+                    display_name = attrs.get("displayName", [""])[0] if attrs.get("displayName") else ""
+                    mail = attrs.get("mail", [""])[0] if attrs.get("mail") else email
+                    department = attrs.get("department", [""])[0] if attrs.get("department") else ""
+                    
+                    full_name = display_name or username
+                    
+                    user_info = {
+                        "username": username,
+                        "full_name": full_name,
+                        "email": mail,
+                        "department": department
+                    }
+                    
+                    logger.info(f"Пользователь найден по email {email}: {username}")
+                    return user_info
+                    
+            except Exception as filter_error:
+                logger.warning(f"Ошибка поиска с фильтром {search_filter}: {filter_error}")
+                continue
+        
+        logger.warning(f"Пользователь с email {email} не найден в AD")
+        return None
+
+    except Exception as e:
+        logger.error(f"Ошибка поиска пользователя по email {email}: {str(e)}")
+        return None
+    finally:
+        if conn and conn.bound:
+            try:
+                conn.unbind()
+                logger.debug("Соединение LDAP закрыто после поиска по email.")
             except Exception as e:
                 logger.warning(f"Ошибка при закрытии LDAP соединения: {e}")
 
@@ -332,6 +404,71 @@ def search_users(search_term: str = "", max_results: int = 50) -> List[Dict[str,
             try:
                 conn.unbind()
                 logger.debug("Соединение LDAP закрыто после поиска.")
+            except Exception as e:
+                logger.warning(f"Ошибка при закрытии LDAP соединения: {e}")
+
+def change_user_password(username: str, new_password: str) -> bool:
+    """
+    Изменяет пароль пользователя в Active Directory.
+    
+    Args:
+        username: Имя пользователя
+        new_password: Новый пароль
+        
+    Returns:
+        bool: True если пароль успешно изменен, False в случае ошибки
+    """
+    conn = None
+    try:
+        logger.info(f"Попытка изменения пароля для пользователя: {username}")
+        
+        # Для изменения пароля нужен административный доступ
+        # Используем сервисного пользователя с правами на изменение паролей
+        conn = get_ad_connection()
+        
+        # Сначала находим DN пользователя
+        search_filter = f"(sAMAccountName={username})"
+        conn.search(
+            search_base=BASE_DN,
+            search_filter=search_filter,
+            search_scope=SUBTREE,
+            attributes=["distinguishedName", "userAccountControl"]
+        )
+        
+        if not conn.entries:
+            logger.error(f"Пользователь {username} не найден для изменения пароля")
+            return False
+            
+        user_dn = conn.entries[0].distinguishedName.value
+        logger.info(f"Найден DN пользователя: {user_dn}")
+        
+        # Формируем новое значение пароля в правильном формате
+        # Пароль должен быть в Unicode с префиксом
+        unicode_password = f'"{new_password}"'.encode('utf-16-le')
+        
+        # Изменение пароля
+        changes = {
+            'unicodePwd': [(MODIFY_REPLACE, [unicode_password])]
+        }
+        
+        success = conn.modify(user_dn, changes)
+        
+        if success:
+            logger.info(f"Пароль успешно изменен для пользователя {username}")
+            return True
+        else:
+            logger.error(f"Не удалось изменить пароль для пользователя {username}")
+            logger.error(f"Результат LDAP: {conn.result}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Ошибка при изменении пароля для {username}: {str(e)}")
+        return False
+    finally:
+        if conn and conn.bound:
+            try:
+                conn.unbind()
+                logger.debug("Соединение LDAP закрыто после изменения пароля.")
             except Exception as e:
                 logger.warning(f"Ошибка при закрытии LDAP соединения: {e}")
 

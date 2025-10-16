@@ -1,10 +1,12 @@
+import { ArrowLeft } from 'phosphor-react';
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   LineChart, Line, BarChart, Bar, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts';
+import { useTheme } from '../../hooks/ThemeContext';
 
 // Интерфейсы данных (остаются без изменений)
 interface ServerData {
@@ -176,7 +178,7 @@ export default function ServerStats() {
   const [interfaceStats, setInterfaceStats] = useState<InterfaceStats[]>([]);
   const [activeTab, setActiveTab] = useState<'overview' | 'traffic' | 'latency' | 'system'>('overview');
   const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('24h');
-
+  const { theme } = useTheme();
   // Функция проверки соединения
   const checkConnection = useCallback(async () => {
     try {
@@ -504,27 +506,12 @@ export default function ServerStats() {
       <div className="max-w-7xl mx-auto">
         {/* Панель управления - новый дизайн */}
         <div className="flex flex-wrap items-center justify-between mb-8 gap-4 p-6 bg-white rounded-2xl shadow-sm border border-gray-100" role="toolbar">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="flex items-center px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:shadow-xs transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-xs"
-            aria-label="Вернуться в Dashboard"
-          >
-            <svg
-              className="h-5 w-5 mr-2 text-gray-500"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M10 19l-7-7m0 0l7-7m-7 7h18"
-              />
-            </svg>
-            Назад
-          </button>
+        <Link
+					to="/dashboard"
+					className={`flex text-sm items-center gap-2 px-4 py-2 rounded-lg transition-colors ${theme === 'dark' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'} shadow-lg`}
+				>
+					<ArrowLeft size={16} />Вернуться на главную
+				</Link>
 
           <div className="text-center">
             <h1 className="text-2xl md:text-3xl font-bold text-gray-800">

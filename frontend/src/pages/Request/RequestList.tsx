@@ -686,14 +686,9 @@ export const RequestList: React.FC = () => {
         {/* Кнопка Назад */}
         <Link
           to="/dashboard"
-          className={`inline-flex items-center gap-2 mb-6 px-4 py-2 rounded-xl transition-all duration-300 ${
-            theme === 'dark'
-              ? 'bg-gray-700 hover:bg-gray-600 text-gray-200 border border-gray-600'
-              : 'bg-white hover:bg-gray-100 text-gray-700 border border-gray-300'
-          } shadow-lg hover:shadow-xl backdrop-blur-sm`}
+          className={`flex text-sm items-center rounded-lg gap-2 px-4 py-2  transition-colors ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'} shadow-lg`}
         >
-          <ArrowLeft size={20} />
-          Назад в Dashboard
+          <ArrowLeft size={16} />Вернуться на главную
         </Link>
 
         <div className={`rounded-2xl p-4 sm:p-6 md:p-8 ${glassClasses.card}`}>

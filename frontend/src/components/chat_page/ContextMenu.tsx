@@ -1,8 +1,8 @@
 import React from "react";
 import type { MessageContextMenuState } from '../../types/chat';
-import { CommentOutlined, CopyOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { CopyOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useTheme } from '../../hooks/ThemeContext';
-
+import { ArrowBendUpRight, ArrowBendUpLeft } from 'phosphor-react'
 interface RenderContextMenuProps {
     messageContextMenu: MessageContextMenuState;
     messageContextMenuRef: React.RefObject<HTMLDivElement | null>;
@@ -10,7 +10,9 @@ interface RenderContextMenuProps {
     handleContextMenuDelete: () => void;
     handleContextMenuCopy: () => void;
     handleContextMenuQuote: () => void;
+    handleContextMenuForward: () => void;
     username: string | null;
+    searchContacts: (query: string) => Promise<void>;
 }
 
 const RenderContextMenu: React.FC<RenderContextMenuProps> = ({
@@ -20,7 +22,9 @@ const RenderContextMenu: React.FC<RenderContextMenuProps> = ({
     handleContextMenuDelete,
     handleContextMenuCopy,
     handleContextMenuQuote,
+    handleContextMenuForward,
     username,
+    searchContacts
 }) => {
     const { theme, toggleTheme } = useTheme();
     if (!messageContextMenu.visible || !messageContextMenu.message) return null;
@@ -43,6 +47,13 @@ const RenderContextMenu: React.FC<RenderContextMenuProps> = ({
           left: `${left}px`,
         }}
       >
+        <button
+          onClick={handleContextMenuQuote}
+          className={`w-full text-left font-semibold gap-4 px-4 py-2 text-sm ${theme === 'light' ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-200 hover:bg-gray-700'} flex items-center`}
+        >
+          <ArrowBendUpLeft className="text-xl" />
+          Ответить
+        </button>
         {messageContextMenu.message.sender === username && (
           <>
             <button
@@ -63,18 +74,18 @@ const RenderContextMenu: React.FC<RenderContextMenuProps> = ({
           </>
         )}
         <button
+          onClick={() => {handleContextMenuForward(); searchContacts('a')}}
+          className={`w-full text-left font-semibold gap-4 px-4 py-2 text-sm ${theme === 'light' ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-200 hover:bg-gray-700'} flex items-center`}
+        >
+          <ArrowBendUpRight className="text-xl" />
+          Переслать
+        </button>
+        <button
           onClick={handleContextMenuCopy}
           className={`w-full text-left font-semibold gap-4 px-4 py-2 text-sm ${theme === 'light' ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-200 hover:bg-gray-700'} flex items-center`}
         >
           <CopyOutlined className="text-xl" />
           Копировать
-        </button>
-        <button
-          onClick={handleContextMenuQuote}
-          className={`w-full text-left font-semibold gap-4 px-4 py-2 text-sm ${theme === 'light' ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-200 hover:bg-gray-700'} flex items-center`}
-        >
-          <CommentOutlined className="text-xl" />
-          Ответить
         </button>
       </div>
     );

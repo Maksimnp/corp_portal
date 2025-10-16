@@ -44,6 +44,10 @@ LDAP_SEARCH_PASSWORD = os.getenv("LDAP_SEARCH_PASSWORD", "Season24")
 
 full_user = rf"{AD_DOMAIN}\{LDAP_USER}"
 
+class OUDetail(BaseModel):
+    name: str
+    dn: str
+
 def get_ad_connection():
     if not LDAP_USER or not LDAP_PASSWORD or not AD_DOMAIN:
         logger.error("LDAP_USER, LDAP_PASSWORD или AD_DOMAIN не заданы")
@@ -454,6 +458,27 @@ async def check_username_unique(
         logger.error(f"Ошибка проверки имени пользователя: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Ошибка проверки имени пользователя: {str(e)}")
 
+def get_ous_with_dn() -> List[OUDetail]:
+    """Получение списка organizationalUnit из AD с их полными DN."""
+    logger.info("Получение списка OU из AD с DN")
+    try:
+        with get_ad_connection() as conn:
+            conn.search(
+                BASE_DN,
+                "(objectClass=organizationalUnit)",
+                search_scope=SUBTREE,
+                attributes=['ou']
+            )
+            result = []
+            for entry in conn.entries:
+                name = safe_decode_attr(entry.ou) if entry.ou else "Без названия"
+                dn = str(entry.entry_dn)
+                result.append(OUDetail(name=name, dn=dn))
+            return sorted(result, key=lambda x: x.name)
+    except Exception as e:
+        logger.error(f"Ошибка при получении OU из AD: {e}", exc_info=True)
+        raise
+
 def get_departments() -> List[str]:
     """Получение списка департаментов и групп из Active Directory."""
     logger.info("Получение списка департаментов и групп из AD")
@@ -475,7 +500,7 @@ def get_departments() -> List[str]:
                 builtin_groups = {'Users', 'Domain Users', 'Administrators', 'Guests'}
                 for entry in conn.entries:
                     if entry.cn and safe_decode_attr(entry.cn) not in builtin_groups:
-                        departments.add(safe_decode_attr(entry.cn))
+                        departments.add(safe_decode_attr(entry.entry_dn))
             
             # Поиск пользовательских департаментов
             with timeout(15):
@@ -696,8 +721,17 @@ async def create_contact(
                 if conn.entries:
                     raise HTTPException(status_code=409, detail="Имя входа уже занято")
                 
+                ous = get_ous_with_dn()
+                target_department = contact_data.department
 
-                dn = f"CN={escape_ldap_filter_chars(contact_data.displayName)},OU={contact_data.department},{BASE_DN}"
+                target_ou_dn = None
+                for ou in ous:
+                    if ou.name == target_department:
+                        target_ou_dn = ou.dn
+                        break
+
+                dn = f"CN={escape_ldap_filter_chars(contact_data.displayName)},{target_ou_dn}"
+                logger.info(f" dnПоиска {dn}")
                 attributes = {
                     'objectClass': ['top', 'person', 'organizationalPerson', 'user'],
                     'sAMAccountName': contact_data.sam_account_name,

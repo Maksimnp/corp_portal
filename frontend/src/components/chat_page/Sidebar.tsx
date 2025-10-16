@@ -1,9 +1,10 @@
-import { MagnifyingGlass, Plus, Users, User, Broadcast } from "phosphor-react";
+import { MagnifyingGlass, Plus, Users, User, Broadcast, ArrowLeft, Moon, Sun, Check, Checks } from "phosphor-react";
 import type React from "react";
-import { formatTimestamp, getChatDisplayIcon, getChatDisplayName, getTypingText } from '../../utils/chat';
+import { formatTimestamp, getChatDisplayIcon, getChatDisplayName, getTypingText, formatTimestampSidebar } from '../../utils/chat';
 import type { Chat, Message, Contact } from '../../types/chat';
 import type { NewLifecycle } from "react";
 import { useTheme } from '../../hooks/ThemeContext';
+import { Link } from "react-router-dom";
 
 interface RenderSidebarProps {
 	searchQuery: string;
@@ -24,7 +25,8 @@ interface RenderSidebarProps {
 	activeChat: string | null;
 	username: string | null;
 	typingUsers: Map<string, Set<string>>;
-  currentChat: Chat | undefined;
+  	currentChat: Chat | undefined;
+	setShouldScrollToBottom: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const RenderSidebar: React.FC<RenderSidebarProps> = ({
@@ -46,10 +48,11 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 	activeChat,
 	username,
 	typingUsers,
-	currentChat
+	currentChat,
+	setShouldScrollToBottom
 }) => {
 	const { theme, toggleTheme } = useTheme();
-
+	const API_BASE = import.meta.env.VITE_API_BASE_URL;
 	const handleCreatePersonalChat = () => {
 		console.log("Creating personal chat...");
 		setShowContactSearch(true);
@@ -70,9 +73,20 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 	};
 
 	return (
-		<div className={`flex flex-col w-full md:w-96 border-r ${theme === 'light' ? 'border-slate-200/60 bg-white/95' : 'border-slate-700/60 bg-slate-900/95'} backdrop-blur-2xl relative z-0`}>
+		<div className={`flex flex-col w-full md:w-110 border-r ${theme === 'light' ? 'border-slate-200/60 bg-white/95' : 'border-slate-700/60 bg-slate-900/95'} backdrop-blur-2xl relative z-0`}>
 			{/* Header */}
-			<div className={`flex items-center justify-between p-6 border-b ${theme === 'light' ? 'border-slate-200/60 bg-white/90' : 'border-slate-700/60 bg-slate-900/90'} backdrop-blur-2xl relative z-10`}>
+			<div className="flex justify-between pt-3 pb-3 pr-6 pl-6">
+				<Link
+					to="/dashboard"
+					className={`flex w-full text-sm items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group hover:scale-105 transform z-20`}
+				>
+					<ArrowLeft size={16} />Вернуться на главную
+				</Link>
+				
+			</div>
+			<div className={`flex  items-center justify-between pr-6 pl-6 pb-6 border-b ${theme === 'light' ? 'border-slate-200/60 bg-white/90' : 'border-slate-700/60 bg-slate-900/90'} backdrop-blur-2xl relative z-10`}>
+				
+
 				<div className="flex items-center space-x-4">
 					<div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center shadow-lg">
 						<Users size={24} className="text-white" weight="fill" />
@@ -87,7 +101,16 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 					</div>
 				</div>
 				
-				<div className="relative">
+				<div className="flex gap-2 relative">
+					<button 
+						onClick={toggleTheme}
+						className={`w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-500 ${theme === 'light' ? 'text-black':'text-white'}  hover:from-blue-600 hover:to-purple-600 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group hover:scale-105 transform z-20`}
+						title={theme === 'light' ? 'Темная тема' : 'Светлая тема'}
+					>
+						{theme === 'light' ? 
+						<Moon size={22} weight="regular"/> 
+						: <Sun size={22} weight="regular" />}
+					</button>
 					<button 
 						onClick={() => setShowCreateOptions(!showCreateOptions)} 
 						className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group hover:scale-105 transform z-20"
@@ -188,7 +211,9 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 							return (
 								<div
 									key={chat.id}
-									onClick={() => setActiveChat(chat.id)}
+									onClick={() => {
+										setActiveChat(chat.id); setShouldScrollToBottom(true);
+									}}
 									className={`relative flex items-center p-4 rounded-2xl cursor-pointer transition-all duration-300 group ${
 										isActive 
 											? 'bg-gradient-to-br from-blue-500 to-purple-500 shadow-2xl transform scale-[1.02]' 
@@ -218,7 +243,7 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 									{/* Chat info */}
 									<div className="flex-1 min-w-0">
 										<div className="flex items-center justify-between mb-2">
-											<div className={`font-bold truncate ${
+											<div className={`font-bold truncate max-w-50 ${
 												isActive ? 'text-white' : `${theme === 'light' ? 'text-slate-900' : 'text-white'}`
 											}`}>
 												{displayName}
@@ -228,7 +253,7 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 													<span className={`text-xs font-medium ${
 														isActive ? 'text-white/80' : `${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`
 													}`}>
-														{formatTimestamp(lastMessage.timestamp)}
+														{formatTimestampSidebar(lastMessage.timestamp)}
 													</span>
 												)}
 												{unreadCount > 0 && !isActive && (
@@ -239,8 +264,7 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 											</div>
 										</div>
 										
-										<div className="flex items-center justify-between">
-											<div className={`text-sm truncate max-w-[200px] ${
+										<div className={`text-sm truncate ${
 												isActive ? 'text-white/90' : `${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`
 											}`}>
 												{typingUsers.get(chat.id) !== undefined && (
@@ -254,22 +278,32 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 													</div>
 												)}
 												{typingUsers.get(chat.id) === undefined && lastMessage ? (
-													<div className="flex items-center space-x-1">
-														{lastMessage.sender === username && (
-															<span className={`flex-shrink-0 ${
-																isActive ? 'text-white/90' : `${theme === 'light' ? 'text-blue-500' : 'text-blue-400'}`
-															}`}>
-																{lastMessage.is_read ? "✓✓" : "✓"}
-															</span>
-														)}
-														<span className="truncate">
-															{lastMessage.content?.split('\n')[0] || '📎 Файл'}
-														</span>
+													<div className="flex justify-between items-center">
+														<div className="flex items-center gap-1 truncate">
+															{lastMessage.file_name && /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(lastMessage.file_name) ? (
+																<div className="flex gap-2">
+																	<img src={`${API_BASE}${lastMessage.file_url}`} alt={lastMessage.file_name} className="rounded max-h-6 object-contain"/>
+																	<p className="font-medium">Photo</p>
+																</div>
+															) : (
+																<span className="truncate">
+																	{lastMessage.content?.split('\n')[0] || lastMessage.file_name}
+																</span>
+															)}
+														</div>
+														<div className="flex">
+															{lastMessage.sender === username && (
+																<span className={`flex-shrink-0 ${
+																	isActive ? 'text-white/90' : `${theme === 'light' ? 'text-blue-500' : 'text-blue-400'}`
+																}`}>
+																	{lastMessage.is_read ? <Checks className="text-xl"/> : <Check className="text-xl"/>}
+																</span>
+															)}
+														</div>
 													</div>
 												) : (
 													<span className={`${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>{lastMessage ? '':"Нет сообщений"}</span>
 												)}
-											</div>
 											
 											{isActive && unreadCount > 0 && (
 												<span className="inline-flex items-center justify-center min-w-6 h-6 px-2 text-xs font-bold text-blue-600 bg-white rounded-full shadow-lg">

@@ -20,6 +20,7 @@ const YOUTUBE_URL = import.meta.env.VITE_YOUTUBE_CHANNEL_URL;
 const INST_URL = import.meta.env.VITE_INSTAGRAM_URL;
 
 // Улучшенный LoginModal с премиальным эффектом стекла
+// Улучшенный LoginModal с функцией восстановления пароля
 const LoginModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
@@ -29,11 +30,67 @@ const LoginModal: React.FC<{
 }> = ({ isOpen, onClose, onLogin, isLoading, error }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [forgotPasswordError, setForgotPasswordError] = useState<string | null>(null);
+  const [forgotPasswordSuccess, setForgotPasswordSuccess] = useState(false);
+  const [isForgotPasswordLoading, setIsForgotPasswordLoading] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await onLogin(username, password);
+  };
+
+ const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setForgotPasswordError(null);
+  
+    
+    // Валидация email
+    if (!email.trim()) {
+    setForgotPasswordError('Пожалуйста, введите email');
+    return;
+  }
+
+    // Проверка домена
+     if (!email.endsWith('@minskhleb.by')) {
+    setForgotPasswordError('Только почта в домене minskhleb.by разрешена');
+    return;
+  }
+
+    setIsForgotPasswordLoading(true);
+    
+    try {
+      // Отправка запроса на восстановление пароля
+      const response = await fetch(`${BASE_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setForgotPasswordSuccess(true);
+        
+        // Автоматически закрываем через 4 секунды
+        setTimeout(() => {
+          setIsForgotPassword(false);
+          setForgotPasswordSuccess(false);
+          setEmail('');
+        }, 4000);
+      } else {
+        setForgotPasswordError(data.error || 'Ошибка при отправке запроса. Попробуйте позже.');
+      }
+    } catch (err) {
+      console.error('Forgot password error:', err);
+      setForgotPasswordError('Ошибка сети. Проверьте подключение и попробуйте позже.');
+    } finally {
+      setIsForgotPasswordLoading(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -42,10 +99,18 @@ const LoginModal: React.FC<{
     }
   };
 
+  const resetForgotPassword = () => {
+    setIsForgotPassword(false);
+    setEmail('');
+    setForgotPasswordError(null);
+    setForgotPasswordSuccess(false);
+  };
+
   useEffect(() => {
     if (isOpen) {
       setUsername('');
       setPassword('');
+      resetForgotPassword();
     }
   }, [isOpen]);
 
@@ -65,7 +130,7 @@ const LoginModal: React.FC<{
           aria-modal="true"
         >
           {/* Эффект фонового свечения */}
-          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-fuchsia-500/10 to-cyan-500/10 animate-pulse" />
+          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-cyan-500/10 to-cyan-500/10 animate-pulse" />
           
           <motion.div
             ref={modalRef}
@@ -81,12 +146,12 @@ const LoginModal: React.FC<{
             
             {/* Декоративные элементы */}
             <div className="absolute -top-20 -right-20 w-40 h-40 bg-cyan-500/20 rounded-full blur-3xl" />
-            <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-fuchsia-500/20 rounded-full blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-cyan-500/20 rounded-full blur-3xl" />
 
             <button
               onClick={onClose}
               className="absolute top-5 right-5 text-gray-300 hover:text-cyan-400 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 rounded-full p-2 z-10 backdrop-blur-sm bg-white/5 border border-white/10"
-              aria-label="Закрыть модальное окно входа"
+              aria-label="Закрыть модальное окно"
               tabIndex={0}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -94,104 +159,229 @@ const LoginModal: React.FC<{
               </svg>
             </button>
 
+            {/* Кнопка назад для режима восстановления пароля */}
+            {isForgotPassword && (
+              <button
+                onClick={resetForgotPassword}
+                className="absolute top-5 left-5 text-gray-300 hover:text-cyan-400 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 rounded-full p-2 z-10 backdrop-blur-sm bg-white/5 border border-white/10"
+                aria-label="Вернуться к входу"
+                tabIndex={0}
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+              </button>
+            )}
+
             <div className="relative z-10 text-center mb-2">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-cyan-600 to-fuchsia-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-cyan-500/30">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-cyan-600 to-cyan-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-cyan-500/30">
                 <span className="text-white font-bold text-xl">МХП</span>
               </div>
               <h2 id="login-modal-title" className="text-2xl font-bold text-white">
-                Вход в систему
+                {isForgotPassword ? 'Восстановление пароля' : 'Вход в систему'}
               </h2>
-              <p className="text-gray-300 mt-2">Введите ваши учетные данные</p>
+              <p className="text-gray-300 mt-2">
+                {isForgotPassword 
+                  ? 'Укажите вашу корпоративную почту' 
+                  : 'Введите ваши учетные данные'}
+              </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="relative z-10 space-y-6 mt-8">
-              <div>
-                <label htmlFor="username" className="block text-sm font-medium mb-3 text-gray-200">
-                  Логин
-                </label>
-                <input
-                  id="username"
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full px-5 py-4 rounded-xl bg-white/5 backdrop-blur-md border border-white/20 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/30 focus:border-transparent text-white placeholder-gray-400 transition-all duration-300 focus:outline-none focus:shadow-lg focus:shadow-cyan-500/20"
-                  placeholder="Введите логин"
-                  disabled={isLoading}
-                  aria-required="true"
-                  autoComplete="username"
-                  aria-describedby="username-help"
-                />
-              </div>
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium mb-3 text-gray-200">
-                  Пароль
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-5 py-4 rounded-xl bg-white/5 backdrop-blur-md border border-white/20 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/30 focus:border-transparent text-white placeholder-gray-400 transition-all duration-300 focus:outline-none focus:shadow-lg focus:shadow-cyan-500/20"
-                  placeholder="Введите пароль"
-                  disabled={isLoading}
-                  aria-required="true"
-                  autoComplete="current-password"
-                  aria-describedby="password-help"
-                />
-              </div>
+            {!isForgotPassword ? (
+              // Форма входа
+              <form onSubmit={handleSubmit} className="relative z-10 space-y-6 mt-8">
+                <div>
+                  <label htmlFor="username" className="block text-sm font-medium mb-3 text-gray-200">
+                    Логин
+                  </label>
+                  <input
+                    id="username"
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="w-full px-5 py-4 rounded-xl bg-white/5 backdrop-blur-md border border-white/20 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/30 focus:border-transparent text-white placeholder-gray-400 transition-all duration-300 focus:outline-none focus:shadow-lg focus:shadow-cyan-500/20"
+                    placeholder="Введите логин"
+                    disabled={isLoading}
+                    aria-required="true"
+                    autoComplete="username"
+                    aria-describedby="username-help"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="password" className="block text-sm font-medium mb-3 text-gray-200">
+                    Пароль
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-5 py-4 rounded-xl bg-white/5 backdrop-blur-md border border-white/20 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/30 focus:border-transparent text-white placeholder-gray-400 transition-all duration-300 focus:outline-none focus:shadow-lg focus:shadow-cyan-500/20"
+                    placeholder="Введите пароль"
+                    disabled={isLoading}
+                    aria-required="true"
+                    autoComplete="current-password"
+                    aria-describedby="password-help"
+                  />
+                </div>
 
-              {error && (
-                <motion.div
-                  className="p-4 rounded-xl bg-red-500/20 backdrop-blur-md border border-red-500/40 text-red-200 text-sm"
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                  role="alert"
-                  aria-live="polite"
-                >
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    {error}
-                  </div>
-                </motion.div>
-              )}
+                {/* Ссылка "Забыли пароль?" */}
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => setIsForgotPassword(true)}
+                    className="text-cyan-400 hover:text-cyan-300 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500/30 rounded-lg px-3 py-1"
+                    tabIndex={0}
+                  >
+                    Забыли пароль?
+                  </button>
+                </div>
 
-              <motion.button
-                type="submit"
-                disabled={isLoading}
-                className={`w-full py-4 mt-2 bg-gradient-to-r from-cyan-600 to-fuchsia-600 text-white rounded-xl font-semibold shadow-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-900 relative overflow-hidden ${
-                  isLoading ? 'opacity-70 cursor-not-allowed' : 'hover:shadow-cyan-500/25 hover:-translate-y-1'
-                }`}
-                whileHover={!isLoading ? { scale: 1.02 } : {}}
-                whileTap={!isLoading ? { scale: 0.98 } : {}}
-                tabIndex={0}
-                aria-label={isLoading ? 'Загрузка...' : 'Войти в систему'}
-              >
-                {/* Эффект блеска при наведении */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 transform translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-                
-                {isLoading ? (
-                  <span className="flex items-center justify-center gap-3 relative z-10">
-                    <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-                    </svg>
-                    Загрузка...
-                  </span>
-                ) : (
-                  <span className="relative z-10">Войти</span>
+                {error && (
+                  <motion.div
+                    className="p-4 rounded-xl bg-red-500/20 backdrop-blur-md border border-red-500/40 text-red-200 text-sm"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    role="alert"
+                    aria-live="polite"
+                  >
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {error}
+                    </div>
+                  </motion.div>
                 )}
-              </motion.button>
-            </form>
+
+                <motion.button
+                  type="submit"
+                  disabled={isLoading}
+                  className={`w-full py-4 mt-2 bg-gradient-to-r from-cyan-600 to-cyan-600 text-white rounded-xl font-semibold shadow-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-900 relative overflow-hidden ${
+                    isLoading ? 'opacity-70 cursor-not-allowed' : 'hover:shadow-cyan-500/25 hover:-translate-y-1'
+                  }`}
+                  whileHover={!isLoading ? { scale: 1.02 } : {}}
+                  whileTap={!isLoading ? { scale: 0.98 } : {}}
+                  tabIndex={0}
+                  aria-label={isLoading ? 'Загрузка...' : 'Войти в систему'}
+                >
+                  {/* Эффект блеска при наведении */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 transform translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                  
+                  {isLoading ? (
+                    <span className="flex items-center justify-center gap-3 relative z-10">
+                      <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                      </svg>
+                      Загрузка...
+                    </span>
+                  ) : (
+                    <span className="relative z-10">Войти</span>
+                  )}
+                </motion.button>
+              </form>
+            ) : (
+              // Форма восстановления пароля
+              <form onSubmit={handleForgotPasswordSubmit} className="relative z-10 space-y-6 mt-8">
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium mb-3 text-gray-200">
+                    Корпоративная почта
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-5 py-4 rounded-xl bg-white/5 backdrop-blur-md border border-white/20 focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/30 focus:border-transparent text-white placeholder-gray-400 transition-all duration-300 focus:outline-none focus:shadow-lg focus:shadow-cyan-500/20"
+                    placeholder="username@minskhleb.by"
+                    disabled={isForgotPasswordLoading || forgotPasswordSuccess}
+                    aria-required="true"
+                    autoComplete="email"
+                    aria-describedby="email-help"
+                  />
+                  <p id="email-help" className="text-xs text-gray-400 mt-2">
+                    Только почта в домене @minskhleb.by
+                  </p>
+                </div>
+
+                {forgotPasswordError && (
+                  <motion.div
+                    className="p-4 rounded-xl bg-red-500/20 backdrop-blur-md border border-red-500/40 text-red-200 text-sm"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    role="alert"
+                    aria-live="polite"
+                  >
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {forgotPasswordError}
+                    </div>
+                  </motion.div>
+                )}
+
+                {forgotPasswordSuccess && (
+                  <motion.div
+                    className="p-4 rounded-xl bg-green-500/20 backdrop-blur-md border border-green-500/40 text-green-200 text-sm"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    role="alert"
+                    aria-live="polite"
+                  >
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Инструкции по восстановлению пароля отправлены на вашу почту
+                    </div>
+                  </motion.div>
+                )}
+
+                <motion.button
+                  type="submit"
+                  disabled={isForgotPasswordLoading || forgotPasswordSuccess}
+                  className={`w-full py-4 mt-2 bg-gradient-to-r from-cyan-600 to-cyan-600 text-white rounded-xl font-semibold shadow-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-900 relative overflow-hidden ${
+                    isForgotPasswordLoading || forgotPasswordSuccess ? 'opacity-70 cursor-not-allowed' : 'hover:shadow-cyan-500/25 hover:-translate-y-1'
+                  }`}
+                  whileHover={!(isForgotPasswordLoading || forgotPasswordSuccess) ? { scale: 1.02 } : {}}
+                  whileTap={!(isForgotPasswordLoading || forgotPasswordSuccess) ? { scale: 0.98 } : {}}
+                  tabIndex={0}
+                  aria-label={isForgotPasswordLoading ? 'Отправка...' : 'Восстановить пароль'}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 transform translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                  
+                  {isForgotPasswordLoading ? (
+                    <span className="flex items-center justify-center gap-3 relative z-10">
+                      <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                      </svg>
+                      Отправка...
+                    </span>
+                  ) : forgotPasswordSuccess ? (
+                    <span className="relative z-10 flex items-center justify-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Отправлено!
+                    </span>
+                  ) : (
+                    <span className="relative z-10">Восстановить пароль</span>
+                  )}
+                </motion.button>
+              </form>
+            )}
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
   );
 };
-
 const HomePage: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const totalRequestsRef = useRef<HTMLSpanElement>(null);
@@ -444,7 +634,7 @@ const HomePage: React.FC = () => {
         </svg>
       ),
       title: 'ИИ-ассистент (В разработке)',
-      description: 'Интеллектуальная система для автоматической категоризации и обработки обращений.',
+      description: 'Интеллектуальная система для помощи сотрудникам в работе.',
       color: 'from-emerald-500 to-cyan-500',
     },
     {
@@ -454,8 +644,8 @@ const HomePage: React.FC = () => {
         </svg>
       ),
       title: 'Аналитика и отчетность (В разработке)',
-      description: 'Подробная аналитика и интерактивные дашборды для повышения эффективности.',
-      color: 'from-fuchsia-500 to-purple-600',
+      description: 'Подробная аналитика, интерактивные таблицы, отчёты для повышения эффективности.',
+      color: 'from-cyan-500 to-cyan-600',
     },
   ];
 
@@ -476,11 +666,11 @@ const HomePage: React.FC = () => {
           >
             <div className="relative">
               <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/20 shadow-2xl shadow-cyan-500/20 flex items-center justify-center">
-                <span className="text-white font-extrabold text-lg bg-gradient-to-r from-cyan-500 to-fuchsia-500 bg-clip-text text-transparent">МХП</span>
+                <span className="text-white font-extrabold text-lg bg-gradient-to-r from-cyan-500 to-cyan-500 bg-clip-text text-transparent">МХП</span>
               </div>
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-cyan-500 to-fuchsia-500 bg-clip-text text-transparent hidden md:block">Минскхлебпром</span>
+            <span className="text-xl font-bold bg-gradient-to-r from-cyan-500 to-cyan-500 bg-clip-text text-transparent hidden md:block"></span>
           </motion.div>
 
           {/* Кнопка бургер меню для мобильных */}
@@ -511,7 +701,7 @@ const HomePage: React.FC = () => {
                 <span className="relative z-10">
                   {section === 'features' ? 'Возможности' : section === 'stats' ? 'Результаты' : 'О проекте'}
                 </span>
-                <span className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-cyan-500 to-fuchsia-500 transition-all group-hover:w-3/4"></span>
+                <span className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-cyan-500 to-cyan-500 transition-all group-hover:w-3/4"></span>
               </motion.a>
             ))}
           </nav>
@@ -521,7 +711,7 @@ const HomePage: React.FC = () => {
               <>
                 <motion.button
                   onClick={() => navigate('/dashboard')}
-                  className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-fuchsia-600 text-white rounded-2xl font-medium shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900 relative overflow-hidden"
+                  className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-cyan-600 text-white rounded-2xl font-medium shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900 relative overflow-hidden"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
@@ -542,7 +732,7 @@ const HomePage: React.FC = () => {
             ) : (
               <motion.button
                 onClick={openLoginModal}
-                className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-fuchsia-600 text-white rounded-2xl font-medium shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900 relative overflow-hidden"
+                className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-cyan-600 text-white rounded-2xl font-medium shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900 relative overflow-hidden"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -565,8 +755,8 @@ const HomePage: React.FC = () => {
               transition={{ duration: 0.5, ease: "easeInOut" }}
             >
               {/* Фоновые декоративные элементы */}
-              <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-cyan-500/20 rounded-full blur-3xl" />
-              <div className="absolute bottom-1/4 right-1/4 w-32 h-32 bg-fuchsia-500/20 rounded-full blur-3xl" />
+              <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-red-500 rounded-full blur-3xl" />
+              <div className="absolute bottom-1/4 right-1/4 w-32 h-32 bg-red-500 rounded-full blur-3xl" />
               
               <button 
                 onClick={() => setIsNavOpen(false)} 
@@ -591,7 +781,7 @@ const HomePage: React.FC = () => {
                 <motion.a 
                   href={INST_URL} 
                   whileHover={{ scale: 1.2, rotate: 10 }} 
-                  className="text-3xl text-gray-300 hover:text-purple-400 p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10"
+                  className="text-3xl text-gray-300 hover:text-cyan-400 p-4 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10"
                   aria-label="Instagram"
                 >
                   📸
@@ -608,7 +798,7 @@ const HomePage: React.FC = () => {
               {!isAuthenticated && (
                 <motion.button
                   onClick={openLoginModal}
-                  className="px-8 py-4 mt-8 bg-gradient-to-r from-cyan-600 to-fuchsia-600 text-white rounded-2xl font-medium text-lg shadow-lg"
+                  className="px-8 py-4 mt-8 bg-gradient-to-r from-cyan-600 to-cyan-600 text-white rounded-2xl font-medium text-lg shadow-lg"
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
                 >
@@ -631,10 +821,7 @@ const HomePage: React.FC = () => {
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent z-5" />
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-slate-900/60 to-transparent z-5" />
         
-        {/* Декоративные элементы фона */}
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-fuchsia-500/10 rounded-full blur-3xl animate-pulse" />
-
+       
         <motion.div
           className="relative z-20 max-w-6xl mx-auto px-6 text-center"
           initial={{ opacity: 0, y: 50 }}
@@ -651,7 +838,7 @@ const HomePage: React.FC = () => {
           </motion.div>
 
           <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black mb-8 leading-tight">
-            <span className="bg-gradient-to-r from-cyan-500 via-fuchsia-500 to-cyan-500 bg-clip-text text-transparent bg-size-200 animate-gradient">
+            <span className="bg-gradient-to-r from-cyan-500 via-cyan-500 to-cyan-500 bg-clip-text text-transparent bg-size-200 animate-gradient">
               Корпоративный портал
             </span>
             <br />
@@ -669,7 +856,7 @@ const HomePage: React.FC = () => {
               whileHover={{ scale: 1.05, y: -5 }}
               whileTap={{ scale: 0.95 }}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-fuchsia-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <span className="relative z-10">Исследовать возможности</span>
               <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
@@ -679,7 +866,7 @@ const HomePage: React.FC = () => {
             {!isAuthenticated && (
               <motion.button
                 onClick={openLoginModal}
-                className="group px-8 py-4 bg-gradient-to-r from-cyan-600 to-fuchsia-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900 relative overflow-hidden"
+                className="group px-8 py-4 bg-gradient-to-r from-cyan-600 to-cyan-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900 relative overflow-hidden"
                 whileHover={{ scale: 1.05, y: -5 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -714,9 +901,8 @@ const HomePage: React.FC = () => {
         id="features"
         className="py-32 relative overflow-hidden"
       >
-        {/* Фоновые декоративные элементы */}
-        <div className="absolute top-0 left-0 w-72 h-72 bg-cyan-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-72 h-72 bg-fuchsia-500/10 rounded-full blur-3xl" />
+      
+        
         
         <div className="container mx-auto px-6 relative z-10">
           <motion.div
@@ -727,7 +913,7 @@ const HomePage: React.FC = () => {
             transition={{ duration: 0.8 }}
           >
             <h2 className="text-4xl lg:text-5xl font-black mb-6">
-              <span className="bg-gradient-to-r from-cyan-500 to-fuchsia-500 bg-clip-text text-transparent">Возможности</span> будущего
+              <span className="bg-gradient-to-r from-cyan-500 to-cyan-500 bg-clip-text text-transparent">Возможности</span> будущего
             </h2>
             <p className="text-xl text-gray-200 max-w-3xl mx-auto font-light leading-relaxed">
               Инструменты, которые преобразуют ваш рабочий процесс
@@ -756,7 +942,7 @@ const HomePage: React.FC = () => {
                   aria-label={`Выбрать функцию: ${feature.title}`}
                 >
                   {/* Эффект блеска */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 transform translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent -skew-x-12 transform translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
                   
                   <div className="flex items-start gap-4 relative z-10">
                     <div className={`p-3 rounded-xl backdrop-blur-sm border flex-shrink-0 transition-colors ${
@@ -785,26 +971,24 @@ const HomePage: React.FC = () => {
 
             {/* Визуальная часть */}
             <motion.div
-              className="relative"
-              style={{ y: featureParallax }}
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true, margin: '-100px' }}
-              transition={{ duration: 0.8 }}
+      className="relative"
+      style={{ y: featureParallax }}
+      initial={{ opacity: 0, scale: 0.8 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true, margin: '-100px' }}
+      transition={{ duration: 0.8 }}
             >
               <div className="relative w-full h-[400px] bg-white/10 backdrop-blur-2xl rounded-2xl border border-white/20 overflow-hidden shadow-2xl shadow-cyan-500/20">
-                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-fuchsia-500/20" />
-                <div className="flex items-center justify-center h-full p-4">
-                  <motion.video
-                    src="/mocaup.mp4"
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    className="max-w-full max-h-full object-contain rounded-lg"
-                    animate={{ scale: activeFeature % 2 === 0 ? 1.05 : 1 }}
-                    transition={{ duration: 6, repeat: Infinity, repeatType: 'reverse' }}
-                  >
+        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-cyan-500/20" />
+        <div className="flex items-center justify-center h-full p-4">
+          <motion.video
+            src="/mocaup.mp4"
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="w-full h-full object-cover rounded-lg"
+          >
                     Ваш браузер не поддерживает видео.
                   </motion.video>
                 </div>
@@ -832,7 +1016,7 @@ const HomePage: React.FC = () => {
             transition={{ duration: 0.8 }}
           >
             <h2 className="text-4xl lg:text-5xl font-black mb-6">
-              Наши <span className="bg-gradient-to-r from-cyan-500 to-fuchsia-500 bg-clip-text text-transparent">результаты</span>
+              Наши <span className="bg-gradient-to-r from-cyan-500 to-cyan-500 bg-clip-text text-transparent">результаты</span>
             </h2>
             <p className="text-xl text-gray-200 max-w-3xl mx-auto font-light leading-relaxed">
               Реальные показатели эффективности нашей платформы (Демо данные)
@@ -853,7 +1037,7 @@ const HomePage: React.FC = () => {
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.2 }}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-fuchsia-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <h3 className="text-4xl font-bold text-cyan-400 mb-4 group-hover:text-cyan-300 transition-colors relative z-10">
                   <span ref={stat.ref}>{stat.value}</span>
                 </h3>
@@ -878,7 +1062,7 @@ const HomePage: React.FC = () => {
             transition={{ duration: 0.8 }}
           >
             <h2 className="text-4xl lg:text-5xl font-black mb-6">
-              О <span className="bg-gradient-to-r from-cyan-500 to-fuchsia-500 bg-clip-text text-transparent">проекте</span>
+              О <span className="bg-gradient-to-r from-cyan-500 to-cyan-500 bg-clip-text text-transparent">проекте</span>
             </h2>
             <p className="text-xl text-gray-200 max-w-3xl mx-auto font-light leading-relaxed">
               Инновационная платформа Минскхлебпром для оптимизации процессов и повышения эффективности
@@ -893,14 +1077,14 @@ const HomePage: React.FC = () => {
               transition={{ duration: 0.8 }}
             >
               <p className="text-gray-200 mb-6 text-lg leading-relaxed">
-                Минскхлебпром — это современная платформа, разработанная для автоматизации и упрощения рабочих процессов. Мы стремимся предоставить интуитивно понятные инструменты, которые помогут вам сосредоточиться на главном.
+               Корпоративный портал Минскхлебпром — это современная платформа, разработанная для автоматизации и упрощения рабочих процессов. Мы стремимся предоставить интуитивно понятные инструменты, которые помогут вам сосредоточиться на главном.
               </p>
               <p className="text-gray-300 font-light leading-relaxed">
                 Наша миссия — трансформировать подход к управлению задачами, обеспечивая прозрачность, эффективность и инновации на каждом этапе.
               </p>
               <motion.a
                 href="#features"
-                className="inline-block mt-8 px-8 py-4 bg-gradient-to-r from-cyan-600 to-fuchsia-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900"
+                className="inline-block mt-8 px-8 py-4 bg-gradient-to-r from-cyan-600 to-cyan-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -915,18 +1099,19 @@ const HomePage: React.FC = () => {
               transition={{ duration: 0.8 }}
             >
               <div className="relative w-full h-[300px] bg-white/10 backdrop-blur-2xl rounded-2xl border border-white/20 overflow-hidden shadow-2xl shadow-cyan-500/20">
-                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-fuchsia-500/20" />
-                <div className="flex items-center justify-center h-full p-4">
-                  <motion.video
-                    src="/mocaup2.mp4" 
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                    className="max-w-full max-h-full object-contain rounded-lg"
-                    animate={{ scale: activeFeature % 2 === 0 ? 1.05 : 1 }}
-                    transition={{ duration: 6, repeat: Infinity, repeatType: 'reverse' }}
-                  >
+  <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-cyan-500/20" />
+  <div className="flex items-center justify-center h-full p-0">
+    <motion.video
+      src="/mocaup2.mp4"
+      autoPlay
+      muted
+      loop
+      playsInline
+      className="w-full h-full object-cover rounded-lg"
+      animate={{ scale: activeFeature % 2 === 0 ? 1.05 : 1 }}
+      transition={{ duration: 6, repeat: Infinity, repeatType: 'reverse' }}
+    >
+  
                     Ваш браузер не поддерживает видео.
                   </motion.video>
                 </div>
@@ -943,7 +1128,7 @@ const HomePage: React.FC = () => {
             <div>
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
-                  <span className="text-white font-extrabold text-lg bg-gradient-to-r from-cyan-500 to-fuchsia-500 bg-clip-text text-transparent">МХП</span>
+                  <span className="text-white font-extrabold text-lg bg-gradient-to-r from-cyan-500 to-cyan-500 bg-clip-text text-transparent">МХП</span>
                 </div>
                 <span className="text-xl font-bold text-white">Минскхлебпром</span>
               </div>
@@ -958,7 +1143,7 @@ const HomePage: React.FC = () => {
                   <li key={section}>
                     <a
                       href={`#${section}`}
-                      className="text-gray-300 hover:text-cyan-400 transition-colors font-light"
+                      className="text-white-400 hover:text-cyan-400 transition-colors font-light"
                     >
                       {section === 'features' ? 'Возможности' : section === 'stats' ? 'Результаты' : 'О проекте'}
                     </a>
@@ -971,7 +1156,7 @@ const HomePage: React.FC = () => {
               <div className="flex gap-6">
                 <motion.a
                   href={INST_URL}
-                  className="text-gray-300 hover:text-purple-400 transition-colors p-3 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10"
+                  className="text-gray-300 hover:text-cyan-400 transition-colors p-3 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10"
                   whileHover={{ scale: 1.2, rotate: 5 }}
                   aria-label="Instagram"
                 >

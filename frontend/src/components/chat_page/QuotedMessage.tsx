@@ -1,8 +1,8 @@
 import type React from "react";
-import { CommentOutlined } from '@ant-design/icons';
-import { X } from 'phosphor-react';
+import { X, ArrowBendUpLeft } from 'phosphor-react';
 import type { Message } from '../../types/chat';
 import { useTheme } from '../../hooks/ThemeContext';
+import {  getFileIcon, messageIsPhoto } from '../../utils/chat';
 
 interface RenderQuotedMessageProps {
     quotedMessage: Message | null;
@@ -16,11 +16,12 @@ const RenderQuotedMessage: React.FC<RenderQuotedMessageProps> = ({
     cancelQuote
 }) => {
     const { theme, toggleTheme } = useTheme();
+    const API_BASE = import.meta.env.VITE_API_BASE_URL;
     if (!quotedMessage) return null;
     return (
       <div className="w-full max-w-full overflow-hidden">
         <div className={`flex items-start max-w-full w-full mb-3 p-3 ${theme === 'light' ? 'bg-gray-100 border-gray-200' : 'bg-gray-800 border-gray-700'} rounded-t-lg border`}>
-          <CommentOutlined className={`text-xl ${theme === 'light' ? 'text-black' : 'text-white'} mt-1 flex-shrink-0 mr-2`} />
+          <ArrowBendUpLeft className={`text-xl ${theme === 'light' ? 'text-black' : 'text-white'} mt-1 flex-shrink-0 mr-2`} />
           <div className="flex-1 min-w-0 w-full">
             <div className="flex items-start w-full">
               <div className="border-l-[4px] border-purple-500 pl-3 rounded-sm flex-1 min-w-0 w-full max-w-full overflow-hidden">
@@ -31,10 +32,13 @@ const RenderQuotedMessage: React.FC<RenderQuotedMessageProps> = ({
                   <div className="line-clamp-2 break-words">
                     {quotedMessage.content ? (
                       quotedMessage.content
-                    ) : quotedMessage.file_name ? (
-                      `📎 ${quotedMessage.file_name}`
+                    ) : messageIsPhoto(quotedMessage) ? (
+                      <img src={`${API_BASE}${quotedMessage.file_url}`} alt={quotedMessage.file_name} className="rounded-lg max-h-12 object-contain cursor-pointer"/>
                     ) : (
-                      'Сообщение'
+                      <a href={`${API_BASE}${quotedMessage.file_url}`} target="_blank" rel="noopener noreferrer" className={`hover:underline flex items-center`}>
+                        {getFileIcon(quotedMessage.file_name, 20)}
+                        {quotedMessage.file_name}
+                      </a>
                     )}
                   </div>
                 </div>

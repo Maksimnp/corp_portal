@@ -19,6 +19,7 @@ interface LastMessage {
   timestamp: string;
   file_name: string | null;
   is_read: boolean;
+  file_url?: string;
 }
 
 interface Chat {

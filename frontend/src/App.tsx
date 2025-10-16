@@ -15,8 +15,10 @@ import ServerStats from './pages/ServerStats/ServerStats';
 import FAQ from './pages/FAQ/faq';
 import EmployeeTrackerApp from './pages/EmplStat/EmployeeTrackerApp';
 import Software from './pages/Software/software';
+import RemoteDesktop from './pages/RemoteDesktop/RemoteDesktop'; // Добавлен импорт
 import { useTheme } from './hooks/ThemeContext';
 import { ConfigProvider, theme as antdTheme } from 'antd';
+import ResetPasswordPage from './pages/ResetPasswordPage/ResetPasswordPage';
 
 const PrivateRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
     const { isAuthenticated, loading } = useAuth();
@@ -43,6 +45,7 @@ const App: React.FC = () => {
                     <Routes>
                         <Route path="/" element={<HomePage />} />
                         <Route path="/login" element={<Login />} />
+                        <Route path="/reset-password" element={<ResetPasswordPage />} />
                         <Route
                             path="/dashboard"
                             element={
@@ -90,6 +93,14 @@ const App: React.FC = () => {
                             element={
                                 <PrivateRoute>
                                     <JitsiWrapper />
+                                </PrivateRoute>
+                            }
+                        />
+                        <Route
+                            path="/remote-desktop"
+                            element={
+                                <PrivateRoute>
+                                    <RemoteDesktop />
                                 </PrivateRoute>
                             }
                         />

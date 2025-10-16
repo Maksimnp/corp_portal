@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { PaperPlaneRight, Paperclip, Smiley, DotsThreeVertical, X, Microphone, Sticker, Plus, Trash, UserCircle, ArrowLeft, Sun, Moon, MagnifyingGlass, Phone, VideoCamera } from 'phosphor-react';
+import React, { useState } from "react";
+import { PaperPlaneRight, Paperclip, Smiley, DotsThreeVertical, X, Microphone, Sticker, Plus, Trash, UserCircle, ArrowLeft, MagnifyingGlass, ArrowDown } from 'phosphor-react';
 import type { Chat, Message, Contact, MessageContextMenuState, UserContextMenuState } from '../../types/chat';
 import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 import { getChatDisplayIcon, getChatDisplayName, getTypingText } from '../../utils/chat';
@@ -10,8 +10,7 @@ import RenderContextMenu from "./ContextMenu";
 import RenderChatInfoSidebar from "./ChatInfoSidebar";
 import RenderUserContextMenu from "./UserContextMenu";
 import { useTheme } from '../../hooks/ThemeContext';
-import type { BlobOptions } from "buffer";
-import { Link } from "react-router-dom";
+
 
 const VITE_API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -54,7 +53,6 @@ interface RenderChatWindowProps {
     isLoadingMessages: boolean;
     setShowStickerPicker: React.Dispatch<React.SetStateAction<boolean>>;
     chatOptionsRef: React.RefObject<HTMLDivElement | null>;
-    hasMoreByChat: { [key: string]: boolean };
     messagesEndRef: React.RefObject<HTMLDivElement | null>;
     stickerPickerRef: React.RefObject<HTMLDivElement | null>;
     fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -89,6 +87,7 @@ interface RenderChatWindowProps {
     handleContextMenuEdit: () => void;
     handleContextMenuDelete: () => void;
     handleContextMenuCopy: () => void;
+    handleContextMenuForward: () => void;
     handleContextMenuQuote: () => void;
     openEditChatModal: () => void;
     handleUserContextMenu: (event: React.MouseEvent, userId: string) => void;
@@ -111,6 +110,12 @@ interface RenderChatWindowProps {
     searchQuery: string;
     setSearchQuery: React.Dispatch<React.SetStateAction<string>>;
     setShowImageModal: React.Dispatch<React.SetStateAction<boolean>>;
+    messagesContainerRef: React.RefObject<HTMLDivElement | null>;
+    isAtBottom: boolean;
+    loadMessagesAround: (messageId: string) => Promise<void>;
+    setIsAutoScrolling: React.Dispatch<React.SetStateAction<boolean>>;
+    setImageUrl: React.Dispatch<React.SetStateAction<Message | null>>;
+    searchContacts: (query: string) => Promise<void>;
 }
 
 const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
@@ -130,7 +135,6 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
     isLoadingMessages,
     setShowStickerPicker,
     chatOptionsRef,
-    hasMoreByChat = {},
     messagesEndRef,
     stickerPickerRef,
     fileInputRef,
@@ -166,6 +170,7 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
     handleContextMenuDelete,
     handleContextMenuCopy,
     handleContextMenuQuote,
+    handleContextMenuForward,
     openEditChatModal,
     handleUserContextMenu,
     leaveChat,
@@ -186,18 +191,18 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
     setShowEditChatModal,
     searchQuery,
     setSearchQuery,
-    setShowImageModal
+    setShowImageModal,
+    messagesContainerRef,
+    isAtBottom,
+    loadMessagesAround,
+    setIsAutoScrolling,
+    setImageUrl,
+    searchContacts
 }) => {
   const { theme, toggleTheme } = useTheme();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [showMessageSearch, setShowMessageSearch] = useState(false);
-  // Прокрутка к последнему сообщению без анимации
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ block: 'end' });
-    }
-  }, [activeChat, filteredMessages, messagesEndRef]);
 
   if (!activeChat || !currentChat) {
     return (
@@ -222,7 +227,6 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
   // Безопасные значения по умолчанию
   const safeUserStatuses = userStatuses || {};
   const safeContactMap = contactMap || {};
-  const safeHasMoreByChat = hasMoreByChat || {};
   const safeFilteredMessages = filteredMessages || [];
   const safeQuotedMessageData = quotedMessageData || {};
 
@@ -362,13 +366,7 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
             </button>
 
             {/* Theme Toggle */}
-            <button 
-              onClick={toggleTheme}
-              className={`w-10 h-10 rounded-xl ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'} transition-all duration-300 flex items-center justify-center`}
-              title={theme === 'light' ? 'Темная тема' : 'Светлая тема'}
-            >
-              {theme === 'light' ? <Moon size={18} weight="regular" /> : <Sun size={18} weight="regular" />}
-            </button>
+            
             {/* Chat Options */}
             <div className="relative">
               <button 
@@ -444,18 +442,12 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
                 </div>
               )}
             </div>
-            <Link
-              to="/dashboard"
-              className={`inline-flex text-sm items-center gap-2 px-4 py-2 rounded-lg transition-colors ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'} shadow-lg`}
-            >
-              <ArrowLeft size={16} />
-              Назад в Dashboard
-            </Link>
           </div>
         </div>
 
         {/* Messages Area - без скроллбара */}
         <div
+          ref={messagesContainerRef}
           className={`flex flex-col flex-1 overflow-y-auto p-4 space-y-4 messages-container relative font-sans no-scrollbar`}
           onScroll={handleScroll}
           style={{
@@ -468,7 +460,7 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
             msOverflowStyle: 'none', /* Для IE/Edge */
           }}
         >
-          {safeHasMoreByChat[activeChat] && isLoadingMessages && (
+          {isLoadingMessages && (
             <div className="flex justify-center py-4">
               <div className={`w-6 h-6 border-2 ${theme === 'light' ? 'border-slate-300' : 'border-slate-600'} border-t-blue-500 rounded-full animate-spin`}></div>
             </div>
@@ -482,7 +474,36 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
             fetchQuotedMessageData={fetchQuotedMessageData}
             username={username}
             setShowImageModal={setShowImageModal}
+            loadMessagesAround={loadMessagesAround}
+            setImageUrl={setImageUrl}
           />
+          {/* <VirtualizedMessages
+            filteredMessages={safeFilteredMessages}
+            quotedMessageData={safeQuotedMessageData}
+            contactMap={safeContactMap}
+            handleMessageContextMenu={handleMessageContextMenu}
+            fetchQuotedMessageData={fetchQuotedMessageData}
+            username={username}
+            setShowImageModal={setShowImageModal}
+            theme={theme}
+          /> */}
+          <button 
+            className={`fixed bottom-24 w-10 h-10 flex items-center justify-center right-[42%] z-100 rounded-full bg-gray-300 transform-opacite duration-300 ${isAtBottom ? 'opacity-0' : 'opacity-full'}`}
+            onClick={() => {
+              setIsAutoScrolling(true);
+              if (messagesContainerRef.current) {
+                messagesContainerRef.current.scrollTo({
+                  top: messagesContainerRef.current.scrollHeight,
+                  behavior: 'smooth'
+                });
+              }
+              setTimeout(() => {
+                setIsAutoScrolling(false);
+              }, 300)
+            }}
+          >
+            <ArrowDown size={22}/>
+          </button>
           <div ref={messagesEndRef} />
           
           <RenderContextMenu 
@@ -492,7 +513,9 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
             handleContextMenuDelete={handleContextMenuDelete}
             handleContextMenuCopy={handleContextMenuCopy}
             handleContextMenuQuote={handleContextMenuQuote}
+            handleContextMenuForward={handleContextMenuForward}
             username={username}
+            searchContacts={searchContacts}
           />
         </div>
 
@@ -680,42 +703,6 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
             </div>
           )}
         </div>
-
-        {/* Delete Message Modal */}
-        {showDeleteMessageModal && messageToDelete && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[200] p-4 animate-in fade-in-0 font-sans">
-            <div className={`rounded-2xl shadow-2xl p-6 w-full max-w-md border ${theme === 'light' ? 'border-slate-200/80' : 'border-slate-700/80'} animate-in zoom-in-95 ${theme === 'light' ? 'bg-white' : 'bg-slate-800'}`}>
-              <div className="text-center mb-4">
-                <div className={`w-16 h-16 ${theme === 'light' ? 'bg-red-100' : 'bg-red-500/20'} rounded-2xl flex items-center justify-center mx-auto mb-4`}>
-                  <Trash size={24} className="text-red-500" weight="bold" />
-                </div>
-                <h3 className={`text-xl font-bold font-sans ${theme === 'light' ? 'text-slate-900' : 'text-white'} mb-2`}>
-                  Удалить сообщение
-                </h3>
-                <p className={`text-base leading-relaxed font-sans ${theme === 'light' ? 'text-slate-600' : 'text-slate-300'}`}>
-                  Это действие нельзя отменить. Сообщение будет удалено навсегда.
-                </p>
-              </div>
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => {
-                    setShowDeleteMessageModal(false);
-                    setMessageToDelete(null);
-                  }}
-                  className={`flex-1 px-4 py-3 rounded-xl font-sans ${theme === 'light' ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'} transition-all duration-300 font-semibold`}
-                >
-                  Отмена
-                </button>
-                <button
-                  onClick={confirmDeleteMessage}
-                  className="flex-1 px-4 py-3 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all duration-300 font-sans font-semibold shadow-lg hover:shadow-xl"
-                >
-                  Удалить
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       <RenderChatInfoSidebar

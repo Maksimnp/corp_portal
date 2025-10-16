@@ -11,6 +11,8 @@ interface RenderMessagesProps {
     fetchQuotedMessageData: (id: string) => Promise<Message | null>;
     username: string | null;
     setShowImageModal: React.Dispatch<React.SetStateAction<boolean>>;
+    loadMessagesAround: (messageId: string) => Promise<void>;
+    setImageUrl: React.Dispatch<React.SetStateAction<Message | null>>;
 }
 
 const RenderMessages: React.FC<RenderMessagesProps> = ({
@@ -20,7 +22,9 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
     handleMessageContextMenu,
     fetchQuotedMessageData,
     username,
-    setShowImageModal
+    setShowImageModal,
+    loadMessagesAround,
+    setImageUrl
 }) => {
     let lastDate = '';
     const messagesToRender = filteredMessages || [];
@@ -53,6 +57,8 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
                 fetchQuotedMessageData={fetchQuotedMessageData}
                 username={username}
                 setShowImageModal={setShowImageModal}
+                loadMessagesAround={loadMessagesAround}
+                setImageUrl={setImageUrl}
             />
           }
         </React.Fragment>

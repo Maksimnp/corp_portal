@@ -1,12 +1,12 @@
 import type React from "react";
-import type { Chat, Message, Contact, LastMessage } from '../../types/chat';
-import { formatDate, formatTimestamp } from '../../utils/chat';
-import { CommentOutlined, FileExcelOutlined, FileImageOutlined, FileOutlined, FilePdfOutlined, FileTextOutlined, FileWordOutlined, FileZipOutlined } from '@ant-design/icons';
-import { Paperclip } from 'phosphor-react';
+import type { Message } from '../../types/chat';
+import {  formatTimestamp, getFileIcon, messageIsPhoto } from '../../utils/chat';
+import { FileOutlined } from '@ant-design/icons';
+import { Check, Checks, Paperclip, ArrowBendUpLeft } from 'phosphor-react';
 import { useAuth } from "../../pages/AuthContext";
-import { BsFiletypeTxt } from "react-icons/bs";
 import { marked } from 'marked';
 import { useTheme } from '../../hooks/ThemeContext';
+import { useEffect, useRef, useState } from "react";
 
 interface RenderMessageItemProps {
   msg: Message;
@@ -17,7 +17,76 @@ interface RenderMessageItemProps {
   fetchQuotedMessageData: (id: string) => Promise<Message | null>;
   username: string | null;
   setShowImageModal: React.Dispatch<React.SetStateAction<boolean>>;
+  loadMessagesAround: (messageId: string) => Promise<void>;
+  setImageUrl: React.Dispatch<React.SetStateAction<Message | null>>;
 }
+
+interface VideoMessageProps {
+  fileUrl: string | undefined;
+}
+
+export const VideoMessage = ({ fileUrl }: VideoMessageProps) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const handlePlayClick = () => {
+    if (videoRef.current) {
+      videoRef.current.play();
+      setIsPlaying(true);
+    }
+  };
+
+  const handleVideoPlay = () => setIsPlaying(true);
+  const handleVideoPause = () => setIsPlaying(false);
+
+  // Опционально: при монтировании — не проигрывать автоматически
+  useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.pause();
+      }
+    };
+  }, []);
+
+  return (
+    <div className="relative inline-block max-w-full">
+      {/* Видео */}
+      <video
+        ref={videoRef}
+        src={fileUrl}
+        controls
+        className="max-w-full h-auto rounded-lg bg-black"
+        poster={undefined}
+        onPlay={handleVideoPlay}
+        onPause={handleVideoPause}
+        preload="metadata" // не грузить всё видео сразу
+      />
+
+      {/* Кастомная кнопка воспроизведения (только если не играет) */}
+      {!isPlaying && (
+        <button
+          type="button"
+          onClick={handlePlayClick}
+          className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 rounded-lg"
+          aria-label="Воспроизвести видео"
+        >
+          <div className="w-16 h-16 flex items-center justify-center bg-black bg-opacity-50 rounded-full">
+            <svg
+              className="w-8 h-8 text-white ml-1"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </div>
+        </button>
+      )}
+
+      {/* Имя файла (опционально) */}
+      <div className="mt-1 text-xs text-gray-500 truncate">{fileUrl}</div>
+    </div>
+  );
+};
 
 const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
   msg,
@@ -27,10 +96,14 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
   handleMessageContextMenu,
   fetchQuotedMessageData,
   username,
-  setShowImageModal
+  setShowImageModal,
+  loadMessagesAround,
+  setImageUrl
 }) => {
+  const { token } = useAuth();
   const { theme } = useTheme();
   const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
   const getQuotedMessagePreview = (quotedId: string): { sender: string; content: string } | null => {
     const fullQuotedMsg = quotedMessageData[quotedId];
     if (fullQuotedMsg) {
@@ -68,7 +141,7 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
         onClick={() => {scrollToMessage(msg.quoted_message_id)}}
       >
         <span className="italic opacity-80 flex items-center">
-          <CommentOutlined size={14} className="mr-1" />
+          <ArrowBendUpLeft size={14} className="mr-1" />
           {previewText?.sender}
         </span>
         <span className="italic opacity-80 flex items-center">
@@ -88,9 +161,9 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
     return (
       <div className="">
         {msg.file_name ? (
-          <div className="flex flex-col">
-            <a href={`${API_BASE}${msg.file_url}`} target="_blank" rel="noopener noreferrer" className="text-black hover:underline flex items-center">
-              {getFileIcon(msg.file_name)}
+          <div className="flex flex-col text-white">
+            <a href={`${API_BASE}${msg.file_url}`} target="_blank" rel="noopener noreferrer" className={`${isMyMessage ? 'text-white': theme === 'light' ? 'text-black' : 'text-white'} hover:underline flex items-center`}>
+              {getFileIcon(msg.file_name, 40)}
               {msg.file_name}
             </a>
           </div>
@@ -109,11 +182,16 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
         <div className={`relative flex justify-between max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl rounded-lg ${messageClass} break-words word-break`}>
           <div className="text-sm wrap-break-word break-all">
             <div className="relative">
-              <img src={`${API_BASE}${msg.file_url}`} alt={msg.file_name} className="rounded-lg max-h-96 object-contain" onClick={() => {setShowImageModal(true)}}/>
-              <div className="flex absolute bottom-2 gap-1 right-2 bg-black/60 text-white absolute right-1 bottom-1 text-[0.7rem] px-2 py-1 rounded-full backdrop-blur-sm font-medium">
+              <img src={`${API_BASE}${msg.file_url}`} alt={msg.file_name} className="rounded-lg max-h-96 object-contain cursor-pointer" onClick={() => {setShowImageModal(true); setImageUrl(msg)}}/>
+              {msg.file_url?.endsWith('.gif') && (
+                <div className="flex absolute top-2 left-2 bg-black/60 text-white text-[1rem] px-2 py-1 rounded-full backdrop-blur-sm font-medium">
+                  GIF
+                </div>
+              )}
+              <div className="flex absolute bottom-2 gap-1 right-2 bg-black/60 text-white text-[0.7rem] px-2 py-1 rounded-full backdrop-blur-sm font-medium">
                 {formatTimestamp(msg.timestamp)}
                 {isMyMessage && (
-                  <span>{msg.is_read ? '✓✓' : '✓'}</span>
+                  <span>{msg.is_read ? <Checks className="text-lg"/> : <Check className="text-lg"/>}</span>
                 )}
               </div>
             </div>
@@ -123,44 +201,6 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
           </div>
         </div>
       )            
-    };
-
-    const getFileIcon = (fileName: string) => {
-      const iconStyle = { fontSize: '50px' };
-      if (!fileName) return <FileOutlined />;
-      const extension = fileName.split('.').pop()?.toLowerCase();
-      switch (extension) {
-        case 'png':
-        case 'jpg':
-        case 'jpeg':
-        case 'gif':
-        case 'webp':
-        case 'svg':
-        case 'bmp':
-        case 'tiff':
-          return <FileImageOutlined style={iconStyle}/>;
-        case 'pdf':
-          return <FilePdfOutlined style={iconStyle}/>;
-        case 'doc':
-        case 'docx':
-          return <FileWordOutlined style={iconStyle}/>;
-        case 'xls':
-        case 'xlsx':
-          return <FileExcelOutlined style={iconStyle}/>;
-        case 'txt':
-          return <BsFiletypeTxt style={iconStyle}/>;
-        case 'md':
-        case 'rtf':
-          return <FileTextOutlined style={iconStyle}/>;
-        case 'zip':
-        case 'rar':
-        case '7z':
-        case 'tar':
-        case 'gz':
-          return <FileZipOutlined style={iconStyle}/>;
-        default:
-          return <FileOutlined style={iconStyle}/>;
-      }
     };
 
     const scrollToMessage = (messageId: string | null) => {
@@ -175,15 +215,16 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
           element.classList.remove('bg-gray-700', 'dark:bg-yellow-400/30');
         }, 1000);
       } else {
+        loadMessagesAround(messageId);
         console.info('Цитируемое сообщение не найдено в текущем списке.');
       }
     };
 
-    const messageIsPhoto = (msg: Message) => {
+    const messageIsVideo = (msg: Message) => {
       if (!msg.file_url) {
         return null;
       }
-      return msg.file_url.endsWith('.png') || msg.file_url.endsWith('.jpg') || msg.file_url.endsWith('.jpeg') || msg.file_url.endsWith('.gif') || msg.file_url.endsWith('.webp');
+      return msg.file_url.endsWith('.mp4');
     };
 
     const isMyMessage = msg.sender === username;
@@ -209,6 +250,11 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
           {messageIsPhoto(msg) ? 
           (
             renderPhotoMsg(msg)
+          ) : messageIsVideo(msg) ? 
+          (
+            <VideoMessage
+              fileUrl={msg.file_url}
+            />
           ) : (
             <div className={`relative flex justify-between gap-2 max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl rounded-lg ${messageClass} break-words word-break`}>
               <div className="text-sm wrap-break-word break-all">
@@ -216,12 +262,12 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
                 {msg.file_url && (renderFileMsg(msg))}
                 {msg.edited && <span className="text-xs text-black ml-2">(ред.)</span>}
               </div>
-              <div className="relative flex justify-between gap-1">
+              <div className="flex items-end gap-1">
                 <div className={`text-right text-[0.7rem] mt-2 ${isMyMessage ? 'text-gray-300' : 'text-gray-500'}`}>
                   {formatTimestamp(msg.timestamp)}
                 </div>
                 {isMyMessage && (<div className="text-right text-[0.7rem] mt-2">
-                  {msg.is_read ? "✓✓": "✓"}
+                  {msg.is_read ? <Checks className="text-lg"/> : <Check className="text-lg"/>}
                 </div>)}
               </div>
             </div>

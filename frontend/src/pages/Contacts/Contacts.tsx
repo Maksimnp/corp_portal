@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTheme } from '../../hooks/ThemeContext';
 import { Moon, Sun, Printer, MagnifyingGlass, ArrowLeft } from 'phosphor-react';
 
@@ -413,7 +413,7 @@ export default function ContactsPage() {
       {/* Glassmorphism Background */}
       <div className={`min-h-screen p-4 md:p-6 transition-colors duration-200 ${
         theme === 'dark' 
-          ? 'bg-gradient-to-br from-gray-900 via-purple-900 to-blue-900' 
+          ? 'bg-gradient-to-br from-gray-900 via-black-900 to-blue-900' 
           : 'bg-gradient-to-br from-blue-50 via-purple-50 to-cyan-50'
       } ${fontSizeClasses[fontSize]} relative`}>
         
@@ -436,19 +436,14 @@ export default function ContactsPage() {
               : 'bg-white/30 border-white/50 text-gray-800'
           } shadow-2xl no-print`}>
             <div className="flex flex-wrap items-center justify-between gap-4">
-              <button
-                onClick={() => navigate('/dashboard')}
-                className={`flex items-center px-4 py-2 rounded-xl backdrop-blur-md border transition-all duration-300 ${
-                  theme === 'dark'
-                    ? 'bg-gray-800/50 border-gray-600/50 text-gray-200 hover:bg-gray-700/50 hover:border-gray-500'
-                    : 'bg-white/50 border-white/70 text-gray-700 hover:bg-white/70 hover:border-white'
-                }`}
+              <Link
+                to="/dashboard"
+                className={`flex text-sm items-center rounded-lg gap-2 px-4 py-2  transition-colors ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'} shadow-lg`}
               >
-                <ArrowLeft size={20} className="mr-2" />
-                Назад в Dashboard
-              </button>
+                <ArrowLeft size={16} />Вернуться на главную
+              </Link>
 
-              <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-600 bg-clip-text text-transparent">
                 Телефонный справочник
               </h1>
 
@@ -587,13 +582,17 @@ export default function ContactsPage() {
 
                 return (
                   <div
-                    key={contact.id}
-                    className={`relative rounded-2xl backdrop-blur-md border-2 shadow-2xl hover:shadow-2xl transition-all duration-500 overflow-hidden hover:scale-105 contact-card ${
-                      theme === 'dark' 
-                        ? 'bg-gray-900/30 border-gray-600/50 hover:border-blue-400/50' 
-                        : 'bg-white/30 border-white/50 hover:border-blue-400/50'
-                    } ${isPrintMode ? 'print:shadow-none print:border print:p-2' : ''}`}
-                  >
+  key={contact.id}
+  className={`relative rounded-2xl backdrop-blur-md border-2 shadow-2xl hover:shadow-2xl transition-all duration-500 overflow-hidden hover:scale-105 contact-card ${
+    theme === 'dark' 
+      ? 'bg-gray-900/30 border-gray-600/50 hover:border-blue-400/50' 
+      : 'bg-white/30 border-white/50 hover:border-blue-400/50'
+  } ${isPrintMode ? 'print:shadow-none print:border print:p-2' : ''}`}
+  style={{
+    border: '3px solid',  // Тута размер рамки
+    borderColor: theme === 'dark' ? 'rgba(0, 44, 100, 5)' : 'rgba(255, 255, 255, 0.5)' // Тута цвет рамки
+  }}
+>
                     {/* Gradient Border Effect */}
                     <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
                     
@@ -658,7 +657,7 @@ export default function ContactsPage() {
                                   }`}>
                                     Внутренний
                                   </p>
-                                  <p className={`font-mono font-medium ${
+                                  <p className={`font-bold font-medium ${
                                     theme === 'dark' ? 'text-white' : 'text-gray-900'
                                   }`}>
                                     {contact.phone_internal}
@@ -679,7 +678,7 @@ export default function ContactsPage() {
                                   }`}>
                                     Городской
                                   </p>
-                                  <p className={`font-mono font-medium ${
+                                  <p className={`font-bold font-medium ${
                                     theme === 'dark' ? 'text-white' : 'text-gray-900'
                                   }`}>
                                     {contact.phone_city}
@@ -700,7 +699,7 @@ export default function ContactsPage() {
                                   }`}>
                                     Мобильный
                                   </p>
-                                  <p className={`font-mono font-medium ${
+                                  <p className={`font-bold font-medium ${
                                     theme === 'dark' ? 'text-white' : 'text-gray-900'
                                   }`}>
                                     {contact.phone_mobile}
@@ -722,7 +721,7 @@ export default function ContactsPage() {
                           </h4>
                           <div className="flex items-center gap-3 contact-info">
                             <div className={`p-2 rounded-xl backdrop-blur-md ${
-                              theme === 'dark' ? 'bg-gray-800/50' : 'bg-white/50'
+                              theme === 'dark' ? 'bg--800/50' : 'bg-white/50'
                             }`}>
                               <EmailIcon className={`contact-icon ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
                             </div>
@@ -739,39 +738,43 @@ export default function ContactsPage() {
                       )}
 
                       {/* Дополнительная информация */}
-                      {(hasPosition || hasDepartment || hasLogin) && (
-                        <div className="mt-4">
-                          <h4 className={`text-xs uppercase tracking-wider mb-3 contact-section-title ${
-                            theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
-                          }`}>
-                            Отдел
-                          </h4>
-                          <div className={`p-3 rounded-xl backdrop-blur-md ${
-                            theme === 'dark' ? 'bg-gray-800/50' : 'bg-white/50'
-                          }`}>
-                            <div className="space-y-2">
-                              {contact.department && (
-                                <div className="flex items-start gap-2 contact-info">
-                                  <BuildingIcon className={`contact-icon ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
-                                  <span className="text-sm">{contact.department}</span>
-                                </div>
-                              )}
-                              {contact.sam_account_name && (
-                                <div className="flex items-start gap-2 contact-info">
-                                  <UserIcon className={`contact-icon ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
-                                  <span className="text-sm">{contact.sam_account_name}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+{(hasPosition || hasDepartment || hasLogin) && (
+  <div className="mt-4">
+    <h4 className={`text-xs uppercase tracking-wider mb-3 contact-section-title ${
+      theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
+    }`}>
+      Отдел
+    </h4>
+    <div className={`p-3 rounded-xl backdrop-blur-md ${
+      theme === 'dark' ? 'bg-gray-800/50' : 'bg-white/50'
+    }`}>
+      <div className="space-y-2">
+        {contact.department && (
+          <div className="flex items-start gap-2 contact-info">
+            <BuildingIcon className={`contact-icon ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
+            <span className={`text-sm ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+              {contact.department}
+            </span>
+          </div>
+        )}
+        {contact.sam_account_name && (
+          <div className="flex items-start gap-2 contact-info">
+            <UserIcon className={`contact-icon ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
+            <span className={`text-sm ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+              {contact.sam_account_name}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+</div>
+</div>
+);
+})}
+</div>
+)}
 
           {/* Пустой результат */}
           {!loading && !error && contacts.length === 0 && (

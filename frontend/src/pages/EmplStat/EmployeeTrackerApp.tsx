@@ -432,7 +432,7 @@ const EmployeeTrackerApp: React.FC = () => {
                         onClick={() => navigate('/dashboard')} // Adjust '/dashboard' to your dashboard route
                         className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors font-medium"
                     >
-                        Вернуться на Dashboard
+                        Вернуться на главную
                     </button>
                     <div className="text-center">
                         <h1 className="text-4xl font-bold text-white mb-2">📊 Трекер изменений сотрудников</h1>

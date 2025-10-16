@@ -8,7 +8,7 @@ import { Modal, Tooltip, Popover, Button, List, Tag } from 'antd';
 import type { PopoverProps } from 'antd';
 import screenfull from 'screenfull';
 import { CloseOutlined, FileOutlined, FullscreenExitOutlined, FullscreenOutlined, ArrowLeftOutlined } from '@ant-design/icons';
-import { Moon, Sun } from 'phosphor-react';
+import { ArrowLeft, Moon, Sun } from 'phosphor-react';
 
 interface User {
   displayName: string;
@@ -649,16 +649,11 @@ const DocumentsPage: React.FC = () => {
         <header className="mb-8">
           <div className="flex justify-between items-start">
             <Link
-              to="/dashboard"
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors border ${
-                theme === 'dark'
-                  ? 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700'
-                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-100'
-              } shadow-lg`}
-            >
-              <ArrowLeftOutlined />
-              Назад в Dashboard
-            </Link>
+                to="/dashboard"
+                className={`flex text-sm items-center rounded-lg gap-2 px-4 py-2  transition-colors ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'} shadow-lg`}
+              >
+                <ArrowLeft size={16} />Вернуться на главную
+              </Link>
             
             <div className="flex gap-4">
               <div className='text-right'>
