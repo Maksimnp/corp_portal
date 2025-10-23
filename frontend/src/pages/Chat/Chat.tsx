@@ -5,58 +5,80 @@ import { toast } from 'react-toastify';
 import copy from 'copy-to-clipboard';
 import type { Chat, Message, Contact } from '../../types/chat';
 import RenderChatWindow  from '../../components/chat_page/ChatWindow';
-import { getChatDisplayIcon, getChatDisplayName } from '../../utils/chat';
+import { getChatDisplayIcon, getChatDisplayName, normalizeMessages } from '../../utils/chat';
 import RenderSidebar from '../../components/chat_page/Sidebar';
 import RenderModals from '../../components/chat_page/Modals';
 import { useTheme } from '../../hooks/ThemeContext';
 
 const ChatComponent: React.FC = () => {
-  const { token, username, refreshToken } = useAuth();
+  // Авторизация и пользователь
+  const { token, username } = useAuth();
+  const { theme } = useTheme();
+
+  // Основные состояния чата
   const [message, setMessage] = useState('');
-  const [messagesByChat, setMessagesByChat] = useState<{ [key: string]: Message[] }>({});
-  const [hasMoreByChat, setHasMoreByChat] = useState<{ [key: string]: boolean }>({});
-  const [offsetByChat, setOffsetByChat] = useState<{ [key: string]: number }>({});
-  const [chats, setChats] = useState<Chat[]>([]);
   const [activeChat, setActiveChat] = useState<string | null>(null);
+  const [messagesByChat, setMessagesByChat] = useState<{ [key: string]: Message[] }>({});
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contactMap, setContactMap] = useState<{ [key: string]: string }>({});
+
+  // Поиск
   const [searchQuery, setSearchQuery] = useState('');
   const [chatsSearchQuery, setChatsSearchQuery] = useState('');
-  const [userStatuses, setUserStatuses] = useState<{ [username: string]: string }>({});
-  const [typingUsers, setTypingUsers] = useState<Map<string, Set<string>>>(new Map());
-  const [showImageModal, setShowImageModal] = useState(false);
-  const [websocket, setWebsocket] = useState<WebSocket | null>(null);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [showContactSearch, setShowContactSearch] = useState(false);
   const [contactSearchQuery, setContactSearchQuery] = useState('');
+  const [showContactSearch, setShowContactSearch] = useState(false);
+
+  // WebSocket и соединение
+  const [websocket, setWebsocket] = useState<WebSocket | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
+
+  // Загрузка данных
   const [isLoadingChats, setIsLoadingChats] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-  const [showStickerPicker, setShowStickerPicker] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [limit] = useState(50);
-  const [showCreateOptions, setShowCreateOptions] = useState(false);
-  const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
-  const [groupName, setGroupName] = useState('');
-  const [channelName, setChannelName] = useState('');
-  const [showCreateGroup, setShowCreateGroup] = useState(false);
-  const [showCreateChannel, setShowCreateChannel] = useState(false);
-  const [channelDescription, setChannelDescription] = useState('');
   const [isLoadingContacts, setIsLoadingContacts] = useState(false);
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [showKickModal, setShowKickModal] = useState(false);
-  const [contactMap, setContactMap] = useState<{ [key: string]: string }>({});
-  const [selectedToKick, setSelectedToKick] = useState<string[]>([]);
-  const [showChatOptions, setShowChatOptions] = useState(false);
-  const [showLeaveModal, setShowLeaveModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // Файлы и медиа
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [showImageModal, setShowImageModal] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const createOptionsRef = useRef<HTMLDivElement>(null);
-  const chatOptionsRef = useRef<HTMLDivElement>(null);
-  const stickerPickerRef = useRef<HTMLDivElement>(null);
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Редактирование и цитирование
+  const [quotedMessage, setQuotedMessage] = useState<Message | null>(null);
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [quotedMessageData, setQuotedMessageData] = useState<Record<string, Message | null>>({});
+  const [forwardMessage, setForwardMessage] = useState<Message | null>(null);
+  
+  // Удаление и модальные окна
+  const [showDeleteMessageModal, setShowDeleteMessageModal] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showKickModal, setShowKickModal] = useState(false);
+  const [selectedToKick, setSelectedToKick] = useState<string[]>([]);
+  const [imageUrl, setImageUrl] = useState<Message | null>(null);
+  const [showChatInfoSidebar, setShowChatInfoSidebar] = useState(false);
+
+  // Управление чатами (группы / каналы)
+  const [showCreateOptions, setShowCreateOptions] = useState(false);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [showCreateChannel, setShowCreateChannel] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [channelName, setChannelName] = useState('');
+  const [channelDescription, setChannelDescription] = useState('');
+  const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showChatOptions, setShowChatOptions] = useState(false);
+  const [showEditChatModal, setShowEditChatModal] = useState(false);
+  const [editChatName, setEditChatName] = useState('');
+  const [editChatDescription, setEditChatDescription] = useState('');
+  const [showForwardMessageModal, setShowForwardMessageModal] = useState(false);
+  
+  // Контекстные меню
   const [messageContextMenu, setMessageContextMenu] = useState<{
     visible: boolean;
     x: number;
@@ -68,19 +90,6 @@ const ChatComponent: React.FC = () => {
     y: 0,
     message: null,
   });
-  const messageContextMenuRef = useRef<HTMLDivElement>(null);
-  const [quotedMessage, setQuotedMessage] = useState<Message | null>(null);
-  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
-  const [quotedMessageData, setQuotedMessageData] = useState<Record<string, Message | null>>({});
-  const [showDeleteMessageModal, setShowDeleteMessageModal] = useState(false);
-  const [messageToDelete, setMessageToDelete] = useState<Message | null>(null);
-  const [showChatInfoSidebar, setShowChatInfoSidebar] = useState(false);
-  const [showEditChatModal, setShowEditChatModal] = useState(false);
-  const [editChatName, setEditChatName] = useState('');
-  const [editChatDescription, setEditChatDescription] = useState('');
-  const [isSidebarVisible, setIsSidebarVisible] = useState(false);
-  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [userContextMenu, setUserContextMenu] = useState<{
     visible: boolean;
     x: number;
@@ -92,17 +101,48 @@ const ChatComponent: React.FC = () => {
     y: 0,
     userId: null,
   });
-  const userContextMenuRef = useRef<HTMLDivElement>(null);
+
+  // Прокрутка и позиционирование
+  const [isAtBottom, setIsAtBottom] = useState(true);
   const [shouldScrollToBottom, setShouldScrollToBottom] = useState(false);
-  const { theme, toggleTheme } = useTheme();
+  const [isAutoScrolling, setIsAutoScrolling] = useState(false);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Окна чатов (для пагинации)
+  type ChatWindow = {
+    oldestMessageId: string | null;
+    newestMessageId: string | null;
+    hasOlder: boolean;
+    hasNewer: boolean;
+  };
+  const [chatWindows, setChatWindows] = useState<Record<string, ChatWindow>>({});
+
+  // Статусы и активность
+  const [userStatuses, setUserStatuses] = useState<{ [username: string]: string }>({});
+  const [typingUsers, setTypingUsers] = useState<Map<string, Set<string>>>(new Map());
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Рефы для DOM и UI
+  const inputRef = useRef<HTMLInputElement>(null);
+  const createOptionsRef = useRef<HTMLDivElement>(null);
+  const chatOptionsRef = useRef<HTMLDivElement>(null);
+  const stickerPickerRef = useRef<HTMLDivElement>(null);
+  const messageContextMenuRef = useRef<HTMLDivElement>(null);
+  const userContextMenuRef = useRef<HTMLDivElement>(null);
+
+  // Прочие
+  const [limit] = useState(50);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(false);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
   const WS_BASE: string = import.meta.env.VITE_WS_BASE ?? (import.meta.env.VITE_ENV === 'production' ? 'wss://192.1.66.117:8000' : 'ws://192.1.66.117:8000');
   const API_BASE: string = import.meta.env.VITE_API_BASE ?? 'http://192.1.66.117:8000';
 
-  const authHeaders = () => ({
+  const authHeaders = useCallback(() => ({
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
-  });
+  }), [token]);
 
   const currentChat = useMemo(() => chats.find(chat => chat.id === activeChat), [chats, activeChat]);
 
@@ -134,7 +174,7 @@ const ChatComponent: React.FC = () => {
     return counts;
   }, [messagesByChat, chats, username]);
 
-  const addTypingUser = (chatId: string, username: string) => {
+  const addTypingUser = useCallback((chatId: string, username: string) => {
     setTypingUsers(prev => {
       const newMap = new Map(prev);
       if (!newMap.has(chatId)) {
@@ -143,9 +183,9 @@ const ChatComponent: React.FC = () => {
       newMap.get(chatId)!.add(username);
       return newMap;
     });
-  };
+  }, []);
 
-  const removeTypingUser = (chatId: string, username: string) => {
+  const removeTypingUser = useCallback((chatId: string, username: string) => {
     setTypingUsers(prev => {
       const newMap = new Map(prev);
       const users = newMap.get(chatId);
@@ -157,9 +197,9 @@ const ChatComponent: React.FC = () => {
       }
       return newMap;
     });
-  };
+  }, []);
 
-  const refreshTokenAndRetry = async <T extends unknown>(apiCall: () => Promise<T>): Promise<T> => {
+  const refreshTokenAndRetry = useCallback(async <T extends unknown>(apiCall: () => Promise<T>): Promise<T> => {
     try {
       return await apiCall();
     } catch (error: any) {
@@ -171,6 +211,7 @@ const ChatComponent: React.FC = () => {
         });
         if (refreshRes.ok) {
           const { access_token } = await refreshRes.json();
+          // TODO: обновить токен в контексте
           return await apiCall();
         }
         window.location.href = '/login';
@@ -178,7 +219,7 @@ const ChatComponent: React.FC = () => {
       }
       throw error;
     }
-  };
+  }, [API_BASE]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -211,7 +252,6 @@ const ChatComponent: React.FC = () => {
           ? { ...chat, unread_count: 0 }
           : chat
       ));
-      setShouldScrollToBottom(true);
     }
   }, [activeChat]);
 
@@ -235,7 +275,7 @@ const ChatComponent: React.FC = () => {
   const handleMessageContextMenu = (event: React.MouseEvent, msg: Message) => {
     event.preventDefault();
     setMessageContextMenu({
-      visible:true,
+      visible: true,
       x: event.clientX,
       y: event.clientY,
       message: msg,
@@ -251,7 +291,8 @@ const ChatComponent: React.FC = () => {
 
   const handleContextMenuDelete = () => {
     if (messageContextMenu.message) {
-      deleteMessage(messageContextMenu.message);
+      setMessageToDelete(messageContextMenu.message);
+      setShowDeleteMessageModal(true);
       setMessageContextMenu(prev => ({ ...prev, visible: false }));
     }
   };
@@ -260,8 +301,9 @@ const ChatComponent: React.FC = () => {
     if (messageContextMenu.message?.content) {
       try {
         copy(messageContextMenu.message.content);
+        toast.success('Текст скопирован');
       } catch (err) {
-        // Silent error
+        toast.error('Не удалось скопировать текст');
       }
       setMessageContextMenu(prev => ({ ...prev, visible: false }));
     }
@@ -274,7 +316,14 @@ const ChatComponent: React.FC = () => {
     }
   };
 
-  
+  const handleContextMenuForward = () => {
+    if (messageContextMenu.message) {
+      setShowForwardMessageModal(true);
+      setForwardMessage(messageContextMenu.message);
+      setMessageContextMenu(prev => ({ ...prev, visible: false }));
+    }
+  };
+
   const fetchChats = useCallback(async () => {
     if (!token) return;
     setIsLoadingChats(true);
@@ -288,14 +337,14 @@ const ChatComponent: React.FC = () => {
         throw new Error(`Failed to load chats: ${res.status} ${res.statusText}`);
       }
       const data: Chat[] = await res.json();
+      console.log('Fetched chats:', data);
       setChats(data);
-      // if (data.length > 0 && activeChat === null) {
-      //   setActiveChat(data[0].id);
-      // }
+      
       const allMembers = new Set<string>();
       data.forEach((chat) => {
         chat.members.forEach((m) => allMembers.add(m));
       });
+      
       const newContactEntries: Record<string, string> = {};
       const contactFetchPromises = [...allMembers].map(async (m) => {
         if (!contactMap[m]) {
@@ -326,7 +375,7 @@ const ChatComponent: React.FC = () => {
     } finally {
       setIsLoadingChats(false);
     }
-  }, [token, contactMap]);
+  }, [token, contactMap, refreshTokenAndRetry, authHeaders, API_BASE]);
 
   useEffect(() => {
     fetchChats();
@@ -340,10 +389,7 @@ const ChatComponent: React.FC = () => {
       const response = await refreshTokenAndRetry(() =>
         fetch(`${API_BASE}/chat/messages/${quotedMessageId}`, {
           method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+          headers: authHeaders(),
         })
       );
       if (!response.ok) {
@@ -363,46 +409,108 @@ const ChatComponent: React.FC = () => {
     }
   };
 
-  const loadMessages = async () => {
+  const loadMessagesAround = async (messageId: string) => {
+    if (!token || !activeChat) return;
+
+    try {
+      const res = await refreshTokenAndRetry(() =>
+        fetch(`${API_BASE}/chat/messages/around/${messageId}`, {
+          headers: authHeaders(),
+        })
+      );
+
+      if (!res.ok) {
+        if (res.status === 404) {
+          toast.error('Сообщение не найдено или недоступно');
+        } else {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        return;
+      }
+
+      const data: any[] = await res.json();
+
+      const normalizedMessages = data.map(msg => ({
+        ...msg,
+        id: String(msg.id),
+        is_read: Boolean(msg.is_read),
+        timestamp: typeof msg.timestamp === 'string' ? msg.timestamp : new Date(msg.timestamp).toISOString(),
+        file_url: msg.file_url,
+        file_name: msg.file_name,
+        edited: Boolean(msg.edited),
+      })).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      setMessagesByChat(prev => ({
+        ...prev,
+        [activeChat]: normalizedMessages,
+      }));
+
+      const oldest = normalizedMessages[0]?.id || null;
+      const newest = normalizedMessages[normalizedMessages.length - 1]?.id || null;
+
+      setChatWindows(prev => ({
+        ...prev,
+        [activeChat]: {
+          oldestMessageId: oldest,
+          newestMessageId: newest,
+          hasOlder: true,
+          hasNewer: true,
+        }
+      }));
+
+      setTimeout(() => {
+        const el = document.querySelector(`[data-message-id="${messageId}"]`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    } catch (e) {
+      console.error('Ошибка загрузки сообщений вокруг:', e);
+      toast.error('Не удалось загрузить сообщение и его контекст');
+    }
+  };
+
+  const loadLatestMessages = async () => {
     if (!activeChat || !token) return;
     setIsLoadingMessages(true);
     try {
-      const currentOffset = offsetByChat[activeChat] || 0;
       const res = await refreshTokenAndRetry(() =>
-        fetch(`${API_BASE}/chat/${activeChat}/messages?offset=${currentOffset}&limit=${limit}`, {
+        fetch(`${API_BASE}/chat/${activeChat}/messages?limit=${limit}`, {
           headers: authHeaders(),
         })
       );
       if (!res.ok) throw new Error(`Failed to load messages: ${res.status} ${res.statusText}`);
       const data: any[] = await res.json();
-      if (data.length < limit) {
-        setHasMoreByChat(prev => ({ ...prev, [activeChat]: false }));
-      }
-      setMessagesByChat(prev => {
-        const currentMessages = prev[activeChat] || [];
-        const currentIds = new Set(currentMessages.map(m => m.id));
-        const uniqueNewMessages = data.filter(msg => !currentIds.has(String(msg.id))).map(msg => ({
-          ...msg,
-          id: String(msg.id),
-          is_read: Boolean(msg.is_read),
-          timestamp: typeof msg.timestamp === 'string' ? msg.timestamp : new Date(msg.timestamp).toISOString(),
-          file_url: msg.file_url,
-          file_name: msg.file_name,
-          edited: Boolean(msg.edited),
-        }));
-        const combinedMessages = [...uniqueNewMessages, ...currentMessages];
-        combinedMessages.sort((a, b) => {
-          const timeA = new Date(a.timestamp).getTime();
-          const timeB = new Date(b.timestamp).getTime();
-          if (timeA !== timeB) return timeA - timeB;
-          return a.id.localeCompare(b.id);
-        });
-        return {
+      const normalized = normalizeMessages(data);
+
+      if (normalized.length === 0) {
+        setMessagesByChat(prev => ({ ...prev, [activeChat]: [] }));
+        setChatWindows(prev => ({
           ...prev,
-          [activeChat]: combinedMessages
-        };
-      });
-      setOffsetByChat(prev => ({ ...prev, [activeChat]: currentOffset + limit }));
+          [activeChat]: {
+            oldestMessageId: null,
+            newestMessageId: null,
+            hasOlder: false,
+            hasNewer: false,
+          }
+        }));
+        return;
+      }
+
+      setMessagesByChat(prev => ({ ...prev, [activeChat]: normalized }));
+
+      const oldest = normalized[0]?.id || null;
+      const newest = normalized[normalized.length - 1]?.id || null;
+
+      setChatWindows(prev => ({
+        ...prev,
+        [activeChat]: {
+          oldestMessageId: oldest,
+          newestMessageId: newest,
+          hasOlder: true,
+          hasNewer: false,
+        }
+      }));
     } catch (e) {
       console.error('Error loading messages:', e);
       toast.error('Не удалось загрузить сообщения. Попробуйте позже.');
@@ -414,18 +522,18 @@ const ChatComponent: React.FC = () => {
   useEffect(() => {
     if (activeChat) {
       if (!messagesByChat[activeChat]) {
-        setOffsetByChat(prev => ({ ...prev, [activeChat]: 0 }));
-        setHasMoreByChat(prev => ({ ...prev, [activeChat]: true }));
-        loadMessages();
+        loadLatestMessages();
       }
     }
   }, [activeChat, token]);
 
   useEffect(() => {
     if (!activeChat || !token || !username) return;
+    
+    const unread = currentMessages.filter((m) => !m.is_read && m.sender !== username);
+    if (unread.length === 0) return;
+    
     (async () => {
-      const unread = currentMessages.filter((m) => !m.is_read && m.sender !== username);
-      if (unread.length === 0) return;
       try {
         const res = await refreshTokenAndRetry(() =>
           fetch(`${API_BASE}/chat/messages/batch_read`, {
@@ -449,7 +557,7 @@ const ChatComponent: React.FC = () => {
         console.error('Failed to mark messages as read:', e);
       }
     })();
-  }, [currentMessages, activeChat, token, username]);
+  }, [currentMessages, activeChat, token, username, refreshTokenAndRetry, authHeaders, API_BASE]);
 
   useEffect(() => {
     if ("Notification" in window && Notification.permission === "default") {
@@ -460,174 +568,203 @@ const ChatComponent: React.FC = () => {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleWebSocketMessage = (event: MessageEvent) => {
+  const handleWebSocketMessage = useCallback((event: MessageEvent) => {
     try {
-      const data = JSON.parse(event.data);
-      if (data.type === 'error') {
-        return;
-      }
-      if (data.type === 'new_message') {
-        const channelId = data.data.channel_id;
-        if (data.data.sender !== username && Notification.permission === "granted") {
-          const isHidden = document.visibilityState === 'hidden';
-          const isNotCurrent = activeChat !== data.data.channel_id;
-          if (isHidden || isNotCurrent) {
-            const senderName = contactMap[data.data.sender] || data.data.sender;
-            const chatName = chats.find(c => c.id === data.data.channel_id)?.name || 'чате';
-            const bodyText = data.data.content || (data.data.file_name ? `Отправлен файл: ${data.data.file_name}` : 'Новое сообщение');
-            new Notification(`Новое сообщение в ${chatName}`, {
-              body: `${senderName}: ${bodyText}`,
-            });
-          }
+        const data = JSON.parse(event.data);
+        console.log('WebSocket message received:', data);
+        
+        if (data.type === 'error') {
+            console.error('WebSocket error:', data.error);
+            return;
         }
-        setChats(prevChats =>
-          prevChats.map(chat => {
-            if (chat.id === channelId) {
-              const newLastMessage = {
-                id: data.data.id,
-                sender: data.data.sender,
-                content: data.data.content,
-                timestamp: data.data.timestamp,
-                file_name: data.data.file_name,
-                is_read: data.data.is_read,
-              };
-              return {
-                ...chat,
-                last_message: newLastMessage,
-              };
-            }
-            return chat;
-          })
-        );
-        setMessagesByChat(prev => {
-          const channelId = data.data.channel_id;
-          const currentMsgsInUpdater = prev[channelId] || [];
-          const newMsgId = data.data.id;
-          const existingMsgIndex = currentMsgsInUpdater.findIndex(m => m.id === newMsgId);
-          if (existingMsgIndex !== -1) {
-            return prev;
-          }
-          const newMessageQuotedId = data.data.quoted_message_id ? String(data.data.quoted_message_id) : null;
-          if (newMessageQuotedId) {
-            const isDataAvailableLocally = currentMsgsInUpdater.some(m => m.id === newMessageQuotedId);
-            const isDataAlreadyFetched = quotedMessageData[newMessageQuotedId] !== undefined;
-            if (!isDataAvailableLocally && !isDataAlreadyFetched) {
-              fetchQuotedMessageData(newMessageQuotedId).catch(() => {});
-            }
-          }
-          const updatedMessages = [...currentMsgsInUpdater, data.data].map(msg => ({
-            ...msg,
-            id: String(msg.id),
-            is_read: Boolean(msg.is_read),
-            timestamp: typeof msg.timestamp === 'string' ? msg.timestamp : new Date(msg.timestamp).toISOString(),
-            file_url: msg.file_url,
-            file_name: msg.file_name,
-            edited: Boolean(msg.edited),
-          }));
-          updatedMessages.sort((a, b) => {
-            const timeA = new Date(a.timestamp).getTime();
-            const timeB = new Date(b.timestamp).getTime();
-            if (timeA !== timeB) return timeA - timeB;
-            return a.id.localeCompare(b.id);
-          });
-          return {
-            ...prev,
-            [channelId]: updatedMessages
-          };
-        });
-        setShouldScrollToBottom(true);
-      }
-      if (data.type === 'typing_start') {
-        const { channel_id, user } = data.data;
-        addTypingUser(channel_id, user);
-      }
-      if (data.type === 'typing_stop') {
-        const { channel_id, user } = data.data;
-        removeTypingUser(channel_id, user);
-      }
-      if (data.type === "group_created" || data.type === "private_chat_created") {
-        setChats((prev) => [...prev, data.data]);
-      }
-      if (data.type === 'message_edited') {
-        setMessagesByChat(prev => ({
-          ...prev,
-          [data.data.channel_id]: prev[data.data.channel_id].map(m =>
-            m.id === data.data.id ? { ...m, content: data.data.content, edited: true } : m
-          ),
-        }));
-      }
-      if (data.type === "user_status") {
-        setUserStatuses(data.data);
-      }
-      if (data.type === "user_left") {
-        const left_user = data.data.username;
-        const chat_id = data.data.channel_id;
-        setChats(prevChats =>
-          prevChats.map(chat =>
-            chat.id === chat_id
-              ? {
-                  ...chat,
-                  members: chat.members.filter(member => member !== left_user)
+
+        if (data.type === 'new_message' || data.type === 'forward_message') {
+            const channelId = data.data.channel_id;
+            
+            // Уведомления
+            if (data.data.sender !== username && Notification.permission === "granted") {
+                const isHidden = document.visibilityState === 'hidden';
+                const isNotCurrent = activeChat !== data.data.channel_id;
+                if (isHidden || isNotCurrent) {
+                    const senderName = contactMap[data.data.sender] || data.data.sender;
+                    const chatName = chats.find(c => c.id === data.data.channel_id)?.name || 'чате';
+                    const bodyText = data.data.content || (data.data.file_name ? `Отправлен файл: ${data.data.file_name}` : 'Новое сообщение');
+                    new Notification(`Новое сообщение в ${chatName}`, {
+                        body: `${senderName}: ${bodyText}`,
+                    });
                 }
-              : chat
-          )
-        );
-      }
-      if (data.type === "batch_read") {
-        const msg_ids = data.data.message_ids;
-        const chat_id = data.data.channel_id;
-        setMessagesByChat(prev => ({
-          ...prev,
-          [chat_id]: (prev[chat_id] || []).map(msg => 
-            msg_ids.includes(msg.id) ? { ...msg, is_read: true } : msg
-          )
-        }));
-      }
-      if (data.type === "chat_deleted") {
-        const chatId = data.data.channel_id;
-        setChats(prev => prev.filter(c => c.id !== chatId));
-        if (activeChat === chatId) setActiveChat(null);
-      }
-      if (data.type === "channel_kick") {
-        const kicked_members = data.data.members;
-        const channel_id = data.data.channel_id;
-        setChats(prevChats =>
-          prevChats.map(chat =>
-            chat.id === channel_id
-              ? {
-                  ...chat,
-                  members: chat.members.filter(member => !kicked_members.includes(member))
+            }
+
+            // Обновление последнего сообщения в списке чатов
+            setChats(prevChats =>
+                prevChats.map(chat => {
+                    if (chat.id === channelId) {
+                        const newLastMessage = {
+                            id: data.data.id,
+                            sender: data.data.sender,
+                            content: data.data.content,
+                            timestamp: data.data.timestamp,
+                            file_name: data.data.file_name,
+                            is_read: data.data.is_read,
+                        };
+                        return {
+                            ...chat,
+                            last_message: newLastMessage,
+                        };
+                    }
+                    return chat;
+                })
+            );
+
+            // Добавление сообщения в историю
+            setMessagesByChat(prev => {
+                const channelId = data.data.channel_id;
+                const currentMsgsInUpdater = prev[channelId] || [];
+                const newMsgId = data.data.id;
+                
+                // Проверяем, нет ли уже такого сообщения
+                const existingMsgIndex = currentMsgsInUpdater.findIndex(m => m.id === newMsgId);
+                if (existingMsgIndex !== -1) {
+                    return prev;
                 }
-              : chat
-          )
-        );
-      }
-      if (data.type === 'message_deleted') {
-        const deletedMessageId = data.data.id;
-        const channelId = data.data.channel_id;
-        setMessagesByChat(prev => {
-          const currentMessages = prev[channelId] || [];
-          const updatedMessages = currentMessages.filter(msg => msg.id !== deletedMessageId);
-          if (updatedMessages.length === 0) {
-            return { ...prev, [channelId]: [] };
-          }
-          return {
-            ...prev,
-            [channelId]: updatedMessages
-          };
-        });
-        setQuotedMessageData(prev => {
-          const newState = { ...prev };
-          if (newState[deletedMessageId] !== undefined) {
-            delete newState[deletedMessageId];
-          }
-          return newState;
-        });
-      }
+
+                // Загружаем данные цитируемого сообщения если нужно
+                const newMessageQuotedId = data.data.quoted_message_id || data.data.forward_message_id;
+                if (newMessageQuotedId) {
+                    const isDataAvailableLocally = currentMsgsInUpdater.some(m => m.id === newMessageQuotedId);
+                    const isDataAlreadyFetched = quotedMessageData[newMessageQuotedId] !== undefined;
+                    if (!isDataAvailableLocally && !isDataAlreadyFetched) {
+                        fetchQuotedMessageData(newMessageQuotedId).catch(() => {});
+                    }
+                }
+
+                // Нормализуем и добавляем сообщение
+                const normalizedMessage = {
+                    ...data.data,
+                    id: String(data.data.id),
+                    is_read: Boolean(data.data.is_read),
+                    timestamp: typeof data.data.timestamp === 'string' ? data.data.timestamp : new Date(data.data.timestamp).toISOString(),
+                    file_url: data.data.file_url,
+                    file_name: data.data.file_name,
+                    edited: Boolean(data.data.edited),
+                };
+
+                const updatedMessages = [...currentMsgsInUpdater, normalizedMessage]
+                    .sort((a, b) => {
+                        const timeA = new Date(a.timestamp).getTime();
+                        const timeB = new Date(b.timestamp).getTime();
+                        if (timeA !== timeB) return timeA - timeB;
+                        return a.id.localeCompare(b.id);
+                    });
+
+                return {
+                    ...prev,
+                    [channelId]: updatedMessages
+                };
+            });
+
+            // Прокрутка к низу если это активный чат
+            if (activeChat === data.data.channel_id) {
+                setShouldScrollToBottom(true);
+            }
+        }
+        
+        // Остальные обработчики...
+        else if (data.type === 'typing_start') {
+            const { channel_id, user } = data.data;
+            addTypingUser(channel_id, user);
+        }
+        else if (data.type === 'typing_stop') {
+            const { channel_id, user } = data.data;
+            removeTypingUser(channel_id, user);
+        }
+        else if (data.type === "group_created" || data.type === "private_chat_created") {
+            setChats((prev) => [...prev, data.data]);
+        }
+        else if (data.type === 'message_edited') {
+            setMessagesByChat(prev => ({
+                ...prev,
+                [data.data.channel_id]: prev[data.data.channel_id].map(m =>
+                    m.id === data.data.id ? { ...m, content: data.data.content, edited: true } : m
+                ),
+            }));
+        }
+        else if (data.type === "user_status") {
+            setUserStatuses(data.data);
+        }
+        else if (data.type === "user_left") {
+            const left_user = data.data.username;
+            const chat_id = data.data.channel_id;
+            setChats(prevChats =>
+                prevChats.map(chat =>
+                    chat.id === chat_id
+                        ? {
+                            ...chat,
+                            members: chat.members.filter(member => member !== left_user)
+                        }
+                        : chat
+                )
+            );
+        }
+        else if (data.type === "batch_read") {
+            const msg_ids = data.data.message_ids;
+            const chat_id = data.data.channel_id;
+            setMessagesByChat(prev => ({
+                ...prev,
+                [chat_id]: (prev[chat_id] || []).map(msg => 
+                    msg_ids.includes(msg.id) ? { ...msg, is_read: true } : msg
+                )
+            }));
+        }
+        else if (data.type === "chat_deleted") {
+            const chatId = data.data.channel_id;
+            setChats(prev => prev.filter(c => c.id !== chatId));
+            if (activeChat === chatId) setActiveChat(null);
+        }
+        else if (data.type === "channel_kick") {
+            const kicked_members = data.data.members;
+            const channel_id = data.data.channel_id;
+            setChats(prevChats =>
+                prevChats.map(chat =>
+                    chat.id === channel_id
+                        ? {
+                            ...chat,
+                            members: chat.members.filter(member => !kicked_members.includes(member))
+                        }
+                        : chat
+                )
+            );
+        }
+        else if (data.type === 'message_deleted') {
+            const deletedMessageId = data.data.id;
+            const channelId = data.data.channel_id;
+            setMessagesByChat(prev => {
+                const currentMessages = prev[channelId] || [];
+                const updatedMessages = currentMessages.filter(msg => msg.id !== deletedMessageId);
+                return {
+                    ...prev,
+                    [channelId]: updatedMessages
+                };
+            });
+            setQuotedMessageData(prev => {
+                const newState = { ...prev };
+                if (newState[deletedMessageId] !== undefined) {
+                    delete newState[deletedMessageId];
+                }
+                return newState;
+            });
+        }
+        else if (data.type === 'pong') {
+            // Обработка pong сообщения
+            console.log('WebSocket pong received');
+        }
+        else {
+            console.log('Unhandled WebSocket message type:', data.type);
+        }
     } catch (e) {
-      console.error('Ошибка обработки сообщения WebSocket');
+        console.error('Ошибка обработки сообщения WebSocket:', e);
     }
-  };
+}, [username, activeChat, contactMap, chats, quotedMessageData, addTypingUser, removeTypingUser]);
 
   useEffect(() => {
     if (!token || !username) return;
@@ -636,6 +773,7 @@ const ChatComponent: React.FC = () => {
     const maxReconnectAttempts = 10;
     const baseDelay = 3000;
     let isMounted = true;
+    
     const connect = () => {
       if (!isMounted) return;
       setConnectionStatus('connecting');
@@ -687,14 +825,16 @@ const ChatComponent: React.FC = () => {
         }
       }
     };
+    
     connect();
+    
     return () => {
       isMounted = false;
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
       if (ws) ws.close();
     };
-  }, [token, username]);
+  }, [token, username, handleWebSocketMessage, WS_BASE]);
 
   useEffect(() => {
     return () => {
@@ -704,12 +844,144 @@ const ChatComponent: React.FC = () => {
     };
   }, []);
 
+  
   useEffect(() => {
-    if (shouldScrollToBottom && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-      setShouldScrollToBottom(false);
+      setTimeout(() => {
+        if (messagesEndRef.current && shouldScrollToBottom) {
+          messagesEndRef.current.scrollIntoView({ block: 'end', behavior: 'auto' });
+          setShouldScrollToBottom(false);
+        }
+      }, 100);
+  }, [shouldScrollToBottom]);
+  
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLDivElement;
+    const container = messagesContainerRef.current;
+    if (!container || !activeChat) return;
+
+    const window = chatWindows[activeChat];
+    if (!window) return;
+
+    if (target.scrollTop <= 200 && window.hasOlder && !isLoadingMessages) {
+      loadOlderMessages();
     }
-  }, [shouldScrollToBottom, filteredMessages]);
+
+    if (!isAutoScrolling) {
+      const isNearBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 50;
+      setIsAtBottom(isNearBottom);
+      if (isNearBottom && window.hasNewer && !isLoadingMessages) {
+        loadNewerMessages();
+      }
+    }
+  };
+
+  const loadNewerMessages = async () => {
+    if (!activeChat || isLoadingMessages) return;
+    const window = chatWindows[activeChat];
+    if (!window?.hasNewer || !window.newestMessageId) return;
+
+    setIsLoadingMessages(true);
+    try {
+      const res = await refreshTokenAndRetry(() =>
+        fetch(`${API_BASE}/chat/${activeChat}/messages/after/${window.newestMessageId}?limit=50`, {
+          headers: authHeaders(),
+        })
+      );
+
+      if (!res.ok) throw new Error('Failed to load newer');
+
+      const data: any[] = await res.json();
+      const normalized = normalizeMessages(data);
+
+      if (normalized.length === 0) {
+        setChatWindows(prev => ({
+          ...prev,
+          [activeChat]: { ...prev[activeChat], hasNewer: false }
+        }));
+        return;
+      }
+
+      setMessagesByChat(prev => {
+        const current = prev[activeChat] || [];
+        const currentIds = new Set(current.map(m => m.id));
+        const uniqueNew = normalized.filter(m => !currentIds.has(m.id));
+        const combined = [...current, ...uniqueNew];
+        return { ...prev, [activeChat]: combined };
+      });
+
+      setChatWindows(prev => {
+        const newest = normalized[normalized.length - 1]?.id || prev[activeChat].newestMessageId;
+        return {
+          ...prev,
+          [activeChat]: {
+            ...prev[activeChat],
+            newestMessageId: newest,
+            hasNewer: normalized.length === 50,
+          }
+        };
+      });
+
+    } catch (e) {
+      console.error('Load newer failed', e);
+      toast.error('Не удалось загрузить новые сообщения');
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  };
+
+  const loadOlderMessages = async () => {
+    if (!activeChat || isLoadingMessages) return;
+    const window = chatWindows[activeChat];
+    if (!window?.hasOlder || !window.oldestMessageId) return;
+
+    setIsLoadingMessages(true);
+    try {
+      const res = await refreshTokenAndRetry(() =>
+        fetch(`${API_BASE}/chat/${activeChat}/messages/before/${window.oldestMessageId}?limit=50`, {
+          headers: authHeaders(),
+        })
+      );
+
+      if (!res.ok) throw new Error('Failed to load older');
+
+      const data: any[] = await res.json();
+      const normalized = normalizeMessages(data);
+
+      if (normalized.length === 0) {
+        setChatWindows(prev => ({
+          ...prev,
+          [activeChat]: { ...prev[activeChat], hasOlder: false }
+        }));
+        return;
+      }
+
+      setMessagesByChat(prev => {
+        const current = prev[activeChat] || [];
+        const currentIds = new Set(current.map(m => m.id));
+        const uniqueNew = normalized.filter(m => !currentIds.has(m.id));
+        const combined = [...uniqueNew, ...current];
+        return { ...prev, [activeChat]: combined };
+      });
+
+      setChatWindows(prev => {
+        const oldest = normalized[0]?.id || prev[activeChat].oldestMessageId;
+        return {
+          ...prev,
+          [activeChat]: {
+            ...prev[activeChat],
+            oldestMessageId: oldest,
+            hasOlder: normalized.length === 50,
+          }
+        };
+      });
+
+    } catch (e) {
+      console.error('Load older failed', e);
+      toast.error('Не удалось загрузить старые сообщения');
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  };
 
   const startRecording = async () => {
     try {
@@ -726,6 +998,8 @@ const ChatComponent: React.FC = () => {
       mediaRecorderRef.current.start();
       setIsRecording(true);
     } catch (e) {
+      console.error('Error starting recording:', e);
+      toast.error('Не удалось начать запись');
     }
   };
 
@@ -738,6 +1012,7 @@ const ChatComponent: React.FC = () => {
 
   const sendVoiceMessage = async (audioBlob: Blob) => {
     if (!websocket || websocket.readyState !== WebSocket.OPEN || !activeChat) {
+      toast.error('Нет соединения с сервером');
       return;
     }
     const formData = new FormData();
@@ -764,6 +1039,7 @@ const ChatComponent: React.FC = () => {
       websocket.send(JSON.stringify(payload));
     } catch (e) {
       console.error('Error sending voice message:', e);
+      toast.error('Не удалось отправить голосовое сообщение');
     }
   };
 
@@ -792,28 +1068,17 @@ const ChatComponent: React.FC = () => {
   const confirmDeleteMessage = async () => {
     if (!messageToDelete) return;
     if (messageToDelete.sender !== username) {
+      toast.error('Вы можете удалять только свои сообщения');
       return;
     }
     if (!token || !websocket || websocket.readyState !== WebSocket.OPEN) {
+      toast.error('Нет соединения с сервером');
       return;
     }
+    
     const messageIdToDelete = messageToDelete.id;
     const channelId = messageToDelete.channel_id;
-    setMessagesByChat(prev => {
-      const currentMessages = prev[channelId] || [];
-      const updatedMessages = currentMessages.filter(m => m.id !== messageIdToDelete);
-      return {
-        ...prev,
-        [channelId]: updatedMessages
-      };
-    });
-    setQuotedMessageData(prev => {
-      const newState = { ...prev };
-      if (newState[messageIdToDelete] !== undefined) {
-        delete newState[messageIdToDelete];
-      }
-      return newState;
-    });
+    
     try {
       const res = await refreshTokenAndRetry(() =>
         fetch(`${API_BASE}/chat/message/${messageToDelete.id}`, {
@@ -821,10 +1086,33 @@ const ChatComponent: React.FC = () => {
           headers: authHeaders(),
         })
       );
+      
+      if (res.ok) {
+        setMessagesByChat(prev => {
+          const currentMessages = prev[channelId] || [];
+          const updatedMessages = currentMessages.filter(m => m.id !== messageIdToDelete);
+          return {
+            ...prev,
+            [channelId]: updatedMessages
+          };
+        });
+        
+        setQuotedMessageData(prev => {
+          const newState = { ...prev };
+          if (newState[messageIdToDelete] !== undefined) {
+            delete newState[messageIdToDelete];
+          }
+          return newState;
+        });
+        
+        toast.success('Сообщение удалено');
+      } else {
+        throw new Error('Delete failed');
+      }
     } catch (e: any) {
       console.error('Error deleting message:', e);
-    }
-    finally {
+      toast.error('Не удалось удалить сообщение');
+    } finally {
       setShowDeleteMessageModal(false);
       setMessageToDelete(null);
     }
@@ -832,6 +1120,7 @@ const ChatComponent: React.FC = () => {
 
   const deleteMessage = async (msg: Message) => {
     if (msg.sender !== username) {
+      toast.error('Вы можете удалять только свои сообщения');
       return;
     }
     setMessageToDelete(msg);
@@ -839,63 +1128,94 @@ const ChatComponent: React.FC = () => {
   };
 
   const handleSendMessage = async () => {
+    console.log('Send message check:', { 
+        hasMessage: !!message.trim(), 
+        hasFile: !!selectedFile, 
+        isRecording, 
+        hasForward: !!forwardMessage 
+    });
+    
     if (!websocket || websocket.readyState !== WebSocket.OPEN || !activeChat) {
-      return;
+        console.error('WebSocket not ready or no active chat');
+        toast.error('Нет соединения с сервером');
+        return;
     }
-    if (!message.trim() && !selectedFile && !isRecording) return;
+    
+    if (!forwardMessage && !message.trim() && !selectedFile && !isRecording) {
+        console.log('No content to send');
+        toast.error('Сообщение не может быть пустым');
+        return;
+    }
+    
     if (isRecording) {
-      stopRecording();
-      return;
+        stopRecording();
+        return;
     }
+    
     try {
-      let fileUrl = '';
-      let fileName = '';
-      if (selectedFile) {
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-        const uploadRes = await refreshTokenAndRetry(() =>
-          fetch(`${API_BASE}/chat/upload`, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${token}` },
-            body: formData,
-          })
-        );
-        if (!uploadRes.ok) throw new Error('Upload failed');
-        const uploadData = await uploadRes.json();
-        fileUrl = uploadData.url;
-        fileName = selectedFile.name;
-      }
-      const payload = {
-        type: editingMessage ? 'edit_message' : 'send_message',
-        data: {
-          channel_id: activeChat,
-          content: message || undefined,
-          ...(quotedMessage && { quoted_message_id: quotedMessage.id }),
-          ...(editingMessage && { message_id: editingMessage.id }),
-          ...(fileUrl && { file_url: fileUrl, file_name: fileName }),
-        },
-      };
-      websocket.send(JSON.stringify(payload));
-      setMessage('');
-      setSelectedFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      if (!editingMessage) {
-        setQuotedMessage(null);
-      }
-      if (editingMessage) {
-        setEditingMessage(null);
-      }
-      setShouldScrollToBottom(true);
+        let fileUrl = '';
+        let fileName = '';
+        
+        if (selectedFile) {
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            const uploadRes = await refreshTokenAndRetry(() =>
+                fetch(`${API_BASE}/chat/upload`, {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${token}` },
+                    body: formData,
+                })
+            );
+            if (!uploadRes.ok) throw new Error('Upload failed');
+            const uploadData = await uploadRes.json();
+            fileUrl = uploadData.url;
+            fileName = selectedFile.name;
+        }
+        
+        const payload = {
+            type: editingMessage ? 'edit_message' : 'send_message',
+            data: {
+                channel_id: activeChat,
+                content: message.trim() || undefined,
+                ...(selectedContacts.length > 0 && { members: selectedContacts.map(c => ({ id: c.id })) }),
+                ...(forwardMessage && { forward_message_id: forwardMessage.id }),
+                ...(quotedMessage && { quoted_message_id: quotedMessage.id }),
+                ...(editingMessage && { message_id: editingMessage.id }),
+                ...(fileUrl && { file_url: fileUrl, file_name: fileName }),
+            },
+        };
+        
+        console.log('Sending WebSocket message:', payload);
+        websocket.send(JSON.stringify(payload));
+        
+        // Сброс состояния
+        setMessage('');
+        setSelectedFile(null);
+        setForwardMessage(null);
+        setShowForwardMessageModal(false);
+        setSelectedContacts([]);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        
+        if (!editingMessage) {
+            setQuotedMessage(null);
+        }
+        if (editingMessage) {
+            setEditingMessage(null);
+        }
+        
+        toast.success('Сообщение отправлено');
+        
     } catch (e) {
-      console.error('Не удалось отправить сообщение');
+        console.error('Не удалось отправить сообщение:', e);
+        toast.error('Не удалось отправить сообщение');
     } finally {
-      stopTyping();
+        stopTyping();
     }
-  };
+};
 
   const startTyping = () => {
-    if (!websocket) {
-      return null;
+    if (!websocket || !activeChat) {
+      return;
     }
     websocket.send(JSON.stringify({ type: 'typing_start', data: { channel_id: activeChat } }));
 
@@ -904,7 +1224,7 @@ const ChatComponent: React.FC = () => {
   };
 
   const stopTyping = () => {
-    if (!websocket) return;
+    if (!websocket || !activeChat) return;
 
     websocket.send(JSON.stringify({ type: 'typing_stop', data: { channel_id: activeChat } }));
   };
@@ -957,10 +1277,12 @@ const ChatComponent: React.FC = () => {
         throw new Error(`Failed to create private chat: ${res.status} ${res.statusText}`);
       }
       const newChat: Chat = await res.json();
+      setChats(prev => [...prev, newChat]);
       setActiveChat(newChat.id);
       setShowContactSearch(false);
       setContactSearchQuery('');
       setContacts([]);
+      toast.success('Чат создан');
     } catch (e) {
       console.error('Не удалось создать личный чат');
       toast.error('Не удалось создать личный чат.');
@@ -968,19 +1290,24 @@ const ChatComponent: React.FC = () => {
   };
 
   const createGroupChat = async () => {
-    if (!token || selectedContacts.length < 1) {
+    if (!token) {
+      toast.error('Необходима авторизация');
       return;
     }
-    if (groupName.length === 0) {
-      setGroupName('Chat');
+    if (selectedContacts.length < 1) {
+      toast.error('Выберите хотя бы одного участника');
+      return;
     }
+    
+    const finalGroupName = groupName.trim() || 'Chat';
+    
     try {
       const res = await refreshTokenAndRetry(() =>
         fetch(`${API_BASE}/chat/chats/group`, {
           method: 'POST',
           headers: authHeaders(),
           body: JSON.stringify({
-            name: groupName,
+            name: finalGroupName,
             members: selectedContacts.map(c => c.id),
           }),
         })
@@ -989,11 +1316,13 @@ const ChatComponent: React.FC = () => {
         throw new Error(`Failed to create group chat: ${res.status} ${res.statusText}`);
       }
       const newChat: Chat = await res.json();
+      setChats(prev => [...prev, newChat]);
       setActiveChat(newChat.id);
       setShowCreateGroup(false);
       setGroupName('');
       setSelectedContacts([]);
       setShowContactSearch(false);
+      toast.success('Групповой чат создан');
     } catch (e: any) {
       console.error(`Не удалось создать групповой чат: ${e.message}`);
       toast.error('Не удалось создать групповой чат.');
@@ -1001,7 +1330,15 @@ const ChatComponent: React.FC = () => {
   };
 
   const createChannel = async () => {
-    if (!token || !channelName.trim()) return;
+    if (!token) {
+      toast.error('Необходима авторизация');
+      return;
+    }
+    if (!channelName.trim()) {
+      toast.error('Введите название канала');
+      return;
+    }
+    
     try {
       const res = await refreshTokenAndRetry(() =>
         fetch(`${API_BASE}/chat/chats/channel`, {
@@ -1022,6 +1359,7 @@ const ChatComponent: React.FC = () => {
       setShowCreateChannel(false);
       setChannelName('');
       setChannelDescription('');
+      toast.success('Канал создан');
     } catch (e: any) {
       console.error(`Не удалось создать канал: ${e.message}`);
       toast.error('Не удалось создать канал.');
@@ -1055,6 +1393,7 @@ const ChatComponent: React.FC = () => {
       setContactSearchQuery('');
       setContacts([]);
       setShowInviteModal(false);
+      toast.success('Пользователи приглашены');
     } catch (e) {
       console.error('Не удалось пригласить пользователей');
       toast.error('Не удалось пригласить пользователей.');
@@ -1074,9 +1413,9 @@ const ChatComponent: React.FC = () => {
       if (!res.ok) {
         throw new Error(`Failed to kick from chat: ${res.status} ${res.statusText}`);
       }
-      const updatedChat: Chat = await res.json();
       setSelectedToKick([]);
       setShowKickModal(false);
+      toast.success('Пользователи исключены');
     } catch (e) {
       console.error('Не удалось исключить пользователей');
       toast.error('Не удалось исключить пользователей.');
@@ -1098,6 +1437,7 @@ const ChatComponent: React.FC = () => {
       setChats(prev => prev.filter(c => c.id !== chatId));
       if (activeChat === chatId) setActiveChat(null);
       setShowLeaveModal(false);
+      toast.success('Вы покинули чат');
     } catch (e) {
       console.error('Не удалось покинуть чат');
       toast.error('Не удалось покинуть чат.');
@@ -1116,7 +1456,10 @@ const ChatComponent: React.FC = () => {
       if (!res.ok) {
         throw new Error(`Failed to delete chat: ${res.status} ${res.statusText}`);
       }
+      setChats(prev => prev.filter(c => c.id !== chatId));
+      if (activeChat === chatId) setActiveChat(null);
       setShowDeleteModal(false);
+      toast.success('Чат удален');
     } catch (e) {
       console.error('Не удалось удалить чат');
       toast.error('Не удалось удалить чат.');
@@ -1157,10 +1500,9 @@ const ChatComponent: React.FC = () => {
   };
 
   useEffect(() => {
-    let timer;
+    let timer: NodeJS.Timeout;
     if (showChatInfoSidebar) {
       setIsSidebarVisible(true);
-      timer = setTimeout(() => {}, 10);
     } else {
       timer = setTimeout(() => {
         setIsSidebarVisible(false);
@@ -1170,10 +1512,9 @@ const ChatComponent: React.FC = () => {
   }, [showChatInfoSidebar]);
 
   useEffect(() => {
-    let timer;
+    let timer: NodeJS.Timeout;
     if (showEditChatModal) {
       setIsEditModalVisible(true);
-      timer = setTimeout(() => {}, 10);
     } else {
       timer = setTimeout(() => {
         setIsEditModalVisible(false);
@@ -1185,6 +1526,7 @@ const ChatComponent: React.FC = () => {
   const handleStickerClick = (stickerUrl: string) => {
     if (!websocket || websocket.readyState !== WebSocket.OPEN || !activeChat) {
       console.error('Нет соединения с сервером');
+      toast.error('Нет соединения с сервером');
       return;
     }
     const stickerName = stickerUrl.split('/').pop() || 'sticker.png';
@@ -1199,13 +1541,7 @@ const ChatComponent: React.FC = () => {
     };
     websocket.send(JSON.stringify(payload));
     setShowStickerPicker(false);
-  };
-    
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLDivElement;
-    if (target.scrollTop === 0 && hasMoreByChat[activeChat!] && !isLoadingMessages) {
-      loadMessages();
-    }
+    toast.success('Стикер отправлен');
   };
 
   const openEditChatModal = () => {
@@ -1246,9 +1582,11 @@ const ChatComponent: React.FC = () => {
           username={username}
           typingUsers={typingUsers}
           currentChat={currentChat}
+          setShouldScrollToBottom={setShouldScrollToBottom}
         />
         <RenderChatWindow 
           activeChat={activeChat}
+          searchContacts={searchContacts}
           currentChat={currentChat}
           showChatInfoSidebar={showChatInfoSidebar}
           typingUsers={typingUsers}
@@ -1264,7 +1602,6 @@ const ChatComponent: React.FC = () => {
           isLoadingMessages={isLoadingMessages}
           setShowStickerPicker={setShowStickerPicker}
           chatOptionsRef={chatOptionsRef}
-          hasMoreByChat={hasMoreByChat}
           messagesEndRef={messagesEndRef}
           stickerPickerRef={stickerPickerRef}
           fileInputRef={fileInputRef}
@@ -1299,6 +1636,7 @@ const ChatComponent: React.FC = () => {
           handleContextMenuEdit={handleContextMenuEdit}
           handleContextMenuDelete={handleContextMenuDelete}
           handleContextMenuCopy={handleContextMenuCopy}
+          handleContextMenuForward={handleContextMenuForward}
           handleContextMenuQuote={handleContextMenuQuote}
           openEditChatModal={openEditChatModal}
           handleUserContextMenu={handleUserContextMenu}
@@ -1321,8 +1659,14 @@ const ChatComponent: React.FC = () => {
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
           setShowImageModal={setShowImageModal}
+          messagesContainerRef={messagesContainerRef}
+          isAtBottom={isAtBottom}
+          loadMessagesAround={loadMessagesAround}
+          setIsAutoScrolling={setIsAutoScrolling}
+          setImageUrl={setImageUrl}
         />
         <RenderModals
+          handleContextMenuQuote={handleContextMenuQuote}
           showContactSearch={showContactSearch}
           showCreateGroup={showCreateGroup}
           contactSearchQuery={contactSearchQuery}
@@ -1368,6 +1712,18 @@ const ChatComponent: React.FC = () => {
           deleteChat={deleteChat}
           showImageModal={showImageModal}
           setShowImageModal={setShowImageModal}
+          imageUrl={imageUrl}
+          setImageUrl={setImageUrl}
+          deleteMessage={deleteMessage}
+          showDeleteMessageModal={showDeleteMessageModal}
+          setShowDeleteMessageModal={setShowDeleteMessageModal}
+          messageToDelete={messageToDelete}
+          setMessageToDelete={setMessageToDelete}
+          confirmDeleteMessage={confirmDeleteMessage}
+          setQuotedMessage={setQuotedMessage}
+          showForwardMessageModal={showForwardMessageModal}
+          setShowForwardMessageModal={setShowForwardMessageModal}
+          handleSendMessage={handleSendMessage}
         />
       </div>
     </div>

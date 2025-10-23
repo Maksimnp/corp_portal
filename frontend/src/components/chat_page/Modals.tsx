@@ -13,6 +13,8 @@ import DeleteChatModal from './modals/DeleteChatModal';
 import ImageModal from './modals/ImageModal';
 import DeleteMessageModal from './modals/DeleteMessageModal';
 import ForwardMessageModal from './modals/ForwardMessageModal';
+import FileDragModal from './modals/FileDragModal';
+
 export interface RenderModalsProps {
   handleContextMenuQuote: () => void;
   showContactSearch: boolean;
@@ -141,7 +143,7 @@ const RenderModals: React.FC<RenderModalsProps> = ({
   setQuotedMessage,
   showForwardMessageModal,
   setShowForwardMessageModal,
-  handleSendMessage
+  handleSendMessage,
 }) => {
   return (
     <>

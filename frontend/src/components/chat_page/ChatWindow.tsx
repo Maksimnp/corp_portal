@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { PaperPlaneRight, Paperclip, Smiley, DotsThreeVertical, X, Microphone, Sticker, Plus, Trash, UserCircle, ArrowLeft, MagnifyingGlass, ArrowDown } from 'phosphor-react';
 import type { Chat, Message, Contact, MessageContextMenuState, UserContextMenuState } from '../../types/chat';
 import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
@@ -10,31 +10,8 @@ import RenderContextMenu from "./ContextMenu";
 import RenderChatInfoSidebar from "./ChatInfoSidebar";
 import RenderUserContextMenu from "./UserContextMenu";
 import { useTheme } from '../../hooks/ThemeContext';
-
-
-const VITE_API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-// Веб-ресурс со стикерами (Tenor)
-const stickerPacks = {
-  animals: [
-    'https://media.tenor.com/AAhV8e7Q8eQAAAAC/cat.gif',
-    'https://media.tenor.com/7gJ7x1z5z6QAAAAC/dog.gif',
-    'https://media.tenor.com/r2Zx9X4z2Y4AAAAC/rabbit.gif',
-    'https://media.tenor.com/8y6z3Xz9X2gAAAAC/bear.gif',
-  ],
-  emotions: [
-    'https://media.tenor.com/3q4z7Xz5z6QAAAAC/happy.gif',
-    'https://media.tenor.com/9y6z3Xz5z6QAAAAC/sad.gif',
-    'https://media.tenor.com/2q4z7Xz5z6QAAAAC/laughing.gif',
-    'https://media.tenor.com/1y6z3Xz5z6QAAAAC/angry.gif',
-  ],
-  objects: [
-    'https://media.tenor.com/4q4z7Xz5z6QAAAAC/heart.gif',
-    'https://media.tenor.com/5y6z3Xz5z6QAAAAC/star.gif',
-    'https://media.tenor.com/6y6z3Xz5z6QAAAAC/cloud.gif',
-    'https://media.tenor.com/7y6z3Xz5z6QAAAAC/fire.gif',
-  ]
-};
+import { stickerPacks } from '../../data/StickerPacks'
+import FileDragModal from './modals/FileDragModal';
 
 interface RenderChatWindowProps {
     activeChat: string | null;
@@ -116,6 +93,10 @@ interface RenderChatWindowProps {
     setIsAutoScrolling: React.Dispatch<React.SetStateAction<boolean>>;
     setImageUrl: React.Dispatch<React.SetStateAction<Message | null>>;
     searchContacts: (query: string) => Promise<void>;
+    showFileDragModal: boolean;
+    setShowFileDragModal: React.Dispatch<React.SetStateAction<boolean>>;
+    handleReactToMessage: (messageId: string, reaction: string) => void;
+    userReactions?: Record<string, string>; // Сделал опциональным
 }
 
 const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
@@ -197,12 +178,89 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
     loadMessagesAround,
     setIsAutoScrolling,
     setImageUrl,
-    searchContacts
+    searchContacts,
+    showFileDragModal,
+    setShowFileDragModal,
+    handleReactToMessage,
+    userReactions = {} // Значение по умолчанию - пустой объект
 }) => {
   const { theme, toggleTheme } = useTheme();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [showMessageSearch, setShowMessageSearch] = useState(false);
+  
+  const [searchQueryGifs, setSearchQueryGifs] = useState('');
+  const [gifResults, setGifResults] = useState<string[]>([]);
+  const [loadingGifs, setLoadingGifs] = useState(false);
+  const VITE_API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+  const TENOR_API_KEY = import.meta.env.VITE_TENOR_API_KEY;
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    if (!showFileDragModal) {
+      setShowFileDragModal(true);
+    }
+  }, [showFileDragModal]);
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    if (!showFileDragModal) {
+      setShowFileDragModal(true);
+    }
+  }, [showFileDragModal]);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.currentTarget.contains(e.relatedTarget as Node)) {
+      return;
+    }
+    setShowFileDragModal(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setShowFileDragModal(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    const validFiles = files[0];
+
+    console.log('Файлы для загрузки:', validFiles);
+    setSelectedFile(validFiles);
+  }, []);
+  
+  useEffect(() => {
+    console.log('search');
+    if (searchQueryGifs.length < 2) {
+      setGifResults([]);
+      return;
+    }
+
+    const fetchGifs = async () => {
+      setLoadingGifs(true);
+      try {
+        const response = await fetch(
+          `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(searchQueryGifs)}&key=${TENOR_API_KEY}&limit=12&media_filter=minimal`
+        );
+        const data = await response.json();
+        console.log(data);
+        const urls = data.results
+          .map((item: any) => item.media_formats?.gif?.url || item.media_formats?.mediumgif?.url)
+          .filter(Boolean);
+        setGifResults(urls);
+      } catch (error) {
+        console.error('Ошибка загрузки GIF:', error);
+        setGifResults([]);
+      } finally {
+        setLoadingGifs(false);
+      }
+    };
+
+    const handler = setTimeout(() => {
+      fetchGifs();
+    }, 400);
+
+    return () => clearTimeout(handler);
+  }, [searchQueryGifs]);
 
   if (!activeChat || !currentChat) {
     return (
@@ -224,11 +282,11 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
     );
   }
 
-  // Безопасные значения по умолчанию
   const safeUserStatuses = userStatuses || {};
   const safeContactMap = contactMap || {};
   const safeFilteredMessages = filteredMessages || [];
   const safeQuotedMessageData = quotedMessageData || {};
+  const safeUserReactions = userReactions || {}; // Добавил безопасный доступ к реакциям
 
   const chatDisplayName = getChatDisplayName(currentChat, "short", safeContactMap, username);
   const isUserOnline = chatDisplayName && safeUserStatuses[chatDisplayName] === "online";
@@ -286,8 +344,39 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
     }
   };
 
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const clipboardData = e.clipboardData;
+    const items = clipboardData.items;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (file) {
+          if (file.size > 10 * 1024 * 1024) {
+            return;
+          }
+          setSelectedFile(file);
+        }
+        break;
+      }
+    }
+  };
+
+  // Безопасное получение текущей реакции
+  const getCurrentReaction = () => {
+    if (!messageContextMenu.message) return undefined;
+    return safeUserReactions[messageContextMenu.message.id];
+  };
+
   return (
-    <div className={`relative flex flex-1 font-sans ${theme === 'light' ? 'bg-gradient-to-br from-white to-slate-50' : 'bg-gradient-to-br from-slate-900 to-slate-800'} h-full overflow-hidden transition-colors duration-300`}>
+    <div 
+      className={`relative flex flex-1 font-sans ${theme === 'light' ? 'bg-gradient-to-br from-white to-slate-50' : 'bg-gradient-to-br from-slate-900 to-slate-800'} h-full overflow-hidden transition-colors duration-300`}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {/* Main Chat Area */}
       <div className={`flex flex-col flex-1 transition-all duration-500 ease-out ${
         showChatInfoSidebar ? 'mr-96' : 'mr-0'
@@ -364,8 +453,6 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
             >
               <MagnifyingGlass size={18} weight="bold" />
             </button>
-
-            {/* Theme Toggle */}
             
             {/* Chat Options */}
             <div className="relative">
@@ -460,6 +547,11 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
             msOverflowStyle: 'none', /* Для IE/Edge */
           }}
         >
+          <FileDragModal 
+            showFileDragModal={showFileDragModal}
+            setShowFileDragModal={setShowFileDragModal}
+            currentChat={currentChat}
+          />
           {isLoadingMessages && (
             <div className="flex justify-center py-4">
               <div className={`w-6 h-6 border-2 ${theme === 'light' ? 'border-slate-300' : 'border-slate-600'} border-t-blue-500 rounded-full animate-spin`}></div>
@@ -467,6 +559,7 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
           )}
           
           <RenderMessages
+            currentChat={currentChat}
             filteredMessages={safeFilteredMessages}
             quotedMessageData={safeQuotedMessageData}
             contactMap={safeContactMap}
@@ -476,17 +569,10 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
             setShowImageModal={setShowImageModal}
             loadMessagesAround={loadMessagesAround}
             setImageUrl={setImageUrl}
+            activeChat={activeChat}
+            handleContextMenuQuote={handleContextMenuQuote}
           />
-          {/* <VirtualizedMessages
-            filteredMessages={safeFilteredMessages}
-            quotedMessageData={safeQuotedMessageData}
-            contactMap={safeContactMap}
-            handleMessageContextMenu={handleMessageContextMenu}
-            fetchQuotedMessageData={fetchQuotedMessageData}
-            username={username}
-            setShowImageModal={setShowImageModal}
-            theme={theme}
-          /> */}
+          
           <button 
             className={`fixed bottom-24 w-10 h-10 flex items-center justify-center right-[42%] z-100 rounded-full bg-gray-300 transform-opacite duration-300 ${isAtBottom ? 'opacity-0' : 'opacity-full'}`}
             onClick={() => {
@@ -516,6 +602,8 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
             handleContextMenuForward={handleContextMenuForward}
             username={username}
             searchContacts={searchContacts}
+            onReact={(reaction) => handleReactToMessage(messageContextMenu.message!.id, reaction)}
+            currentReaction={getCurrentReaction()} // Используем безопасную функцию
           />
         </div>
 
@@ -573,40 +661,84 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
                   <X size={14} weight="bold" />
                 </button>
               </div>
-              
-              <div className="space-y-3 max-h-80 overflow-y-auto no-scrollbar">
-                {Object.entries(stickerPacks).map(([packName, stickers]) => (
-                  <div key={packName}>
-                    <h4 className={`text-xs font-semibold font-sans ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'} mb-2 capitalize`}>
-                      {packName}
-                    </h4>
-                    <div className="grid grid-cols-4 gap-2">
-                      {stickers.map((sticker, index) => (
-                        <button 
-                          key={index} 
-                          onClick={() => handleStickerClick(sticker)} 
-                          className={`w-14 h-14 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-300 hover:scale-110 transform border ${theme === 'light' ? 'border-slate-200/60' : 'border-slate-600/60'}`}
-                        >
-                          <img 
-                            src={sticker} 
-                            alt={`Sticker ${packName} ${index + 1}`} 
-                            className="w-full h-full object-contain p-1"
-                            loading="lazy"
-                            onError={(e) => {
-                              console.error(`Failed to load sticker: ${sticker}`);
-                            }}
-                          />
-                        </button>
-                      ))}
+
+              <div className="mb-3">
+                <input
+                  type="text"
+                  value={searchQueryGifs}
+                  onChange={(e) => setSearchQueryGifs(e.target.value)}
+                  placeholder="Поиск GIF..."
+                  className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    theme === 'light'
+                      ? 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400'
+                      : 'bg-slate-700 border-slate-600 text-white placeholder-slate-400'
+                  }`}
+                />
+              </div>
+
+              <div className="space-y-3 max-h-80 overflow-y-auto overflow-x-hidden no-scrollbar">
+                {searchQueryGifs.length >= 2 ? (
+                  <>
+                    {loadingGifs ? (
+                      <div className="flex justify-center py-6">
+                        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    ) : gifResults.length > 0 ? (
+                      <div className="grid grid-cols-4 gap-2">
+                        {gifResults.map((url, index) => (
+                          <button
+                            key={index}
+                            onClick={() => handleStickerClick(url)}
+                            className={`w-20 h-20 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-300 hover:scale-110 transform border ${
+                              theme === 'light' ? 'border-slate-200/60' : 'border-slate-600/60'
+                            }`}
+                          >
+                            <img
+                              src={url}
+                              alt={`GIF ${index + 1}`}
+                              className="w-full h-full object-contain p-1"
+                              loading="lazy"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className={`text-center text-sm ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                        Ничего не найдено
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  Object.entries(stickerPacks).map(([packName, stickers]) => (
+                    <div key={packName}>
+                      <h4 className={`text-xs font-semibold font-sans ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'} mb-2 capitalize`}>
+                        {packName}
+                      </h4>
+                      <div className="grid grid-cols-4 gap-2">
+                        {stickers.map((sticker, index) => (
+                          <button 
+                            key={index} 
+                            onClick={() => handleStickerClick(sticker)} 
+                            className={`w-20 h-20 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-300 hover:scale-110 transform border ${theme === 'light' ? 'border-slate-200/60' : 'border-slate-600/60'}`}
+                          >
+                            <img 
+                              src={sticker} 
+                              alt={`Sticker ${packName} ${index + 1}`} 
+                              className="w-full h-full object-contain p-1"
+                              loading="lazy"
+                            />
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           )}
 
           {/* Input Controls */}
-          <div className="flex items-end space-x-3">
+          <div className="flex items-end space-x-3" onPaste={handlePaste}>
             <div className="flex space-x-1">
               <button 
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
@@ -622,7 +754,7 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
               </button>
               <label className={`w-10 h-10 rounded-xl ${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:text-green-500 hover:bg-green-50' : 'bg-slate-800 text-slate-400 hover:text-green-400 hover:bg-blue-500/10'} transition-all duration-300 flex items-center justify-center cursor-pointer`}>
                 <Paperclip size={20} weight="regular" />
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept='.jpg, .jpeg, .png, .pdf, .txt, .ogg, .mp4, .gif, .tiff, .webp, .svg, .doc, .docx, .rtf, .zip, .rar, .7z, .xls, .xlsx, .ppt'/>
               </label>
             </div>
 

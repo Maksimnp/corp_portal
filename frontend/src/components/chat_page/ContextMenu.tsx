@@ -1,8 +1,8 @@
 import React from "react";
 import type { MessageContextMenuState } from '../../types/chat';
-import { CopyOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { CopyOutlined, DeleteOutlined, EditOutlined, SmileOutlined } from '@ant-design/icons';
 import { useTheme } from '../../hooks/ThemeContext';
-import { ArrowBendUpRight, ArrowBendUpLeft } from 'phosphor-react'
+import { ArrowBendUpRight, ArrowBendUpLeft, Heart, Fingerprint, MaskSad, Fire } from 'phosphor-react'
 interface RenderContextMenuProps {
     messageContextMenu: MessageContextMenuState;
     messageContextMenuRef: React.RefObject<HTMLDivElement | null>;
@@ -13,6 +13,8 @@ interface RenderContextMenuProps {
     handleContextMenuForward: () => void;
     username: string | null;
     searchContacts: (query: string) => Promise<void>;
+    onReact: (reaction: string) => void;
+    currentReaction?: string | null;
 }
 
 const RenderContextMenu: React.FC<RenderContextMenuProps> = ({
@@ -24,10 +26,14 @@ const RenderContextMenu: React.FC<RenderContextMenuProps> = ({
     handleContextMenuQuote,
     handleContextMenuForward,
     username,
-    searchContacts
+    searchContacts,
+    onReact,
+    currentReaction
 }) => {
     const { theme, toggleTheme } = useTheme();
     if (!messageContextMenu.visible || !messageContextMenu.message) return null;
+    
+    
     const menuWidth = messageContextMenuRef.current?.offsetWidth || 200;
     const menuHeight = messageContextMenuRef.current?.offsetHeight || 150;
     const windowWidth = window.innerWidth;
@@ -47,6 +53,30 @@ const RenderContextMenu: React.FC<RenderContextMenuProps> = ({
           left: `${left}px`,
         }}
       >
+        {messageContextMenu.message.sender !== username && (
+          <div className="flex gap-2 px-4">
+            <Heart
+              size={25}
+              className={`cursor-pointer ${currentReaction === '❤️' ? 'text-red-700' : 'text-red-500'}`}
+              onClick={() => onReact('❤️')}
+            />
+            <Fingerprint
+              size={25}
+              className={`cursor-pointer ${currentReaction === '👍' ? 'text-yellow-700' : 'text-yellow-500'}`}
+              onClick={() => onReact('👍')}
+            />
+            <MaskSad
+              size={25}
+              className={`cursor-pointer ${currentReaction === '😢' ? 'text-blue-700' : 'text-yellow-500'}`}
+              onClick={() => onReact('😢')}
+            />
+            <Fire 
+              size={25}
+              className={`cursor-pointer ${currentReaction === '🔥' ? 'text-blue-700' : 'text-yellow-500'}`}
+              onClick={() => onReact('🔥')}
+            />
+          </div>
+        )}
         <button
           onClick={handleContextMenuQuote}
           className={`w-full text-left font-semibold gap-4 px-4 py-2 text-sm ${theme === 'light' ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-200 hover:bg-gray-700'} flex items-center`}

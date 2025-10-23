@@ -1,0 +1,29 @@
+{
+  "user_info": {
+    "user_id": "unknown",
+    "user_name": "Ноздрин-Плотницкий Максим Васильевич",
+    "user_role": "admin",
+    "is_admin": true,
+    "ad_username": "mnp",
+    "display_name": "",
+    "job_title": "",
+    "department": "ТЭРиОВТ",
+    "company": "",
+    "telephone_number": "",
+    "mobile_phone": "",
+    "email": ""
+  },
+  "system_info": {
+    "browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0",
+    "platform": "Win32",
+    "language": "ru",
+    "screen_resolution": "2560x1440",
+    "timezone": "Europe/Minsk",
+    "current_url": "http://192.1.66.117:3000/dashboard"
+  },
+  "request_info": {
+    "message": "asdasdsd",
+    "timestamp": "2025-10-17T11:11:14.906Z",
+    "local_time": "17.10.2025, 14:11:14"
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "access_token_expire_minutes": 1440,
+  "refresh_token_expire_days": 5,
+  "algorithm": "HS256"
+}

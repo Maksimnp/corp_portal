@@ -975,6 +975,7 @@ export const RequestList: React.FC = () => {
                                         <div className="flex flex-wrap gap-3 mt-2">
                                           {request.images_path.map((img, i) => (
                                             <img
+                                              loading="lazy"
                                               key={i}
                                               src={`http://192.1.66.117:8000/static/images/${img}`}
                                               alt={`Фото ${i + 1}`}
@@ -1187,6 +1188,7 @@ export const RequestList: React.FC = () => {
                             <div key={index} className="relative group">
                               <img
                                 src={src}
+                                loading="lazy"
                                 alt={`Preview ${index}`}
                                 className="w-20 h-20 object-cover rounded-xl border-2 border-transparent group-hover:border-red-400 transition-all duration-300 shadow-lg"
                               />
@@ -1260,6 +1262,7 @@ export const RequestList: React.FC = () => {
                         <img
                           src={`http://192.1.66.117:8000/static/images/${imageData.images[imageData.index]}`}
                           alt="Увеличенное фото"
+                          loading="lazy"
                           className="max-h-full max-w-full object-contain rounded-xl shadow-2xl"
                         />
                       )}

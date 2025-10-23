@@ -382,6 +382,7 @@ const LoginModal: React.FC<{
     </AnimatePresence>
   );
 };
+
 const HomePage: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const totalRequestsRef = useRef<HTMLSpanElement>(null);
@@ -431,7 +432,7 @@ const HomePage: React.FC = () => {
         if (response.ok) {
           const { access_token, role, full_name = username, department } = data as LoginResponse;
           login(access_token, String(role));
-          localStorage.setItem('token', access_token);
+          localStorage.setItem('access_token', access_token);
           localStorage.setItem('role', String(role));
           localStorage.setItem('username', full_name);
           localStorage.setItem('department', department);
@@ -449,7 +450,7 @@ const HomePage: React.FC = () => {
         }
         
         setError(
-          response.status === 401 ? 'Неверный логин или пароль. Превышено количество попыток.' :
+          response.status === 401 ? 'Неверный логин или пароль.' :
           response.status === 422 ? `Ошибка валидации: ${errorMessage}` :
           response.status === 500 ? 'Внутренняя ошибка сервера. Обратитесь к администратору.' :
           errorMessage
@@ -464,7 +465,7 @@ const HomePage: React.FC = () => {
         setError(
           import.meta.env.MODE === 'development'
             ? `Ошибка сети: ${err instanceof Error ? err.message : String(err)}`
-            : 'Не удалось подключиться к серверу. Проверьте его доступность.'
+            : 'Не удалось подключиться к серверу.'
         );
         break;
       } finally {
@@ -474,8 +475,23 @@ const HomePage: React.FC = () => {
   };
 
   const handleLogout = () => {
+    // Полная очистка всех данных пользователя
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('username');
+    localStorage.removeItem('department');
+    localStorage.removeItem('refresh_token');
+    
+    // Вызов logout из контекста для обновления состояния
     logout();
+    
+    // Навигация на главную страницу
     navigate('/');
+    
+    // Принудительное обновление для полного сброса состояния
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
   };
 
   // Оптимизированная анимация частиц с useCallback

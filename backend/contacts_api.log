@@ -4202,3 +4202,1103 @@ connection to server at "localhost" (127.0.0.1), port 5432 failed: FATAL:  passw
 2025-10-16 17:24:35,095 - INFO - User statuses initialized successfully
 2025-10-16 17:24:35,179 - INFO - SQLAlchemy version: 2.0.41
 2025-10-16 17:24:35,205 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 09:00:20,876 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 09:00:20,956 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 09:00:20,956 - INFO - Initializing user statuses for existing chats...
+2025-10-17 09:00:20,988 - INFO - User statuses initialized successfully
+2025-10-17 09:00:21,081 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 09:00:21,119 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 09:05:53,679 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 09:05:53,773 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 09:05:53,774 - INFO - Initializing user statuses for existing chats...
+2025-10-17 09:05:53,801 - INFO - User statuses initialized successfully
+2025-10-17 09:05:53,884 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 09:05:53,919 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 09:26:04,271 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 09:26:04,361 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 09:26:04,361 - INFO - Initializing user statuses for existing chats...
+2025-10-17 09:26:04,391 - INFO - User statuses initialized successfully
+2025-10-17 09:26:04,481 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 09:26:04,511 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 09:29:43,917 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 09:29:43,993 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 09:29:43,993 - INFO - Initializing user statuses for existing chats...
+2025-10-17 09:29:44,020 - INFO - User statuses initialized successfully
+2025-10-17 09:29:44,108 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 09:29:44,138 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 09:31:11,020 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 09:31:11,091 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 09:31:11,091 - INFO - Initializing user statuses for existing chats...
+2025-10-17 09:31:11,116 - INFO - User statuses initialized successfully
+2025-10-17 09:31:11,202 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 09:31:11,237 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 09:40:34,528 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 09:40:34,620 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 09:40:34,620 - INFO - Initializing user statuses for existing chats...
+2025-10-17 09:40:34,651 - INFO - User statuses initialized successfully
+2025-10-17 09:40:34,735 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 09:40:34,766 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 09:44:12,380 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 09:44:12,447 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 09:44:12,447 - INFO - Initializing user statuses for existing chats...
+2025-10-17 09:44:12,465 - DEBUG - Created status for user k.dyatel in channel fa91be5a-ff15-467a-aea5-63b6136bf57b
+2025-10-17 09:44:12,467 - DEBUG - Created status for user m.biznes in channel fa91be5a-ff15-467a-aea5-63b6136bf57b
+2025-10-17 09:44:12,471 - INFO - User statuses initialized successfully
+2025-10-17 09:44:12,553 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 09:44:12,582 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 09:53:32,585 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 09:53:32,651 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 09:53:32,651 - INFO - Initializing user statuses for existing chats...
+2025-10-17 09:53:32,669 - DEBUG - Created status for user k.dyatel in channel 5dc1b8dd-ab2f-4359-8a76-a1b4e062670e
+2025-10-17 09:53:32,672 - DEBUG - Created status for user mnp in channel 5dc1b8dd-ab2f-4359-8a76-a1b4e062670e
+2025-10-17 09:53:32,675 - INFO - User statuses initialized successfully
+2025-10-17 09:53:32,757 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 09:53:32,790 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 09:58:48,887 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 09:58:48,985 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 09:58:48,985 - INFO - Initializing user statuses for existing chats...
+2025-10-17 09:58:49,003 - INFO - User statuses initialized successfully
+2025-10-17 09:58:49,098 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 09:58:49,129 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 10:01:40,957 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 10:01:41,065 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 10:01:41,066 - INFO - Initializing user statuses for existing chats...
+2025-10-17 10:01:41,087 - INFO - User statuses initialized successfully
+2025-10-17 10:01:41,193 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 10:01:41,230 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 10:04:25,070 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 10:04:25,140 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 10:04:25,140 - INFO - Initializing user statuses for existing chats...
+2025-10-17 10:04:25,157 - INFO - User statuses initialized successfully
+2025-10-17 10:04:25,239 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 10:04:25,270 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 10:05:56,129 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 10:05:56,206 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 10:05:56,206 - INFO - Initializing user statuses for existing chats...
+2025-10-17 10:05:56,225 - INFO - User statuses initialized successfully
+2025-10-17 10:05:56,320 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 10:05:56,351 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 10:07:07,191 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 10:07:07,280 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 10:07:07,280 - INFO - Initializing user statuses for existing chats...
+2025-10-17 10:07:07,294 - INFO - User statuses initialized successfully
+2025-10-17 10:07:07,377 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 10:07:07,405 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 10:07:19,022 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 10:07:19,085 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 10:07:19,085 - INFO - Initializing user statuses for existing chats...
+2025-10-17 10:07:19,100 - INFO - User statuses initialized successfully
+2025-10-17 10:07:19,178 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 10:07:19,206 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 10:10:21,367 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 10:10:21,461 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 10:10:21,462 - INFO - Initializing user statuses for existing chats...
+2025-10-17 10:10:21,479 - INFO - User statuses initialized successfully
+2025-10-17 10:10:21,577 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 10:10:21,612 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 10:10:37,514 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 10:10:37,610 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 10:10:37,610 - INFO - Initializing user statuses for existing chats...
+2025-10-17 10:10:37,625 - INFO - User statuses initialized successfully
+2025-10-17 10:10:37,708 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 10:10:37,737 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 10:13:30,130 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 10:13:30,203 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 10:13:30,203 - INFO - Initializing user statuses for existing chats...
+2025-10-17 10:13:30,218 - INFO - User statuses initialized successfully
+2025-10-17 10:13:30,307 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 10:13:30,335 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 10:21:08,943 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 10:21:09,025 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 10:21:09,026 - INFO - Initializing user statuses for existing chats...
+2025-10-17 10:21:09,044 - INFO - User statuses initialized successfully
+2025-10-17 10:21:09,138 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 10:21:09,169 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 10:29:17,863 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 10:29:17,943 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 10:29:17,943 - INFO - Initializing user statuses for existing chats...
+2025-10-17 10:29:17,962 - INFO - User statuses initialized successfully
+2025-10-17 10:29:18,073 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 10:29:18,109 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 10:40:00,822 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 10:40:00,916 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 10:40:00,916 - INFO - Initializing user statuses for existing chats...
+2025-10-17 10:40:00,943 - INFO - User statuses initialized successfully
+2025-10-17 10:40:01,038 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 10:40:01,075 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 10:43:52,793 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 10:43:52,892 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 10:43:52,892 - INFO - Initializing user statuses for existing chats...
+2025-10-17 10:43:52,909 - INFO - User statuses initialized successfully
+2025-10-17 10:43:52,997 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 10:43:53,026 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 10:56:58,103 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 10:56:58,167 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 10:56:58,168 - INFO - Initializing user statuses for existing chats...
+2025-10-17 10:56:58,183 - INFO - User statuses initialized successfully
+2025-10-17 10:56:58,263 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 10:56:58,291 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 11:02:43,569 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 11:02:43,640 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 11:02:43,641 - INFO - Initializing user statuses for existing chats...
+2025-10-17 11:02:43,655 - INFO - User statuses initialized successfully
+2025-10-17 11:02:43,741 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 11:02:43,772 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 11:05:51,105 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 11:05:51,179 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 11:05:51,179 - INFO - Initializing user statuses for existing chats...
+2025-10-17 11:05:51,194 - INFO - User statuses initialized successfully
+2025-10-17 11:05:51,276 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 11:05:51,304 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 11:17:50,145 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 11:17:50,251 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 11:17:50,251 - INFO - Initializing user statuses for existing chats...
+2025-10-17 11:17:50,267 - INFO - User statuses initialized successfully
+2025-10-17 11:17:50,349 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 11:17:50,376 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 11:28:31,969 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 11:28:32,035 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 11:28:32,035 - INFO - Initializing user statuses for existing chats...
+2025-10-17 11:28:32,048 - INFO - User statuses initialized successfully
+2025-10-17 11:28:32,126 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 11:28:32,152 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 11:33:53,448 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 11:33:53,550 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 11:33:53,551 - INFO - Initializing user statuses for existing chats...
+2025-10-17 11:33:53,571 - INFO - User statuses initialized successfully
+2025-10-17 11:33:53,676 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 11:33:53,710 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 11:37:00,454 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 11:37:00,538 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 11:37:00,538 - INFO - Initializing user statuses for existing chats...
+2025-10-17 11:37:00,552 - INFO - User statuses initialized successfully
+2025-10-17 11:37:00,631 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 11:37:00,664 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 11:37:07,625 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 11:37:07,718 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 11:37:07,718 - INFO - Initializing user statuses for existing chats...
+2025-10-17 11:37:07,738 - INFO - User statuses initialized successfully
+2025-10-17 11:37:07,843 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 11:37:07,875 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 11:37:32,290 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 11:37:32,385 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 11:37:32,385 - INFO - Initializing user statuses for existing chats...
+2025-10-17 11:37:32,406 - INFO - User statuses initialized successfully
+2025-10-17 11:37:32,498 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 11:37:32,526 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 11:37:54,161 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 11:37:54,261 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 11:37:54,261 - INFO - Initializing user statuses for existing chats...
+2025-10-17 11:37:54,282 - INFO - User statuses initialized successfully
+2025-10-17 11:37:54,379 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 11:37:54,414 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 11:38:42,434 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 11:38:42,523 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 11:38:42,523 - INFO - Initializing user statuses for existing chats...
+2025-10-17 11:38:42,539 - INFO - User statuses initialized successfully
+2025-10-17 11:38:42,628 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 11:38:42,658 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 11:41:56,279 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 11:41:56,349 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 11:41:56,349 - INFO - Initializing user statuses for existing chats...
+2025-10-17 11:41:56,365 - INFO - User statuses initialized successfully
+2025-10-17 11:41:56,448 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 11:41:56,474 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 11:42:39,194 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 11:42:39,279 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 11:42:39,279 - INFO - Initializing user statuses for existing chats...
+2025-10-17 11:42:39,296 - INFO - User statuses initialized successfully
+2025-10-17 11:42:39,377 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 11:42:39,409 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 11:43:08,820 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 11:43:08,892 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 11:43:08,892 - INFO - Initializing user statuses for existing chats...
+2025-10-17 11:43:08,907 - INFO - User statuses initialized successfully
+2025-10-17 11:43:08,988 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 11:43:09,019 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 11:44:44,233 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 11:44:44,384 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 11:44:44,384 - INFO - Initializing user statuses for existing chats...
+2025-10-17 11:44:44,411 - INFO - User statuses initialized successfully
+2025-10-17 11:44:44,519 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 11:44:44,594 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 11:47:02,488 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 11:47:02,560 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 11:47:02,561 - INFO - Initializing user statuses for existing chats...
+2025-10-17 11:47:02,579 - INFO - User statuses initialized successfully
+2025-10-17 11:47:02,668 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 11:47:02,701 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:08:31,331 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:08:31,451 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:08:31,452 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:08:31,477 - DEBUG - Created status for user k.dyatel in channel 79d0aa5d-7205-4eaa-aa27-3e6aff2a0725
+2025-10-17 12:08:31,483 - INFO - User statuses initialized successfully
+2025-10-17 12:08:31,568 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:08:31,603 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:10:27,692 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:10:27,788 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:10:27,788 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:10:27,809 - INFO - User statuses initialized successfully
+2025-10-17 12:10:27,904 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:10:27,938 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:13:06,331 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:13:06,441 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:13:06,441 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:13:06,462 - INFO - User statuses initialized successfully
+2025-10-17 12:13:06,552 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:13:06,585 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:15:38,565 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:15:38,635 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:15:38,636 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:15:38,654 - INFO - User statuses initialized successfully
+2025-10-17 12:15:38,736 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:15:38,766 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:16:11,208 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:16:11,295 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:16:11,295 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:16:11,309 - INFO - User statuses initialized successfully
+2025-10-17 12:16:11,391 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:16:11,424 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:16:24,055 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:16:24,149 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:16:24,149 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:16:24,166 - INFO - User statuses initialized successfully
+2025-10-17 12:16:24,248 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:16:24,283 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:16:33,577 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:16:33,664 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:16:33,664 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:16:33,680 - INFO - User statuses initialized successfully
+2025-10-17 12:16:33,767 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:16:33,795 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:19:07,646 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:19:07,747 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:19:07,747 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:19:07,775 - DEBUG - Created status for user mnp in channel 09006335-b24c-4142-abba-2344f1ccb399
+2025-10-17 12:19:07,779 - DEBUG - Created status for user k.dyatel in channel 09006335-b24c-4142-abba-2344f1ccb399
+2025-10-17 12:19:07,783 - INFO - User statuses initialized successfully
+2025-10-17 12:19:07,881 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:19:07,917 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:19:53,571 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:19:53,639 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:19:53,640 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:19:53,655 - INFO - User statuses initialized successfully
+2025-10-17 12:19:53,736 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:19:53,769 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:24:43,978 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:24:44,072 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:24:44,073 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:24:44,090 - INFO - User statuses initialized successfully
+2025-10-17 12:24:44,173 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:24:44,206 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:25:04,564 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:25:04,662 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:25:04,662 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:25:04,680 - INFO - User statuses initialized successfully
+2025-10-17 12:25:04,763 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:25:04,794 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:38:48,310 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:38:48,380 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:38:48,380 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:38:48,402 - DEBUG - Created status for user mnp in channel b2f4392a-3ecb-4584-98ce-adfef250a4ec
+2025-10-17 12:38:48,405 - DEBUG - Created status for user mnp in channel 1fe702bc-f20b-45b4-9aee-33799f67f566
+2025-10-17 12:38:48,407 - DEBUG - Created status for user l.kulikova in channel 1fe702bc-f20b-45b4-9aee-33799f67f566
+2025-10-17 12:38:48,410 - INFO - User statuses initialized successfully
+2025-10-17 12:38:48,496 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:38:48,529 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:40:08,470 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:40:08,557 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:40:08,558 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:40:08,581 - INFO - User statuses initialized successfully
+2025-10-17 12:40:08,664 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:40:08,697 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:44:32,468 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:44:32,550 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:44:32,550 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:44:32,568 - INFO - User statuses initialized successfully
+2025-10-17 12:44:32,653 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:44:32,684 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:45:36,456 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:45:36,597 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:45:36,597 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:45:36,626 - INFO - User statuses initialized successfully
+2025-10-17 12:45:36,734 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:45:36,805 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:51:06,383 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:51:06,467 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:51:06,468 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:51:06,492 - INFO - User statuses initialized successfully
+2025-10-17 12:51:06,580 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:51:06,611 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:51:06,652 - INFO - JWT Configuration: ALGORITHM=HS256, ACCESS_TOKEN_EXPIRE_MINUTES=1440
+2025-10-17 12:51:06,652 - INFO - SECRET_KEY установлена: Да
+2025-10-17 12:53:27,727 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:53:27,793 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:53:27,793 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:53:27,809 - INFO - User statuses initialized successfully
+2025-10-17 12:53:27,890 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:53:27,916 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:53:27,947 - INFO - JWT Configuration: ALGORITHM=HS256, ACCESS_TOKEN_EXPIRE_MINUTES=1440
+2025-10-17 12:53:27,947 - INFO - SECRET_KEY установлена: Да
+2025-10-17 12:54:57,579 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:54:57,648 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:54:57,648 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:54:57,668 - INFO - User statuses initialized successfully
+2025-10-17 12:54:57,751 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:54:57,783 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:54:57,819 - INFO - JWT Configuration: ALGORITHM=HS256, ACCESS_TOKEN_EXPIRE_MINUTES=1440
+2025-10-17 12:54:57,819 - INFO - SECRET_KEY установлена: Да
+2025-10-17 12:55:05,263 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:55:05,338 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:55:05,338 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:55:05,356 - INFO - User statuses initialized successfully
+2025-10-17 12:55:05,445 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:55:05,469 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:57:29,278 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:57:29,350 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:57:29,350 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:57:29,368 - INFO - User statuses initialized successfully
+2025-10-17 12:57:29,447 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:57:29,473 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 12:58:04,246 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 12:58:04,309 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 12:58:04,309 - INFO - Initializing user statuses for existing chats...
+2025-10-17 12:58:04,328 - INFO - User statuses initialized successfully
+2025-10-17 12:58:04,409 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 12:58:04,437 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 13:17:43,362 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 13:17:43,439 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 13:17:43,439 - INFO - Initializing user statuses for existing chats...
+2025-10-17 13:17:43,463 - DEBUG - Created status for user remote in channel 340dd6a4-ad71-4f8d-a7d2-f7e03785e46d
+2025-10-17 13:17:43,466 - DEBUG - Created status for user m.roblox in channel 24aac652-4ae4-46f4-8efb-39f0e564ad2a
+2025-10-17 13:17:43,468 - DEBUG - Created status for user mnp in channel 24aac652-4ae4-46f4-8efb-39f0e564ad2a
+2025-10-17 13:17:43,471 - INFO - User statuses initialized successfully
+2025-10-17 13:17:43,553 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 13:17:43,583 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 13:30:00,385 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 13:30:00,482 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 13:30:00,482 - INFO - Initializing user statuses for existing chats...
+2025-10-17 13:30:00,506 - INFO - User statuses initialized successfully
+2025-10-17 13:30:00,589 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 13:30:00,623 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 13:32:23,996 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 13:32:24,084 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 13:32:24,085 - INFO - Initializing user statuses for existing chats...
+2025-10-17 13:32:24,108 - INFO - User statuses initialized successfully
+2025-10-17 13:32:24,188 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 13:32:24,218 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 13:34:34,038 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 13:34:34,123 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 13:34:34,123 - INFO - Initializing user statuses for existing chats...
+2025-10-17 13:34:34,144 - INFO - User statuses initialized successfully
+2025-10-17 13:34:34,225 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 13:34:34,253 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 13:34:40,537 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 13:34:40,644 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 13:34:40,644 - INFO - Initializing user statuses for existing chats...
+2025-10-17 13:34:40,665 - INFO - User statuses initialized successfully
+2025-10-17 13:34:40,754 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 13:34:40,784 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 13:34:48,853 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 13:34:48,941 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 13:34:48,942 - INFO - Initializing user statuses for existing chats...
+2025-10-17 13:34:48,962 - INFO - User statuses initialized successfully
+2025-10-17 13:34:49,042 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 13:34:49,074 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 13:35:03,943 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 13:35:04,027 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 13:35:04,027 - INFO - Initializing user statuses for existing chats...
+2025-10-17 13:35:04,046 - INFO - User statuses initialized successfully
+2025-10-17 13:35:04,125 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 13:35:04,154 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 13:35:47,812 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 13:35:47,892 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 13:35:47,893 - INFO - Initializing user statuses for existing chats...
+2025-10-17 13:35:47,916 - INFO - User statuses initialized successfully
+2025-10-17 13:35:48,005 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 13:35:48,033 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 13:36:22,968 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 13:36:23,060 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 13:36:23,060 - INFO - Initializing user statuses for existing chats...
+2025-10-17 13:36:23,083 - INFO - User statuses initialized successfully
+2025-10-17 13:36:23,173 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 13:36:23,209 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 13:36:54,312 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 13:36:54,413 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 13:36:54,413 - INFO - Initializing user statuses for existing chats...
+2025-10-17 13:36:54,436 - INFO - User statuses initialized successfully
+2025-10-17 13:36:54,527 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 13:36:54,564 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 13:51:02,252 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 13:51:02,352 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 13:51:02,353 - INFO - Initializing user statuses for existing chats...
+2025-10-17 13:51:02,377 - INFO - User statuses initialized successfully
+2025-10-17 13:51:02,459 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 13:51:02,488 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 13:52:05,060 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 13:52:05,156 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 13:52:05,156 - INFO - Initializing user statuses for existing chats...
+2025-10-17 13:52:05,181 - INFO - User statuses initialized successfully
+2025-10-17 13:52:05,276 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 13:52:05,310 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 13:54:10,998 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 13:54:11,103 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 13:54:11,103 - INFO - Initializing user statuses for existing chats...
+2025-10-17 13:54:11,122 - INFO - User statuses initialized successfully
+2025-10-17 13:54:11,206 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 13:54:11,237 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 13:55:35,875 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 13:55:35,966 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 13:55:35,966 - INFO - Initializing user statuses for existing chats...
+2025-10-17 13:55:35,985 - INFO - User statuses initialized successfully
+2025-10-17 13:55:36,070 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 13:55:36,102 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 13:56:09,636 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 13:56:09,727 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 13:56:09,727 - INFO - Initializing user statuses for existing chats...
+2025-10-17 13:56:09,747 - INFO - User statuses initialized successfully
+2025-10-17 13:56:09,831 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 13:56:09,860 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 13:57:21,123 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 13:57:21,211 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 13:57:21,211 - INFO - Initializing user statuses for existing chats...
+2025-10-17 13:57:21,230 - INFO - User statuses initialized successfully
+2025-10-17 13:57:21,311 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 13:57:21,341 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 13:57:42,531 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 13:57:42,618 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 13:57:42,618 - INFO - Initializing user statuses for existing chats...
+2025-10-17 13:57:42,638 - INFO - User statuses initialized successfully
+2025-10-17 13:57:42,721 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 13:57:42,752 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 13:58:28,036 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 13:58:28,118 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 13:58:28,118 - INFO - Initializing user statuses for existing chats...
+2025-10-17 13:58:28,135 - INFO - User statuses initialized successfully
+2025-10-17 13:58:28,215 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 13:58:28,246 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 14:08:46,066 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 14:08:46,130 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 14:08:46,131 - INFO - Initializing user statuses for existing chats...
+2025-10-17 14:08:46,151 - INFO - User statuses initialized successfully
+2025-10-17 14:08:46,227 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 14:08:46,259 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 14:09:33,522 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 14:09:33,593 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 14:09:33,593 - INFO - Initializing user statuses for existing chats...
+2025-10-17 14:09:33,616 - INFO - User statuses initialized successfully
+2025-10-17 14:09:33,705 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 14:09:33,734 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 14:10:15,243 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 14:10:15,317 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 14:10:15,317 - INFO - Initializing user statuses for existing chats...
+2025-10-17 14:10:15,339 - INFO - User statuses initialized successfully
+2025-10-17 14:10:15,435 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 14:10:15,468 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 14:11:12,416 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 14:11:12,488 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 14:11:12,488 - INFO - Initializing user statuses for existing chats...
+2025-10-17 14:11:12,507 - INFO - User statuses initialized successfully
+2025-10-17 14:11:12,588 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 14:11:12,619 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 14:29:49,055 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 14:29:49,121 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 14:29:49,121 - INFO - Initializing user statuses for existing chats...
+2025-10-17 14:29:49,143 - INFO - User statuses initialized successfully
+2025-10-17 14:29:49,233 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 14:29:49,264 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 14:57:08,737 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 14:57:08,809 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 14:57:08,809 - INFO - Initializing user statuses for existing chats...
+2025-10-17 14:57:08,832 - INFO - User statuses initialized successfully
+2025-10-17 14:57:08,924 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 14:57:08,960 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 15:01:07,325 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 15:01:07,397 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 15:01:07,397 - INFO - Initializing user statuses for existing chats...
+2025-10-17 15:01:07,420 - INFO - User statuses initialized successfully
+2025-10-17 15:01:07,502 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 15:01:07,529 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 15:03:12,042 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 15:03:12,117 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 15:03:12,117 - INFO - Initializing user statuses for existing chats...
+2025-10-17 15:03:12,136 - INFO - User statuses initialized successfully
+2025-10-17 15:03:12,214 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 15:03:12,242 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 15:04:27,889 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 15:04:27,965 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 15:04:27,965 - INFO - Initializing user statuses for existing chats...
+2025-10-17 15:04:27,986 - INFO - User statuses initialized successfully
+2025-10-17 15:04:28,064 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 15:04:28,093 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 15:32:04,300 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 15:32:04,366 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 15:32:04,366 - INFO - Initializing user statuses for existing chats...
+2025-10-17 15:32:04,387 - INFO - User statuses initialized successfully
+2025-10-17 15:32:04,466 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 15:32:04,496 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 15:33:14,522 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 15:33:14,602 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 15:33:14,602 - INFO - Initializing user statuses for existing chats...
+2025-10-17 15:33:14,627 - INFO - User statuses initialized successfully
+2025-10-17 15:33:14,710 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 15:33:14,743 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 15:35:14,689 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 15:35:14,766 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 15:35:14,766 - INFO - Initializing user statuses for existing chats...
+2025-10-17 15:35:14,792 - INFO - User statuses initialized successfully
+2025-10-17 15:35:14,876 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 15:35:14,908 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 15:36:30,310 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 15:36:30,377 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 15:36:30,377 - INFO - Initializing user statuses for existing chats...
+2025-10-17 15:36:30,395 - INFO - User statuses initialized successfully
+2025-10-17 15:36:30,474 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 15:36:30,502 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 15:43:25,382 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 15:43:25,451 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 15:43:25,451 - INFO - Initializing user statuses for existing chats...
+2025-10-17 15:43:25,475 - INFO - User statuses initialized successfully
+2025-10-17 15:43:25,557 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 15:43:25,587 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 15:43:43,214 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 15:43:43,279 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 15:43:43,279 - INFO - Initializing user statuses for existing chats...
+2025-10-17 15:43:43,299 - INFO - User statuses initialized successfully
+2025-10-17 15:43:43,381 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 15:43:43,410 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 16:03:44,009 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 16:03:44,131 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 16:03:44,131 - INFO - Initializing user statuses for existing chats...
+2025-10-17 16:03:44,154 - INFO - User statuses initialized successfully
+2025-10-17 16:03:44,242 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 16:03:44,272 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-17 16:09:49,644 - INFO - Loaded 0 reset tokens from storage
+2025-10-17 16:09:49,730 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-17 16:09:49,730 - INFO - Initializing user statuses for existing chats...
+2025-10-17 16:09:49,752 - INFO - User statuses initialized successfully
+2025-10-17 16:09:49,840 - INFO - SQLAlchemy version: 2.0.41
+2025-10-17 16:09:49,875 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 09:04:49,699 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 09:04:49,804 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 09:04:49,804 - INFO - Initializing user statuses for existing chats...
+2025-10-20 09:04:49,837 - DEBUG - Created status for user k.dyatel in channel 009da112-0408-469c-9349-c0da8fa1a2e5
+2025-10-20 09:04:49,840 - DEBUG - Created status for user mr.tomas in channel 009da112-0408-469c-9349-c0da8fa1a2e5
+2025-10-20 09:04:49,843 - INFO - User statuses initialized successfully
+2025-10-20 09:04:49,932 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 09:04:49,972 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 09:32:15,183 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 09:32:15,258 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 09:32:15,258 - INFO - Initializing user statuses for existing chats...
+2025-10-20 09:32:15,285 - INFO - User statuses initialized successfully
+2025-10-20 09:32:15,374 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 09:32:15,410 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 09:35:23,447 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 09:35:23,545 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 09:35:23,545 - INFO - Initializing user statuses for existing chats...
+2025-10-20 09:35:23,572 - INFO - User statuses initialized successfully
+2025-10-20 09:35:23,657 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 09:35:23,686 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 10:59:18,980 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 10:59:19,060 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 10:59:19,060 - INFO - Initializing user statuses for existing chats...
+2025-10-20 10:59:19,084 - INFO - User statuses initialized successfully
+2025-10-20 10:59:19,177 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 10:59:19,209 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 10:59:35,288 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 10:59:35,358 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 10:59:35,358 - INFO - Initializing user statuses for existing chats...
+2025-10-20 10:59:35,380 - INFO - User statuses initialized successfully
+2025-10-20 10:59:35,468 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 10:59:35,499 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 10:59:36,557 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 10:59:36,627 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 10:59:36,628 - INFO - Initializing user statuses for existing chats...
+2025-10-20 10:59:36,650 - INFO - User statuses initialized successfully
+2025-10-20 10:59:36,736 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 10:59:36,764 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 10:59:42,165 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 10:59:42,235 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 10:59:42,235 - INFO - Initializing user statuses for existing chats...
+2025-10-20 10:59:42,258 - INFO - User statuses initialized successfully
+2025-10-20 10:59:42,344 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 10:59:42,376 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 11:05:07,187 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 11:05:07,291 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 11:05:07,291 - INFO - Initializing user statuses for existing chats...
+2025-10-20 11:05:07,328 - INFO - User statuses initialized successfully
+2025-10-20 11:05:07,427 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 11:05:07,462 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 11:06:05,854 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 11:06:05,933 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 11:06:05,933 - INFO - Initializing user statuses for existing chats...
+2025-10-20 11:06:05,958 - INFO - User statuses initialized successfully
+2025-10-20 11:06:06,047 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 11:06:06,077 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 11:23:06,566 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 11:23:06,632 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 11:23:06,632 - INFO - Initializing user statuses for existing chats...
+2025-10-20 11:23:06,653 - INFO - User statuses initialized successfully
+2025-10-20 11:23:06,733 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 11:23:06,763 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 11:51:52,231 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 11:51:52,307 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 11:51:52,307 - INFO - Initializing user statuses for existing chats...
+2025-10-20 11:51:52,327 - INFO - User statuses initialized successfully
+2025-10-20 11:51:52,406 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 11:51:52,437 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 12:10:45,827 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 12:10:45,893 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 12:10:45,893 - INFO - Initializing user statuses for existing chats...
+2025-10-20 12:10:45,918 - INFO - User statuses initialized successfully
+2025-10-20 12:10:46,007 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 12:10:46,040 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 12:17:46,212 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 12:17:46,287 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 12:17:46,288 - INFO - Initializing user statuses for existing chats...
+2025-10-20 12:17:46,309 - INFO - User statuses initialized successfully
+2025-10-20 12:17:46,398 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 12:17:46,430 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 12:35:55,855 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 12:35:55,925 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 12:35:55,925 - INFO - Initializing user statuses for existing chats...
+2025-10-20 12:35:55,946 - INFO - User statuses initialized successfully
+2025-10-20 12:35:56,031 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 12:35:56,061 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 12:39:26,949 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 12:39:27,020 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 12:39:27,020 - INFO - Initializing user statuses for existing chats...
+2025-10-20 12:39:27,040 - INFO - User statuses initialized successfully
+2025-10-20 12:39:27,121 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 12:39:27,151 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 12:45:58,083 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 12:45:58,149 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 12:45:58,149 - INFO - Initializing user statuses for existing chats...
+2025-10-20 12:45:58,168 - INFO - User statuses initialized successfully
+2025-10-20 12:45:58,245 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 12:45:58,275 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 12:47:01,260 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 12:47:01,330 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 12:47:01,331 - INFO - Initializing user statuses for existing chats...
+2025-10-20 12:47:01,352 - INFO - User statuses initialized successfully
+2025-10-20 12:47:01,435 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 12:47:01,465 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 12:47:21,120 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 12:47:21,191 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 12:47:21,191 - INFO - Initializing user statuses for existing chats...
+2025-10-20 12:47:21,214 - INFO - User statuses initialized successfully
+2025-10-20 12:47:21,292 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 12:47:21,320 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 12:47:52,307 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 12:47:52,375 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 12:47:52,375 - INFO - Initializing user statuses for existing chats...
+2025-10-20 12:47:52,399 - INFO - User statuses initialized successfully
+2025-10-20 12:47:52,491 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 12:47:52,518 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 12:59:42,370 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 12:59:42,457 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 12:59:42,457 - INFO - Initializing user statuses for existing chats...
+2025-10-20 12:59:42,480 - INFO - User statuses initialized successfully
+2025-10-20 12:59:42,566 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 12:59:42,599 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 13:19:39,826 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:19:39,896 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 13:19:39,897 - INFO - Initializing user statuses for existing chats...
+2025-10-20 13:19:39,918 - INFO - User statuses initialized successfully
+2025-10-20 13:19:40,002 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 13:19:40,033 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 13:32:05,266 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:35:28,270 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:35:31,863 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:35:41,509 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:35:44,820 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:36:00,779 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:36:00,870 - ERROR - Error creating default admin data: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+(psycopg2.errors.ForeignKeyViolation) insert or update on table "admins" violates foreign key constraint "admins_service_id_fkey"
+DETAIL:  Key (service_id)=(0) is not present in table "services".
+
+[SQL: INSERT INTO admins (username, service_id, permissions, is_active) VALUES (%(username)s, %(service_id)s, %(permissions)s::JSONB, %(is_active)s) RETURNING admins.id, admins.created_at, admins.updated_at]
+[parameters: {'username': 'mnp', 'service_id': 0, 'permissions': '"{\\"read\\": true, \\"write\\": true, \\"delete\\": true, \\"manage_admins\\": true}"', 'is_active': True}]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2025-10-20 13:36:00,870 - INFO - Admin database tables created successfully
+2025-10-20 13:36:00,933 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 13:36:00,933 - INFO - Initializing user statuses for existing chats...
+2025-10-20 13:36:00,956 - INFO - User statuses initialized successfully
+2025-10-20 13:36:01,064 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 13:36:01,102 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 13:36:22,721 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:36:22,766 - ERROR - Error creating default admin data: (raised as a result of Query-invoked autoflush; consider using a session.no_autoflush block if this flush is occurring prematurely)
+(psycopg2.errors.ForeignKeyViolation) insert or update on table "admins" violates foreign key constraint "admins_service_id_fkey"
+DETAIL:  Key (service_id)=(0) is not present in table "services".
+
+[SQL: INSERT INTO admins (username, service_id, permissions, is_active) VALUES (%(username)s, %(service_id)s, %(permissions)s::JSONB, %(is_active)s) RETURNING admins.id, admins.created_at, admins.updated_at]
+[parameters: {'username': 'mnp', 'service_id': 0, 'permissions': '"{\\"read\\": true, \\"write\\": true, \\"delete\\": true, \\"manage_admins\\": true}"', 'is_active': True}]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)
+2025-10-20 13:36:22,766 - INFO - Admin database tables created successfully
+2025-10-20 13:36:22,821 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 13:36:22,822 - INFO - Initializing user statuses for existing chats...
+2025-10-20 13:36:22,845 - INFO - User statuses initialized successfully
+2025-10-20 13:36:22,950 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 13:36:22,984 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 13:36:32,286 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:36:32,351 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 13:36:32,351 - INFO - Initializing user statuses for existing chats...
+2025-10-20 13:36:32,376 - INFO - User statuses initialized successfully
+2025-10-20 13:36:32,482 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 13:36:32,516 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 13:36:58,725 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:36:58,783 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 13:36:58,783 - INFO - Initializing user statuses for existing chats...
+2025-10-20 13:36:58,811 - INFO - User statuses initialized successfully
+2025-10-20 13:36:58,915 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 13:36:58,951 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 13:37:10,851 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:37:10,909 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 13:37:10,910 - INFO - Initializing user statuses for existing chats...
+2025-10-20 13:37:10,932 - INFO - User statuses initialized successfully
+2025-10-20 13:37:11,038 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 13:37:11,073 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 13:40:50,426 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:40:50,488 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 13:40:50,488 - INFO - Initializing user statuses for existing chats...
+2025-10-20 13:40:50,515 - INFO - User statuses initialized successfully
+2025-10-20 13:40:50,610 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 13:40:50,647 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 13:40:53,864 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:40:53,926 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 13:40:53,926 - INFO - Initializing user statuses for existing chats...
+2025-10-20 13:40:53,952 - INFO - User statuses initialized successfully
+2025-10-20 13:40:54,049 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 13:40:54,081 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 13:47:03,236 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:47:03,302 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 13:47:03,302 - INFO - Initializing user statuses for existing chats...
+2025-10-20 13:47:03,329 - INFO - User statuses initialized successfully
+2025-10-20 13:47:03,432 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 13:47:03,465 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 13:48:42,225 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:48:42,282 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 13:48:42,282 - INFO - Initializing user statuses for existing chats...
+2025-10-20 13:48:42,302 - INFO - User statuses initialized successfully
+2025-10-20 13:48:42,388 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 13:48:42,415 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 13:48:57,958 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:48:58,010 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 13:48:58,011 - INFO - Initializing user statuses for existing chats...
+2025-10-20 13:48:58,033 - INFO - User statuses initialized successfully
+2025-10-20 13:48:58,119 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 13:48:58,151 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 13:49:14,776 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:49:14,833 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 13:49:14,833 - INFO - Initializing user statuses for existing chats...
+2025-10-20 13:49:14,862 - INFO - User statuses initialized successfully
+2025-10-20 13:49:14,947 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 13:49:14,980 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 13:49:24,904 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:49:24,957 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 13:49:24,958 - INFO - Initializing user statuses for existing chats...
+2025-10-20 13:49:24,979 - INFO - User statuses initialized successfully
+2025-10-20 13:49:25,062 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 13:49:25,090 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 13:50:28,615 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:50:28,670 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 13:50:28,670 - INFO - Initializing user statuses for existing chats...
+2025-10-20 13:50:28,696 - INFO - User statuses initialized successfully
+2025-10-20 13:50:28,777 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 13:50:28,810 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 13:57:24,618 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:57:24,671 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 13:57:24,671 - INFO - Initializing user statuses for existing chats...
+2025-10-20 13:57:24,691 - INFO - User statuses initialized successfully
+2025-10-20 13:57:24,771 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 13:57:24,800 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 13:58:03,130 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 13:58:03,180 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 13:58:03,180 - INFO - Initializing user statuses for existing chats...
+2025-10-20 13:58:03,198 - INFO - User statuses initialized successfully
+2025-10-20 13:58:03,279 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 13:58:03,306 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 14:02:33,284 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 14:02:33,340 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 14:02:33,340 - INFO - Initializing user statuses for existing chats...
+2025-10-20 14:02:33,362 - INFO - User statuses initialized successfully
+2025-10-20 14:02:33,445 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 14:02:33,478 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 14:04:22,245 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 14:04:22,300 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 14:04:22,300 - INFO - Initializing user statuses for existing chats...
+2025-10-20 14:04:22,320 - INFO - User statuses initialized successfully
+2025-10-20 14:04:22,399 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 14:04:22,429 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 14:04:55,585 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 14:04:55,641 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 14:04:55,641 - INFO - Initializing user statuses for existing chats...
+2025-10-20 14:04:55,661 - INFO - User statuses initialized successfully
+2025-10-20 14:04:55,742 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 14:04:55,770 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 14:07:28,222 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 14:07:28,276 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 14:07:28,276 - INFO - Initializing user statuses for existing chats...
+2025-10-20 14:07:28,297 - INFO - User statuses initialized successfully
+2025-10-20 14:07:28,380 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 14:07:28,409 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 14:13:00,338 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 14:13:00,391 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 14:13:00,391 - INFO - Initializing user statuses for existing chats...
+2025-10-20 14:13:00,415 - INFO - User statuses initialized successfully
+2025-10-20 14:13:00,497 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 14:13:00,525 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 14:13:13,828 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 14:13:13,888 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 14:13:13,888 - INFO - Initializing user statuses for existing chats...
+2025-10-20 14:13:13,911 - INFO - User statuses initialized successfully
+2025-10-20 14:13:13,995 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 14:13:14,025 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 14:14:58,236 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 14:14:58,290 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 14:14:58,290 - INFO - Initializing user statuses for existing chats...
+2025-10-20 14:14:58,314 - INFO - User statuses initialized successfully
+2025-10-20 14:14:58,395 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 14:14:58,420 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 14:15:58,294 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 14:15:58,349 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 14:15:58,349 - INFO - Initializing user statuses for existing chats...
+2025-10-20 14:15:58,372 - INFO - User statuses initialized successfully
+2025-10-20 14:15:58,467 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 14:15:58,496 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 14:16:01,118 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 14:16:01,177 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 14:16:01,177 - INFO - Initializing user statuses for existing chats...
+2025-10-20 14:16:01,198 - INFO - User statuses initialized successfully
+2025-10-20 14:16:01,284 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 14:16:01,316 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 14:16:16,253 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 14:16:16,312 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 14:16:16,312 - INFO - Initializing user statuses for existing chats...
+2025-10-20 14:16:16,334 - INFO - User statuses initialized successfully
+2025-10-20 14:16:16,419 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 14:16:16,450 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 14:17:50,480 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 14:17:50,537 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 14:17:50,537 - INFO - Initializing user statuses for existing chats...
+2025-10-20 14:17:50,560 - INFO - User statuses initialized successfully
+2025-10-20 14:17:50,643 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 14:17:50,675 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 14:17:55,104 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 14:17:55,155 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 14:17:55,155 - INFO - Initializing user statuses for existing chats...
+2025-10-20 14:17:55,176 - INFO - User statuses initialized successfully
+2025-10-20 14:17:55,266 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 14:17:55,295 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:01:46,702 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:01:46,762 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:01:46,763 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:01:46,784 - INFO - User statuses initialized successfully
+2025-10-20 15:01:46,867 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:01:46,903 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:04:52,892 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:04:52,952 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:04:52,953 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:04:52,977 - INFO - User statuses initialized successfully
+2025-10-20 15:04:53,068 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:04:53,108 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:10:30,901 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:10:30,979 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:10:30,979 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:10:31,001 - INFO - User statuses initialized successfully
+2025-10-20 15:10:31,085 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:10:31,117 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:17:30,721 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:17:30,789 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:17:30,789 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:17:30,814 - INFO - User statuses initialized successfully
+2025-10-20 15:17:30,899 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:17:30,930 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:20:52,803 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:20:52,875 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:20:52,875 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:20:52,900 - INFO - User statuses initialized successfully
+2025-10-20 15:20:52,983 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:20:53,012 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:24:20,119 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:24:20,182 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:24:20,182 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:24:20,207 - INFO - User statuses initialized successfully
+2025-10-20 15:24:20,293 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:24:20,329 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:26:52,793 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:26:52,853 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:26:52,853 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:26:52,876 - INFO - User statuses initialized successfully
+2025-10-20 15:26:52,968 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:26:52,999 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:27:43,354 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:27:43,423 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:27:43,423 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:27:43,451 - INFO - User statuses initialized successfully
+2025-10-20 15:27:43,546 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:27:43,582 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:39:04,969 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:39:05,040 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:39:05,040 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:39:05,067 - INFO - User statuses initialized successfully
+2025-10-20 15:39:05,151 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:39:05,181 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:39:44,614 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:39:44,671 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:39:44,671 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:39:44,697 - INFO - User statuses initialized successfully
+2025-10-20 15:39:44,780 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:39:44,813 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:39:49,010 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:39:49,067 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:39:49,067 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:39:49,090 - INFO - User statuses initialized successfully
+2025-10-20 15:39:49,176 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:39:49,205 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:40:07,846 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:40:07,905 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:40:07,905 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:40:07,930 - INFO - User statuses initialized successfully
+2025-10-20 15:40:08,011 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:40:08,037 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:40:21,494 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:40:21,557 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:40:21,557 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:40:21,584 - INFO - User statuses initialized successfully
+2025-10-20 15:40:21,672 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:40:21,703 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:40:35,129 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:40:35,186 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:40:35,186 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:40:35,209 - INFO - User statuses initialized successfully
+2025-10-20 15:40:35,293 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:40:35,326 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:43:18,497 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:43:18,555 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:43:18,555 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:43:18,581 - INFO - User statuses initialized successfully
+2025-10-20 15:43:18,667 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:43:18,700 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:45:50,589 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:45:50,645 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:45:50,645 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:45:50,668 - INFO - User statuses initialized successfully
+2025-10-20 15:45:50,762 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:45:50,795 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:48:44,796 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:48:44,853 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:48:44,853 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:48:44,873 - INFO - User statuses initialized successfully
+2025-10-20 15:48:44,974 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:48:45,001 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:50:05,101 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:50:05,158 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:50:05,158 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:50:05,179 - INFO - User statuses initialized successfully
+2025-10-20 15:50:05,261 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:50:05,286 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:54:16,867 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:54:16,925 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:54:16,925 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:54:16,948 - INFO - User statuses initialized successfully
+2025-10-20 15:54:17,027 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:54:17,054 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:54:56,355 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:54:56,407 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:54:56,407 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:54:56,428 - INFO - User statuses initialized successfully
+2025-10-20 15:54:56,506 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:54:56,535 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:55:20,671 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:55:20,730 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:55:20,730 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:55:20,752 - INFO - User statuses initialized successfully
+2025-10-20 15:55:20,835 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:55:20,867 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:58:20,949 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:58:21,004 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:58:21,005 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:58:21,027 - INFO - User statuses initialized successfully
+2025-10-20 15:58:21,112 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:58:21,143 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-20 15:58:37,349 - INFO - Loaded 0 reset tokens from storage
+2025-10-20 15:58:37,402 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-20 15:58:37,402 - INFO - Initializing user statuses for existing chats...
+2025-10-20 15:58:37,422 - INFO - User statuses initialized successfully
+2025-10-20 15:58:37,499 - INFO - SQLAlchemy version: 2.0.41
+2025-10-20 15:58:37,525 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-21 09:15:07,021 - INFO - Loaded 0 reset tokens from storage
+2025-10-21 09:15:07,073 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-21 09:15:07,073 - INFO - Initializing user statuses for existing chats...
+2025-10-21 09:15:07,098 - DEBUG - Created status for user v.svidritskaya in channel bd9c2949-704e-42bb-baa8-a66ad41f0996
+2025-10-21 09:15:07,100 - DEBUG - Created status for user l.kulikova in channel bd9c2949-704e-42bb-baa8-a66ad41f0996
+2025-10-21 09:15:07,102 - DEBUG - Created status for user v.svidritskaya in channel d9069d4f-c085-4ec2-a478-c20bcf2ef609
+2025-10-21 09:15:07,104 - DEBUG - Created status for user y.ivanova in channel d9069d4f-c085-4ec2-a478-c20bcf2ef609
+2025-10-21 09:15:07,105 - DEBUG - Created status for user v.svidritskaya in channel f493cdb7-d45a-4511-856c-e83ce8da2414
+2025-10-21 09:15:07,107 - DEBUG - Created status for user e.chekhovich in channel f493cdb7-d45a-4511-856c-e83ce8da2414
+2025-10-21 09:15:07,110 - INFO - User statuses initialized successfully
+2025-10-21 09:15:07,188 - INFO - SQLAlchemy version: 2.0.41
+2025-10-21 09:15:07,216 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-21 09:37:42,137 - INFO - Loaded 0 reset tokens from storage
+2025-10-21 09:37:42,193 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-21 09:37:42,193 - INFO - Initializing user statuses for existing chats...
+2025-10-21 09:37:42,218 - INFO - User statuses initialized successfully
+2025-10-21 09:37:42,298 - INFO - SQLAlchemy version: 2.0.41
+2025-10-21 09:37:42,331 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-21 09:46:07,391 - INFO - Loaded 0 reset tokens from storage
+2025-10-21 09:46:07,446 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-21 09:46:07,446 - INFO - Initializing user statuses for existing chats...
+2025-10-21 09:46:07,476 - DEBUG - Created status for user m.zavadskaya in channel 8f493daa-f37c-4ddf-8c6a-b15453008b92
+2025-10-21 09:46:07,479 - DEBUG - Created status for user s.dajneko in channel 8f493daa-f37c-4ddf-8c6a-b15453008b92
+2025-10-21 09:46:07,482 - INFO - User statuses initialized successfully
+2025-10-21 09:46:07,564 - INFO - SQLAlchemy version: 2.0.41
+2025-10-21 09:46:07,593 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-21 10:10:56,954 - INFO - Loaded 0 reset tokens from storage
+2025-10-21 10:10:57,016 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-21 10:10:57,017 - INFO - Initializing user statuses for existing chats...
+2025-10-21 10:10:57,046 - INFO - User statuses initialized successfully
+2025-10-21 10:10:57,135 - INFO - SQLAlchemy version: 2.0.41
+2025-10-21 10:10:57,164 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-21 10:23:20,898 - INFO - Loaded 0 reset tokens from storage
+2025-10-21 10:23:20,962 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-21 10:23:20,962 - INFO - Initializing user statuses for existing chats...
+2025-10-21 10:23:20,993 - INFO - User statuses initialized successfully
+2025-10-21 10:23:21,085 - INFO - SQLAlchemy version: 2.0.41
+2025-10-21 10:23:21,116 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-21 10:34:59,230 - INFO - Loaded 0 reset tokens from storage
+2025-10-21 10:35:13,819 - INFO - Loaded 0 reset tokens from storage
+2025-10-21 10:36:16,479 - INFO - Loaded 0 reset tokens from storage
+2025-10-21 10:36:22,078 - INFO - Loaded 0 reset tokens from storage
+2025-10-21 10:37:32,538 - INFO - Loaded 0 reset tokens from storage
+2025-10-21 10:39:17,801 - INFO - Loaded 0 reset tokens from storage
+2025-10-21 10:39:45,770 - INFO - Loaded 0 reset tokens from storage
+2025-10-21 10:39:45,831 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-21 10:39:45,831 - INFO - Initializing user statuses for existing chats...
+2025-10-21 10:39:45,858 - INFO - User statuses initialized successfully
+2025-10-21 10:39:45,942 - INFO - SQLAlchemy version: 2.0.41
+2025-10-21 10:39:45,975 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-21 10:41:20,154 - INFO - Loaded 0 reset tokens from storage
+2025-10-21 10:41:20,235 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-21 10:41:20,236 - INFO - Initializing user statuses for existing chats...
+2025-10-21 10:41:20,288 - INFO - User statuses initialized successfully
+2025-10-21 10:41:20,384 - INFO - SQLAlchemy version: 2.0.41
+2025-10-21 10:41:20,420 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-21 10:42:05,475 - INFO - Loaded 0 reset tokens from storage
+2025-10-21 10:42:05,528 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-21 10:42:05,529 - INFO - Initializing user statuses for existing chats...
+2025-10-21 10:42:05,556 - INFO - User statuses initialized successfully
+2025-10-21 10:42:05,637 - INFO - SQLAlchemy version: 2.0.41
+2025-10-21 10:42:05,667 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-21 10:42:13,602 - INFO - Loaded 0 reset tokens from storage
+2025-10-21 10:42:13,656 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-21 10:42:13,656 - INFO - Initializing user statuses for existing chats...
+2025-10-21 10:42:13,688 - INFO - User statuses initialized successfully
+2025-10-21 10:42:13,772 - INFO - SQLAlchemy version: 2.0.41
+2025-10-21 10:42:13,803 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-21 10:44:44,342 - INFO - Loaded 0 reset tokens from storage
+2025-10-21 10:44:44,416 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-21 10:44:44,416 - INFO - Initializing user statuses for existing chats...
+2025-10-21 10:44:44,460 - INFO - User statuses initialized successfully
+2025-10-21 10:44:44,553 - INFO - SQLAlchemy version: 2.0.41
+2025-10-21 10:44:44,591 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']

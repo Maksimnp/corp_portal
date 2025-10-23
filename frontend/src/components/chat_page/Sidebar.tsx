@@ -1,6 +1,6 @@
-import { MagnifyingGlass, Plus, Users, User, Broadcast, ArrowLeft, Moon, Sun, Check, Checks } from "phosphor-react";
+import { MagnifyingGlass, Plus, Users, User, Broadcast, ArrowLeft, Moon, Sun, Check, Checks, ArrowBendUpLeft } from "phosphor-react";
 import type React from "react";
-import { formatTimestamp, getChatDisplayIcon, getChatDisplayName, getTypingText, formatTimestampSidebar } from '../../utils/chat';
+import { formatTimestamp, getChatDisplayIcon, getChatDisplayName, getTypingText, formatTimestampSidebar, messageIsPhoto, resolveFileUrl } from '../../utils/chat';
 import type { Chat, Message, Contact } from '../../types/chat';
 import type { NewLifecycle } from "react";
 import { useTheme } from '../../hooks/ThemeContext';
@@ -27,6 +27,8 @@ interface RenderSidebarProps {
 	typingUsers: Map<string, Set<string>>;
   	currentChat: Chat | undefined;
 	setShouldScrollToBottom: React.Dispatch<React.SetStateAction<boolean>>;
+	quotedMessageData: Record<string, Message | null>;
+	fetchQuotedMessageData: (id: string) => Promise<Message | null>;
 }
 
 const RenderSidebar: React.FC<RenderSidebarProps> = ({
@@ -49,7 +51,9 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 	username,
 	typingUsers,
 	currentChat,
-	setShouldScrollToBottom
+	setShouldScrollToBottom,
+	quotedMessageData,
+	fetchQuotedMessageData
 }) => {
 	const { theme, toggleTheme } = useTheme();
 	const API_BASE = import.meta.env.VITE_API_BASE_URL;
@@ -63,7 +67,6 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 		console.log("Creating group...");
 		setShowCreateGroup(true);
 		setShowCreateOptions(false);
-		setShowContactSearch(true);
 	};
 
 	const handleCreateChannel = () => {
@@ -72,6 +75,14 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 		setShowCreateOptions(false);
 	};
 
+	const getContentForwardMsg = (msg: Message) => {
+		const curQotMsg = quotedMessageData[msg.forward_message_id!];
+		const isDataLoaded = curQotMsg !== undefined;
+		if (!isDataLoaded) {
+			fetchQuotedMessageData(msg.forward_message_id!).catch(() => {});
+		}
+		return curQotMsg?.content;
+	}
 	return (
 		<div className={`flex flex-col w-full md:w-110 border-r ${theme === 'light' ? 'border-slate-200/60 bg-white/95' : 'border-slate-700/60 bg-slate-900/95'} backdrop-blur-2xl relative z-0`}>
 			{/* Header */}
@@ -282,12 +293,23 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 														<div className="flex items-center gap-1 truncate">
 															{lastMessage.file_name && /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(lastMessage.file_name) ? (
 																<div className="flex gap-2">
-																	<img src={`${API_BASE}${lastMessage.file_url}`} alt={lastMessage.file_name} className="rounded max-h-6 object-contain"/>
+																	<img src={resolveFileUrl(lastMessage.file_url)} loading="lazy" alt={lastMessage.file_name} className="rounded max-h-6 object-contain"/>
 																	<p className="font-medium">Photo</p>
 																</div>
 															) : (
 																<span className="truncate">
-																	{lastMessage.content?.split('\n')[0] || lastMessage.file_name}
+																	{lastMessage.forward_message_id ? 
+																		<div className="flex gap-2">
+																			<ArrowBendUpLeft size={17}/>{getContentForwardMsg(lastMessage)}
+																			{messageIsPhoto(quotedMessageData[lastMessage.forward_message_id]) && 
+																				(<div className="flex gap-1">
+																					<img src={resolveFileUrl(quotedMessageData[lastMessage.forward_message_id]?.file_url)} loading="lazy" className="rounded-lg max-h-6 mr-1 object-contain" />
+																					<span className="font-bold">Photo</span>
+																				</div>)
+																			}
+																		</div>
+																		 : 
+																		 ''}{lastMessage.content?.split('\n')[0] || lastMessage.file_name}
 																</span>
 															)}
 														</div>

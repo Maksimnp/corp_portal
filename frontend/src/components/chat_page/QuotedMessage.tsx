@@ -33,7 +33,7 @@ const RenderQuotedMessage: React.FC<RenderQuotedMessageProps> = ({
                     {quotedMessage.content ? (
                       quotedMessage.content
                     ) : messageIsPhoto(quotedMessage) ? (
-                      <img src={`${API_BASE}${quotedMessage.file_url}`} alt={quotedMessage.file_name} className="rounded-lg max-h-12 object-contain cursor-pointer"/>
+                      <img src={`${API_BASE}${quotedMessage.file_url}`} alt={quotedMessage.file_name} loading="lazy" className="rounded-lg max-h-12 object-contain cursor-pointer"/>
                     ) : (
                       <a href={`${API_BASE}${quotedMessage.file_url}`} target="_blank" rel="noopener noreferrer" className={`hover:underline flex items-center`}>
                         {getFileIcon(quotedMessage.file_name, 20)}

@@ -9,7 +9,9 @@ interface Message {
   file_name?: string;
   edited?: boolean;
   quoted_message_id: string | null;
+  forward_message_id: string | null;
   is_notification: boolean;
+  reactions_by_user: Record<string, string>;
 }
 
 interface LastMessage {
@@ -20,6 +22,7 @@ interface LastMessage {
   file_name: string | null;
   is_read: boolean;
   file_url?: string;
+  forward_message_id: string | null;
 }
 
 interface Chat {

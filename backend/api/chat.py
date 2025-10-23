@@ -5,13 +5,13 @@ import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Body, Query, UploadFile, File, Path
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, create_engine, desc, distinct, func
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, UniqueConstraint, create_engine, desc, distinct, func
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
 from sqlalchemy.sql import func
 from pydantic import BaseModel, Field, ConfigDict
 from uuid import UUID as UUIDType
-from services.jwt_utils import get_current_user, verify_token
+from services.jwt_utils import get_current_user
 import ldap3
 from ldap3.utils.conv import escape_filter_chars
 from ldap3 import Server, Connection, ALL_ATTRIBUTES, SUBTREE, AUTO_BIND_NO_TLS, SIMPLE
@@ -19,6 +19,8 @@ from ldap3.core.exceptions import LDAPException, LDAPBindError, LDAPSocketOpenEr
 import anyio
 from sqlalchemy.orm.attributes import flag_modified
 from starlette.websockets import WebSocketState
+from fastapi.responses import FileResponse
+from pathlib import Path as FilePath
 
 # -----------------------------
 # Логирование
@@ -58,6 +60,7 @@ BASE_DN = os.getenv("BASE_DN", "DC=mhp,DC=net")
 BYPASS_AD_VALIDATION = os.getenv("BYPASS_AD_VALIDATION", "false").lower() == "true"
 LDAP_VALIDATE_CERTS = os.getenv("LDAP_VALIDATE_CERTS")
 LDAP_CA_CERT = os.getenv("LDAP_CA_CERT")
+
 # -----------------------------
 # МОДЕЛИ SQLAlchemy
 # -----------------------------
@@ -88,6 +91,7 @@ class Message(Base):
     edited = Column(Boolean, default=False, nullable=False)
     channel = relationship("Channel", back_populates="messages")
     quoted_message_id = Column(UUID(as_uuid=True), ForeignKey("messages.id", ondelete="SET NULL"), nullable=True)
+    forward_message_id = Column(UUID(as_uuid=True), ForeignKey("messages.id", ondelete="SET NULL"), nullable=True)
     is_notification = Column(Boolean, default=False, nullable=False)
 
 class UserChannelStatus(Base):
@@ -103,7 +107,6 @@ class UserChannelStatus(Base):
     channel = relationship("Channel", back_populates="user_statuses")
     last_read_message = relationship("Message", foreign_keys=[last_read_message_id])
 
-
 class User(Base):
     __tablename__ = "users"
     username = Column(String(100), primary_key=True, nullable=False)
@@ -111,6 +114,17 @@ class User(Base):
     description = Column(String)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+class Reaction(Base):
+    __tablename__ = "reactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    message_id = Column(UUID(as_uuid=True), ForeignKey("messages.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String, nullable=False)
+    reaction = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (UniqueConstraint("message_id", "user_id", name="uq_user_message_reaction"),)
 
 def initialize_user_statuses(db: Session):
     """Инициализирует статусы пользователей для существующих чатов"""
@@ -153,7 +167,6 @@ def initialize_user_statuses(db: Session):
         db.rollback()
         logger.error(f"Error initializing user statuses: {e}")
         raise
-
 
 # Создание таблиц
 def create_tables():
@@ -200,7 +213,9 @@ class MessageResponse(BaseModel):
     file_name: Optional[str] = None
     edited: bool
     quoted_message_id: Optional[UUIDType] = None
+    forward_message_id: Optional[UUIDType] = None
     is_notification: Optional[bool] = None
+    reactions_by_user: Dict[str, str] = {}
 
 class MessageCreate(BaseModel):
     channel_id: UUIDType
@@ -208,11 +223,11 @@ class MessageCreate(BaseModel):
     file_url: Optional[str] = None
     file_name: Optional[str] = None
     quoted_message_id: Optional[UUIDType] = None
+    forward_message_id: Optional[UUIDType] = None
 
 class ChatUpdateRequest(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    # model_config = ConfigDict(...) если используете Pydantic v2
 
 class EditMessageRequest(BaseModel):
     message_id: UUIDType
@@ -287,7 +302,7 @@ def get_ldap_connection() -> Optional[Connection]:
             server,
             user=LDAP_USER,
             password=LDAP_PASSWORD,
-            auto_bind=AUTO_BIND_NO_TLS, # AUTO_BIND_TLS_BEFORE_BIND если нужен StartTLS
+            auto_bind=AUTO_BIND_NO_TLS,
             receive_timeout=10
         )
         
@@ -312,7 +327,6 @@ def get_ldap_connection() -> Optional[Connection]:
         logger.error(f"Unexpected error setting up LDAP connection: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Неожиданная ошибка подключения к LDAP: {str(e)}")
 
-
 def validate_ad_user(username: str) -> bool:
     """
     Проверяет существование пользователя в AD с помощью ldap3.
@@ -324,7 +338,7 @@ def validate_ad_user(username: str) -> bool:
     conn = None
     try:
         logger.debug(f"Validating AD user: {username}")
-        conn = get_ldap_connection() # Получаем подключение через нашу функцию
+        conn = get_ldap_connection()
         
         search_filter = f"(sAMAccountName={username})"
         logger.debug(f"Searching with filter: {search_filter} in base {BASE_DN}")
@@ -333,7 +347,7 @@ def validate_ad_user(username: str) -> bool:
             search_base=BASE_DN,
             search_filter=search_filter,
             search_scope=SUBTREE,
-            attributes=['sAMAccountName'] # Минимальные атрибуты для проверки
+            attributes=['sAMAccountName']
         )
         
         found = len(conn.entries) > 0
@@ -351,7 +365,6 @@ def validate_ad_user(username: str) -> bool:
             conn.unbind()
             logger.debug("LDAP connection closed after validation.")
 
-
 def search_ad_users(search_term: str = "") -> List[Dict[str, Any]]:
     """
     Поиск пользователей в AD через LDAP с использованием ldap3.
@@ -359,7 +372,7 @@ def search_ad_users(search_term: str = "") -> List[Dict[str, Any]]:
     logger.info(f"Начало поиска в AD (ldap3). Запрос: '{search_term}'")
     conn = None
     try:
-        conn = get_ldap_connection() # Получаем подключение
+        conn = get_ldap_connection()
         
         # Базовый фильтр для активных пользователей
         base_filter = "(&(objectClass=user)(objectCategory=person)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
@@ -380,7 +393,7 @@ def search_ad_users(search_term: str = "") -> List[Dict[str, Any]]:
             search_filter=search_filter,
             search_scope=SUBTREE,
             attributes=attributes,
-            size_limit=1000 # Ограничение на количество результатов, если нужно
+            size_limit=1000
         )
         
         users = []
@@ -389,7 +402,6 @@ def search_ad_users(search_term: str = "") -> List[Dict[str, Any]]:
         for entry in conn.entries:
             logger.debug(f"Processing entry: {entry.entry_dn}")
             try:
-                # Получаем атрибуты напрямую из entry
                 sam_account_name = entry.sAMAccountName.value if entry.sAMAccountName and entry.sAMAccountName.value else None
                 if not sam_account_name:
                      logger.debug(f"Пропущена запись LDAP (нет sAMAccountName): dn={entry.entry_dn}")
@@ -402,7 +414,6 @@ def search_ad_users(search_term: str = "") -> List[Dict[str, Any]]:
                     'id': sam_account_name,
                     'displayName': display_name,
                     'email': email,
-                    # Остальные поля остаются None как в оригинале
                     'position': None,
                     'department': None,
                     'phone_internal': None,
@@ -412,7 +423,7 @@ def search_ad_users(search_term: str = "") -> List[Dict[str, Any]]:
                 users.append(user_dict)
             except Exception as e:
                  logger.warning(f"Error processing LDAP entry {entry.entry_dn}: {e}")
-                 continue # Пропускаем проблемные записи
+                 continue
                  
         logger.debug(f"Найдено пользователей в AD (ldap3): {len(users)}")
         return users
@@ -456,6 +467,31 @@ class ConnectionManager:
         self.active_connections: Dict[str, List[WebSocket]] = {}
         self.active_connections_users: Dict[str, str] = {}
 
+    async def broadcast_user_status(self):
+        users_to_remove = []
+        for user, connections in self.active_connections.items():
+            live_connections = [
+                ws for ws in connections
+                if ws.client_state == WebSocketState.CONNECTED
+            ]
+            if live_connections:
+                self.active_connections[user] = live_connections
+            else:
+                users_to_remove.append(user)
+
+        for user in users_to_remove:
+            self.active_connections.pop(user, None)
+            self.active_connections_users.pop(user, None)
+
+        status_payload = {"type": "user_status", "data": self.active_connections_users.copy()}
+        for connections in self.active_connections.values():
+            for ws in connections:
+                try:
+                    if ws.client_state == WebSocketState.CONNECTED:
+                        await ws.send_json(status_payload)
+                except Exception as e:
+                    logger.error(f"Failed to send user status to a WebSocket: {e}")
+
     async def connect(self, ws: WebSocket, username: str):
         logger.info(f"Connected to WebSocket")
         if username not in self.active_connections:
@@ -464,19 +500,7 @@ class ConnectionManager:
             self.active_connections_users[username] = "online"
         self.active_connections[username].append(ws)
         logger.debug(f"User {username} connected to WebSocket")
-        logger.info(f"active_connections con - {self.active_connections}")
-        logger.info(f"active_connections_users  con - {self.active_connections_users}")
-        for user in self.active_connections:
-            conns = self.active_connections.get(user, [])
-            try:
-                for ws in self.active_connections[user]:
-                    if ws.client_state != WebSocketState.CONNECTED:
-                        conns.remove(ws)
-                        logger.warning(f"Removed dead WebSocket for user {user}")
-                        continue
-                    await ws.send_json({"type": "user_status", "data": self.active_connections_users})
-            except Exception as e:
-                logger.error(f"Failed to send connection confirmation to {username}: {e}")              
+        await self.broadcast_user_status()           
 
     async def disconnect(self, ws: WebSocket, username: str):
         logger.info(f"Disconnected from WebSocket")
@@ -487,12 +511,8 @@ class ConnectionManager:
                 logger.debug(f"User {username} disconnected from WebSocket")
             if not conns:
                 del self.active_connections[username]
-                logger.debug(f"No active connections for {username}")
-        if username in self.active_connections_users:
-            self.active_connections_users.pop(username)
-
-        logger.info(f"active_connections disc - {self.active_connections}")
-        logger.info(f"active_connections_users disc - {self.active_connections_users}")
+                if username in self.active_connections_users:
+                    del self.active_connections_users[username]
 
         db = SessionLocal()
         try:
@@ -521,25 +541,16 @@ class ConnectionManager:
         finally:
             db.close()
         
-        for user in self.active_connections:
-            conns = self.active_connections.get(user, [])
-            for ws in self.active_connections[user]:
-                if ws.client_state != WebSocketState.CONNECTED:
-                    conns.remove(ws)
-                    logger.warning(f"Removed dead WebSocket for user {user}")
-                    continue
-                try:
-                    logger.info(f"send conn to user - {user}")
-                    await ws.send_json({"type": "user_status", "data": self.active_connections_users})
-                except Exception as e:
-                    logger.error(f"Failed to send connection confirmation to {username}: {e}")
-               
-
+        await self.broadcast_user_status()
 
     async def broadcast_to_channel_members(self, payload: Dict[str, Any], channel_id: UUIDType, db: Session):
-        # logger.info(f"payload type - {payload}")
         invalid_user = ""
         if payload["type"] == "chat_deleted":
+            usernames = payload["data"]["members"]
+        elif payload["type"] == "forward_message":
+            usernames = payload["forward_members"] 
+            logger.info(f"forward_members - {usernames}")
+        elif payload["type"] == "channel_invite":
             usernames = payload["data"]["members"]
         else:
             channel = db.query(Channel).filter(Channel.id == channel_id).first()
@@ -549,6 +560,7 @@ class ConnectionManager:
             usernames = channel.members
         if payload["type"] == "typing_start" or payload["type"] == "typing_stop":
             invalid_user = payload["data"]["user"]
+        logger.info(f"usernames - {usernames}, type - {payload['type']}")
         for uname in usernames:
             if uname == invalid_user:
                 continue 
@@ -559,10 +571,10 @@ class ConnectionManager:
                     logger.warning(f"Removed dead WebSocket for user {uname}")
                     continue
                 try:
+                    logger.info("send payload")
                     await ws.send_json(payload)
                 except Exception as e:
                     logger.error(f"WS send error to {uname}: {e}")
-
 
 # Инициализация менеджера WebSocket
 manager = ConnectionManager()
@@ -682,6 +694,7 @@ def mark_messages_as_read(db: Session, username: str, message_ids: List[UUIDType
             db.add(user_status)
     
     db.commit()
+
 # -----------------------------
 # REST МАРШРУТЫ
 # -----------------------------
@@ -703,6 +716,132 @@ def get_chats(
     except Exception as e:
         logger.error(f"Error fetching chats for {username}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Не удалось загрузить чаты: {str(e)}")
+
+@router.get("/messages/around/{message_id}", response_model=List[MessageResponse])
+def get_messages_around(
+    message_id: UUIDType,
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    username = current_user["username"]
+    logger.debug(f"Fetching messages around {message_id} for user {username}")
+
+    target_message = db.query(Message).filter(Message.id == message_id).first()
+    if not target_message:
+        raise HTTPException(status_code=404, detail="Сообщение не найдено")
+
+    assert_membership(db, target_message.channel_id, username)
+
+    channel_id = target_message.channel_id
+
+    BEFORE_COUNT = 25
+    AFTER_COUNT = 25
+
+    before_messages = (
+        db.query(Message)
+        .filter(
+            Message.channel_id == channel_id,
+            Message.timestamp <= target_message.timestamp,
+            Message.id != target_message.id
+        )
+        .order_by(Message.timestamp.desc())
+        .limit(BEFORE_COUNT)
+        .all()
+    )
+
+    after_messages = (
+        db.query(Message)
+        .filter(
+            Message.channel_id == channel_id,
+            Message.timestamp > target_message.timestamp
+        )
+        .order_by(Message.timestamp.asc())
+        .limit(AFTER_COUNT)
+        .all()
+    )
+
+    all_messages = before_messages[::-1] + [target_message] + after_messages
+    all_messages.sort(key=lambda m: m.timestamp)
+
+    last_message = all_messages[-1] if all_messages else target_message
+    if last_message:
+        update_user_channel_status(
+            db, username, channel_id,
+            last_read_message_id=last_message.id,
+            last_read_timestamp=last_message.timestamp
+        )
+
+    return all_messages
+
+@router.get("/{channel_id}/messages/before/{message_id}", response_model=List[MessageResponse])
+def get_messages_before(
+    channel_id: UUIDType,
+    message_id: UUIDType,
+    limit: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    username = current_user["username"]
+    assert_membership(db, channel_id, username)
+
+    target = db.query(Message).filter(Message.id == message_id).first()
+    if not target or target.channel_id != channel_id:
+        raise HTTPException(status_code=404, detail="Сообщение не найдено")
+
+    messages = (
+        db.query(Message)
+        .filter(
+            Message.channel_id == channel_id,
+            Message.timestamp <= target.timestamp,
+            (Message.timestamp < target.timestamp) | (Message.id < target.id)
+        )
+        .order_by(Message.timestamp.desc(), Message.id.desc())
+        .limit(limit)
+        .all()
+    )
+
+    return list(reversed(messages))
+
+@router.get("/{channel_id}/messages/after/{message_id}", response_model=List[MessageResponse])
+def get_messages_after(
+    channel_id: UUIDType,
+    message_id: UUIDType,
+    limit: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    username = current_user["username"]
+    assert_membership(db, channel_id, username)
+
+    target = db.query(Message).filter(Message.id == message_id).first()
+    if not target or target.channel_id != channel_id:
+        raise HTTPException(status_code=404, detail="Сообщение не найдено")
+
+    messages = (
+        db.query(Message)
+        .filter(
+            Message.channel_id == channel_id,
+            (Message.timestamp > target.timestamp) | 
+            ((Message.timestamp == target.timestamp) & (Message.id > target.id))
+        )
+        .order_by(Message.timestamp.asc(), Message.id.asc())
+        .limit(limit)
+        .all()
+    )
+
+    return messages
+
+@router.get("/download/chat_file/{filename}")
+async def download_chat_file(filename: str):
+    file_path = os.path.join("templates", "static", "chat_file", sanitize_filename(filename))
+    if not os.path.isfile(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    return FileResponse(
+        path=file_path,
+        filename=filename,
+        media_type="application/octet-stream"
+    )
 
 @router.get("/chats-with-last-message", response_model=List[dict])
 def get_chats_with_last_message(
@@ -735,6 +874,8 @@ def get_chats_with_last_message(
                 subq.c.timestamp,
                 subq.c.is_read,
                 subq.c.file_name,
+                subq.c.file_url,
+                subq.c.forward_message_id,
                 subq.c.channel_id.label("last_msg_channel_id")
             )
             .filter(Channel.members.contains([username]))
@@ -753,8 +894,10 @@ def get_chats_with_last_message(
                     "sender": row[2], 
                     "content": row[3],
                     "timestamp": row[4].isoformat() if row[4] else None,
-                    "file_name": row[5],
-                    "is_read": row[6],
+                    "file_name": row[6],
+                    "is_read": row[5],
+                    "file_url": row[7],
+                    "forward_message_id": row[8],
                 }
             else:
                 chat_data['last_message'] = None
@@ -784,7 +927,7 @@ def get_total_unread(
 def get_messages(
     channel_id: UUIDType,
     limit: int = Query(50, ge=1, le=500),
-    offset: int = Query(0, ge=0),
+    offset: Optional[int] = Query(None, ge=0),
     db: Session = Depends(get_db),
     current_user: Dict[str, Any] = Depends(get_current_user),
 ):
@@ -792,25 +935,70 @@ def get_messages(
     logger.debug(f"Fetching messages for channel {channel_id} by {username}")
     try:
         assert_membership(db, channel_id, username)
-        
-        messages = (
-            db.query(Message)
-            .filter(Message.channel_id == channel_id)
-            .order_by(Message.timestamp.desc())
-            .offset(offset)
-            .limit(limit)
-            .all()
-        )
-        
+
+        query = db.query(Message).filter(Message.channel_id == channel_id)
+
+        if offset is not None:
+            messages = (
+                query
+                .order_by(Message.timestamp.desc())
+                .offset(offset)
+                .limit(limit)
+                .all()
+            )
+            messages = list(reversed(messages))
+        else:
+            messages = (
+                query
+                .order_by(Message.timestamp.desc())
+                .limit(limit)
+                .all()
+            )
+            messages = list(reversed(messages))
+
+        if not messages:
+            return []
+
+        message_ids = [m.id for m in messages]
+
+        reaction_data = db.query(Reaction.message_id, Reaction.user_id, Reaction.reaction).filter(
+            Reaction.message_id.in_(message_ids)
+        ).all()
+
+        reactions_by_message = {}
+        for r in reaction_data:
+            if r.message_id not in reactions_by_message:
+                reactions_by_message[r.message_id] = {}
+            reactions_by_message[r.message_id][r.user_id] = r.reaction
+
+        result = []
+        for msg in messages:
+            msg_dict = {
+                "id": msg.id,
+                "channel_id": msg.channel_id,
+                "sender": msg.sender,
+                "content": msg.content,
+                "timestamp": msg.timestamp,
+                "is_read": msg.is_read,
+                "file_url": msg.file_url,
+                "file_name": msg.file_name,
+                "edited": msg.edited,
+                "quoted_message_id": msg.quoted_message_id,
+                "forward_message_id": msg.forward_message_id,
+                "is_notification": msg.is_notification,
+                "reactions_by_user": reactions_by_message.get(msg.id, {})
+            }
+            result.append(MessageResponse(**msg_dict))
+
         if messages and offset == 0:
-            last_message = messages[0]
+            last_message = messages[-1]
             update_user_channel_status(
-                db, username, channel_id, 
+                db, username, channel_id,
                 last_message.id, last_message.timestamp
             )
-        
-        return messages
-        
+
+        return result
+
     except HTTPException as e:
         logger.warning(f"Access denied for channel {channel_id} by {username}: {e}")
         raise
@@ -858,7 +1046,6 @@ def post_message(
                 "file_name": msg.file_name,
                 "edited": msg.edited,
                 "quoted_message_id": str(msg.quoted_message_id) if msg.quoted_message_id else None,
-
             },
         }
         try:
@@ -914,7 +1101,7 @@ async def upload_file(
 ):
     username = current_user["username"]
     logger.debug(f"Uploading file by {username}: {file.filename}")
-    allowed_extensions = {'.jpg', '.jpeg', '.png', '.pdf', '.txt', '.ogg'}
+    allowed_extensions = {'.jpg', '.jpeg', '.png', '.pdf', '.txt', '.ogg', '.mp4', '.gif', '.tiff', '.webp', '.svg', '.doc', '.docx', '.rtf', '.zip', '.rar', '.7z', '.xls', '.xlsx', '.ppt'}
     file_ext = os.path.splitext(file.filename)[1].lower()
     if file_ext not in allowed_extensions:
         raise HTTPException(status_code=400, detail="Недопустимый тип файла")
@@ -1145,9 +1332,6 @@ def invite_to_channel(
     channel = db.query(Channel).filter(Channel.id == channel_id).first()
     if not channel:
         raise HTTPException(status_code=404, detail="Канал не найден")
-    # if not channel.is_channel:
-    #     logger.error(f"Это не канал - {channel.is_channel}")
-    #     raise HTTPException(status_code=400, detail="Это не канал")
     if channel.creator_username != username:
         raise HTTPException(status_code=403, detail="Только создатель может приглашать пользователей")
     
@@ -1176,9 +1360,12 @@ def invite_to_channel(
             payload_channel = {
                 "type": "channel_invite",
                 "data": {
-                    "channel_id": str(channel_id),
-                    "channel_name": channel.name,
-                    "invited_by": username,
+                    "id": str(channel_id),
+                    "name": channel.name,
+                    "description": channel.description,
+                    "is_group": channel.is_group,
+                    "is_channel": channel.is_channel,
+                    "creator_username": channel.creator_username,
                     "members": valid_members,
                 }
             }
@@ -1496,6 +1683,17 @@ def delete_message(
             logger.warning(f"Пользователь {username} попытался удалить сообщение {message_id}, принадлежащее {message.sender}")
             raise HTTPException(status_code=403, detail="Вы можете удалять только свои сообщения")
         
+        logger.info(f"file - {message.file_url}, rewrwe - {bool(message.file_url)}")
+        if message.file_url:
+            file_path = os.path.join("templates", "static", "chat_file", os.path.basename(message.file_url))
+            logger.info(f"file_path - {file_path}")
+            if os.path.isfile(file_path):
+                try:
+                    os.remove(file_path)
+                    logger.info(f"Файл удалён: {file_path}")
+                except Exception as e:
+                    logger.error(f"Ошибка при удалении файла {file_path}: {e}")
+
         assert_membership(db, message.channel_id, username)
         db.delete(message)
         db.commit()
@@ -1514,10 +1712,12 @@ def search_contacts(
 ):
     username = current_user["username"]
     logger.debug(f"Searching contacts by {username}: query={query}")
-    if len(query) < 2:
-        return []
+    
+    # Если запрос короче 2 символов — ищем всех пользователей
+    search_term = query if len(query) >= 2 else ""
+    
     try:
-        results = search_ad_users(query)
+        results = search_ad_users(search_term)
         return [
             Contact(
                 id=user["id"],
@@ -1550,11 +1750,6 @@ def get_message(
         message = db.query(Message).filter(Message.id == message_id).first()
         if not message:
             logger.info(f"Message {message_id} not found")
-            raise HTTPException(status_code=404, detail="Сообщение не найдено")
-        try:
-            assert_membership(db, message.channel_id, username)
-        except HTTPException as e:
-            logger.warning(f"Access denied for user {username} to message {message_id} in channel {message.channel_id}: {e}")
             raise HTTPException(status_code=404, detail="Сообщение не найдено")
 
         logger.debug(f"Message {message_id} fetched successfully for user {username}")
@@ -1640,25 +1835,50 @@ async def delete_message(
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(None)):
     await websocket.accept()
+    
     if not token:
         logger.error("WebSocket connection attempt without token")
         await websocket.send_json({"type": "error", "error": "Требуется токен"})
         await websocket.close(code=1008)
         return
 
-    user_data = verify_token(token)
-    if not user_data or "username" not in user_data:
-        logger.error(f"Invalid or expired token for WebSocket: {token[:10]}...")
-        await websocket.send_json({"type": "error", "error": "Недействительный или истекший токен"})
+    # Детальная диагностика токена
+    logger.info(f"WebSocket token received (first 20 chars): {token[:20]}...")
+    
+    try:
+        # ИСПРАВЛЕНИЕ: Используем правильную функцию из jwt_utils
+        from services.jwt_utils import verify_token as jwt_verify_token
+        
+        user_data = jwt_verify_token(token)
+        if not user_data:
+            logger.error("verify_token returned None/False")
+            await websocket.send_json({"type": "error", "error": "Недействительный токен"})
+            await websocket.close(code=1008)
+            return
+            
+        if "username" not in user_data:
+            logger.error(f"Token missing username field. Token data: {user_data}")
+            await websocket.send_json({"type": "error", "error": "Токен не содержит username"})
+            await websocket.close(code=1008)
+            return
+
+        username: str = user_data["username"]
+        logger.info(f"WebSocket authentication successful for user: {username}")
+
+    except Exception as e:
+        logger.error(f"Token verification error: {e}", exc_info=True)
+        await websocket.send_json({"type": "error", "error": f"Ошибка проверки токена: {str(e)}"})
         await websocket.close(code=1008)
         return
 
-    username: str = user_data["username"]
+    # Подключаем WebSocket
     await manager.connect(websocket, username)
     logger.info(f"WS connected: {username}")
-    db = SessionLocal()
+    db = None
 
     try:
+        db = SessionLocal()
+
         while True:
             raw = await websocket.receive_text()
             try:
@@ -1678,11 +1898,24 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
             if action == "send_message":
                 channel_id_str = payload.get("channel_id")
                 content = payload.get("content", "").strip() if payload.get("content") else ""
-                
+                contacts = payload.get("members")
+                forward_members = [contact["id"] for contact in contacts] if contacts else []
+                logger.info(f"forward_members - {forward_members}")
                 file_url = payload.get("file_url")
                 file_name = payload.get("file_name")
-                
                 quoted_message_id_str = payload.get("quoted_message_id")
+                forward_message_id_str = payload.get("forward_message_id")
+                
+                logger.info(f"quoted_message_id_str - {quoted_message_id_str}, forward_message_id_str - {forward_message_id_str}")
+                
+                forward_message_id = None
+                if forward_message_id_str:
+                    try:
+                        forward_message_id = uuid.UUID(forward_message_id_str)
+                        logger.debug(f"Forward message ID received: {forward_message_id}")
+                    except ValueError:
+                        logger.warning(f"Invalid quoted_message_id format received: {forward_message_id_str}")
+
                 quoted_message_id = None
                 if quoted_message_id_str:
                     try:
@@ -1690,58 +1923,94 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
                         logger.debug(f"Quoted message ID received: {quoted_message_id}")
                     except ValueError:
                         logger.warning(f"Invalid quoted_message_id format received: {quoted_message_id_str}")
-                if not channel_id_str or (not content and not file_url):
-                    await websocket.send_json({"type": "error", "message": "Пустое сообщение или неверный канал"})
-                    continue
 
-                try:
-                    channel_id = uuid.UUID(channel_id_str)
-                except (ValueError, HTTPException) as e:
-                    logger.warning(f"WS send_message validation error for {username}: {e}")
-                    await websocket.send_json({"type": "error", "message": "Неверный канал или доступ запрещен"})
+                if not channel_id_str and not forward_members:
+                    await websocket.send_json({"type": "error", "message": "Нужно указать либо channel_id, либо members для пересылки"})
                     continue
-
-                msg = Message(
-                    id=uuid.uuid4(),
-                    channel_id=channel_id,
-                    sender=username,
-                    content=content or None,
-                    is_read=False,
-                    file_url=file_url,
-                    file_name=file_name,
-                    edited=False,
-                    quoted_message_id=quoted_message_id
-                )
                 
-                try:
-                    db.add(msg)
-                    db.commit()
-                    db.refresh(msg)
-                    logger.debug(f"Message saved to DB: {msg.id}")
+                if len(forward_members) == 0 and not content and not file_url:
+                    await websocket.send_json({"type": "error", "message": "Пустое сообщение"})
+                    continue
+                type_message = "forward_message" if forward_members else "new_message"
+                
+                target_channels = []
+                if forward_members:
+                    if not isinstance(forward_members, list):
+                        await websocket.send_json({"type": "error", "message": "members должен быть списком"})
+                        continue
 
+                    for member in forward_members:
+                        if member == username:
+                            continue
+                        
+                        channel = db.query(Channel).filter(
+                            Channel.is_group == False,
+                            Channel.members.contains([username, member])
+                        ).first()
+
+                        if channel:
+                            target_channels.append(channel.id)
+                        else:
+                            logger.warning(f"No direct channel found between {username} and {member}")
+                else:
+                    try:
+                        channel_id = uuid.UUID(channel_id_str)
+                        target_channels = [channel_id]
+                    except (ValueError, TypeError) as e:
+                        logger.warning(f"WS send_message validation error for {username}: {e}")
+                        await websocket.send_json({"type": "error", "message": "Неверный формат channel_id"})
+                        continue
+                
+                logger.info(f"target_channels - {target_channels}, forward_members - {forward_members}")
+                sent_messages = []
+                for ch_id in target_channels:
+                    msg = Message(
+                        id=uuid.uuid4(),
+                        channel_id=ch_id,
+                        sender=username,
+                        content=content or None,
+                        is_read=False,
+                        file_url=file_url,
+                        file_name=file_name,
+                        edited=False,
+                        quoted_message_id=quoted_message_id,
+                        forward_message_id=forward_message_id,
+                        timestamp=datetime.now(timezone.utc)
+                    )
+                    try:
+                        db.add(msg)
+                        db.commit()
+                        db.refresh(msg)
+                        logger.debug(f"Message saved to DB in channel {ch_id}: {msg.id}")
+                        sent_messages.append(msg)
+                    except Exception as e:
+                        db.rollback()
+                        logger.error(f"Failed to save message in channel {ch_id} for {username}: {e}", exc_info=True)
+                        continue
+
+                for msg in sent_messages:
                     payload_response = {
-                        "type": "new_message",
+                        "type": type_message,
+                        "forward_members": forward_members,
                         "data": {
                             "id": str(msg.id),
                             "channel_id": str(msg.channel_id),
                             "sender": msg.sender,
                             "content": msg.content,
-                            "timestamp": msg.timestamp.isoformat(), 
+                            "timestamp": msg.timestamp.isoformat(),
                             "is_read": msg.is_read,
                             "file_url": msg.file_url,
                             "file_name": msg.file_name,
                             "edited": msg.edited,
                             "quoted_message_id": str(msg.quoted_message_id) if msg.quoted_message_id else None,
-                           
+                            "forward_message_id": str(msg.forward_message_id) if msg.forward_message_id else None,
                         },
                     }
                     await manager.broadcast_to_channel_members(payload_response, msg.channel_id, db)
-                    await websocket.send_json({"type": "message_sent", "status": "ok"})
-                    logger.debug(f"New message {msg.id} broadcasted and confirmation sent to {username}")
-                except Exception as e:
-                    db.rollback()
-                    logger.error(f"Error saving message from WS for {username}: {e}", exc_info=True)
-                    await websocket.send_json({"type": "error", "message": "Не удалось сохранить сообщение"})
+
+                await websocket.send_json({"type": "message_sent", "status": "ok"})
+                logger.debug(f"Forwarded message to {len(sent_messages)} channels for {username}")
+
             elif action == "typing_start" or action == "typing_stop":
                 channel_id_str = payload.get("channel_id")
                 if channel_id_str:
@@ -1755,6 +2024,59 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
                     except (ValueError, HTTPException):
                         await websocket.send_json({"type": "error", "error": "Неверный канал или доступ запрещен"})
 
+            elif action == "react":
+                message_id_str = payload.get("message_id")
+                reaction = payload.get("reaction")
+                logger.info(f"message_id_str - {message_id_str}, reaction- {reaction} ")
+                if not message_id_str or not isinstance(reaction, str) or len(reaction) > 10:
+                    await websocket.send_json({"type": "error", "error": "Неверные данные реакции"})
+                    continue
+                try:
+                    message_id = UUIDType(message_id_str)
+                    message = db.query(Message).filter(Message.id == message_id).first()
+                    if not message:
+                        await websocket.send_json({"type": "error", "error": "Сообщение не найдено"})
+                        continue
+                    assert_membership(db, message.channel_id, username)
+
+                    existing = db.query(Reaction).filter(
+                        Reaction.message_id == message_id,
+                        Reaction.user_id == username
+                    ).first()
+
+                    if existing:
+                        if existing.reaction == reaction:
+                            db.delete(existing)
+                            reaction_to_broadcast = None
+                        else:
+                            existing.reaction = reaction
+                            reaction_to_broadcast = reaction
+                    else:
+                        new_reaction = Reaction(
+                            message_id=message_id,
+                            user_id=username,
+                            reaction=reaction
+                        )
+                        db.add(new_reaction)
+                        reaction_to_broadcast = reaction
+
+                    db.commit()
+
+                    payload_response = {
+                        "type": "reaction_update",
+                        "data": {
+                            "message_id": str(message_id),
+                            "user_id": username,
+                            "reaction": reaction_to_broadcast,
+                        }
+                    }
+                    await manager.broadcast_to_channel_members(payload_response, message.channel_id, db)
+
+                except Exception as e:
+                    db.rollback()
+                    logger.error(f"Error handling reaction: {e}")
+                    await websocket.send_json({"type": "error", "error": "Не удалось поставить реакцию"})
+                    
             elif action == "edit_message":
                 message_id_str = payload.get("message_id")
                 content = payload.get("content", "").strip()
@@ -1794,8 +2116,9 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
         logger.error(f"WS error for {username}: {e}", exc_info=True)
         await websocket.send_json({"type": "error", "error": f"Ошибка WebSocket: {str(e)}"})
     finally:
-        logger.info("disco")
+        logger.info("Disconnecting WebSocket")
         await manager.disconnect(websocket, username)
-        if db.in_transaction():
-            db.rollback()
-        db.close()
+        if db:
+            if db.in_transaction():
+                db.rollback()
+            db.close()

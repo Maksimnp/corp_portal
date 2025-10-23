@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { ArrowBendUpLeft, ArrowBendUpRight, Download, X, MagnifyingGlassPlus, MagnifyingGlassMinus, ArrowLeft, ArrowRight } from 'phosphor-react';
 import type { Chat, Message } from '../../../types/chat';
 import { useTheme } from '../../../hooks/ThemeContext';
-import { formatTimestamp, getChatDisplayIcon, getChatDisplayName, getTypingText, formatTimestampSidebar } from '../../../utils/chat';
+import { formatTimestamp, getChatDisplayIcon, getChatDisplayName, getTypingText, formatTimestampSidebar, resolveFileUrl } from '../../../utils/chat';
 import { DeleteOutlined } from '@ant-design/icons';
 import './ImageModal.css';
 interface ImageModalProps {
@@ -30,9 +30,10 @@ const ImageModal: React.FC<ImageModalProps> = ({
 }) => {
     const { theme } = useTheme();
     const API_BASE = import.meta.env.VITE_API_BASE_URL;
-    if (!showImageModal || !currentChat) return null;
     const [zoomScale, setZoomScale] = useState<string>("100");
     const [isDragging, setIsDragging] = useState<boolean>(false);
+    if (!showImageModal || !currentChat) return null;
+
 
     const handleDownload = () => {
         if (!imageUrl?.file_url) return;
@@ -59,12 +60,10 @@ const ImageModal: React.FC<ImageModalProps> = ({
         }
     };
 
-    // Обработчик начала перетаскивания
     const handleSliderMouseDown = () => {
         setIsDragging(true);
     };
 
-    // (опционально) на случай, если пользователь ушёл за пределы слайдера
     const handleSliderBlur = () => {
         if (isDragging && parseInt(zoomScale) <= 100) {
         setZoomScale("100");
@@ -72,9 +71,17 @@ const ImageModal: React.FC<ImageModalProps> = ({
         setIsDragging(false);
     };
 
-  return (
-    <div className="fixed flex flex-col inset-0 bg-black/60 z-[200] backdrop-blur-md animate-in fade-in-0">
-            <div className="flex justify-between w-full h-16 z-[210]">
+    const handleBackdropClick = () => {
+        setShowImageModal(false);
+    };
+
+    const handleContentClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+    };
+
+    return (
+    <div className="fixed flex flex-col inset-0 bg-black/60 z-[200] backdrop-blur-md animate-in fade-in-0" onClick={handleBackdropClick}>
+            <div className="flex justify-between w-full h-16 z-[210]" onClick={(e) => {e.stopPropagation();}}>
                 <div className='flex items-center gap-2 pr-2 pl-2'>
                     <span className='text-white'>{getChatDisplayIcon(currentChat, 30, theme)}</span>
                     <span className='text-white'>{imageUrl?.sender && contactMap[imageUrl?.sender]}</span>
@@ -117,17 +124,18 @@ const ImageModal: React.FC<ImageModalProps> = ({
                 </div>
             </div>
             <div className='flex items-center justify-between h-full'>
-                <div className='w-25 h-full flex items-center justify-center cursor-pointer opacity-0 hover:opacity-100 transition-opacity transform-opacity duration-300'>
+                <div className='w-25 h-full flex items-center justify-center cursor-pointer opacity-0 hover:opacity-100 transition-opacity transform-opacity duration-300' onClick={(e) => {e.stopPropagation();}}>
                     <ArrowLeft className='text-5xl text-white'/>
                 </div>
-                <div className='flex flex-col items-center justify-center'>
+                <div className='flex flex-col items-center justify-center' onClick={handleContentClick}>
                     <img 
-                        src={`${API_BASE}${imageUrl?.file_url}`}  
+                        src={resolveFileUrl(imageUrl?.file_url)}  
                         className={`rounded-lg object-contain max-h-250 duration-300 transition-transform`}
-                        style={{ transform: `scale(${Number(zoomScale) / 100})` }}    
+                        style={{ transform: `scale(${Number(zoomScale) / 100})` }}   
+                        onClick={(e) => e.stopPropagation()} 
                     />
                     <span className={`mt-5 ${theme === 'light' ? 'text-black' : 'text-white'}`}>{imageUrl?.content}</span>
-                    {parseInt(zoomScale) != 100 && (<div className='flex items-center justify-center bg-black/25 p-3 rounded-full gap-3 z-[210]'>
+                    {parseInt(zoomScale) != 100 && (<div className='flex items-center justify-center bg-black/25 p-3 rounded-full gap-3 z-[210]' >
                         <MagnifyingGlassPlus className="text-4xl text-white" />
                         <input 
                             type='range'
@@ -143,7 +151,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
                         <MagnifyingGlassMinus className="text-4xl text-white" />
                     </div>)}
                 </div>
-                <div className='w-25 h-full flex items-center justify-center cursor-pointer opacity-0 hover:opacity-100 transition-opacity transform-opacity duration-300'>
+                <div className='w-25 h-full flex items-center justify-center cursor-pointer opacity-0 hover:opacity-100 transition-opacity transform-opacity duration-300' onClick={(e) => {e.stopPropagation();}}>
                     <ArrowRight className='text-5xl text-white'/>
                 </div>
             </div>

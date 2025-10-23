@@ -431,25 +431,43 @@ async def login(request: Request, login_data: LoginData = Body(...)):
         )
 
     try:
+        # Проверяем роль в AD
         role = get_user_role(username)
+        logger.info(f"Роль пользователя {username} из AD: {role}")
     except Exception as e:
         logger.error(f"Ошибка получения роли пользователя {username}: {str(e)}", exc_info=True)
         role = "user"
 
     try:
+        # Проверяем, является ли пользователь администратором в базе данных
+        from services.admin_manager import admin_manager
+        admin_data = admin_manager.get_admin_by_username(username)
+        logger.info(f"Данные админа для {username}: {admin_data}")
+        is_admin = admin_data is not None and admin_data.get("is_active", False)
+        admin_permissions = admin_data.get("permissions", {}) if is_admin else {}
+        if isinstance(admin_permissions, str):
+            admin_permissions = json.loads(admin_permissions)
+        # Если пользователь есть в admins, устанавливаем role как admin
+        if is_admin:
+            role = "admin"
+    except Exception as e:
+        logger.error(f"Ошибка проверки админских прав для {username}: {str(e)}")
+        is_admin = False
+        admin_permissions = {}
+
+    try:
         ad_user_info = get_user_details(username)
         if not ad_user_info:
             logger.warning(f"Не удалось получить данные пользователя {username} из AD")
-            ad_user_info = {"full_name": username, "email": "", "department": ""}
+            ad_user_info = {"full_name": username, "email": f"{username}@minskhleb.by", "department": ""}
     except Exception as e:
         logger.error(f"Ошибка получения данных пользователя {username} из AD: {str(e)}", exc_info=True)
-        ad_user_info = {"full_name": username, "email": "", "department": ""}
+        ad_user_info = {"full_name": username, "email": f"{username}@minskhleb.by", "department": ""}
 
     full_name = ad_user_info.get("full_name", username)
     department = ad_user_info.get("department", "")
-    isAdmin = role == "admin"
 
-    logger.info(f"Пользователь {username} успешно аутентифицирован с ролью: {role}, отдел: {department}")
+    logger.info(f"Пользователь {username} успешно аутентифицирован с ролью: {role}, админ: {is_admin}, permissions: {admin_permissions}")
 
     access_token = create_access_token(
         data={
@@ -457,7 +475,8 @@ async def login(request: Request, login_data: LoginData = Body(...)):
             "role": role,
             "full_name": full_name,
             "department": department,
-            "isAdmin": isAdmin
+            "isAdmin": is_admin,
+            "admin_permissions": admin_permissions
         }
     )
 
@@ -467,9 +486,9 @@ async def login(request: Request, login_data: LoginData = Body(...)):
         "role": role,
         "full_name": full_name,
         "department": department,
-        "isAdmin": isAdmin
+        "isAdmin": is_admin,
+        "admin_permissions": admin_permissions
     }
-
 @router.post("/forgot-password")
 async def forgot_password(
     background_tasks: BackgroundTasks,

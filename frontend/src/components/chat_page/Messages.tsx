@@ -4,6 +4,8 @@ import { formatDate } from '../../utils/chat';
 import RenderMessageItem from "./MessageItem";
 
 interface RenderMessagesProps {
+    currentChat: Chat | undefined;
+    activeChat: string | null;
     filteredMessages: Message[];
     quotedMessageData: Record<string, Message | null>;
     contactMap: Record<string, string>;
@@ -13,10 +15,12 @@ interface RenderMessagesProps {
     setShowImageModal: React.Dispatch<React.SetStateAction<boolean>>;
     loadMessagesAround: (messageId: string) => Promise<void>;
     setImageUrl: React.Dispatch<React.SetStateAction<Message | null>>;
+    handleContextMenuQuote: () => void;
 }
 
 const RenderMessages: React.FC<RenderMessagesProps> = ({
     filteredMessages,
+    activeChat,
     quotedMessageData,
     contactMap,
     handleMessageContextMenu,
@@ -24,10 +28,14 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
     username,
     setShowImageModal,
     loadMessagesAround,
-    setImageUrl
+    setImageUrl,
+    handleContextMenuQuote,
+    currentChat
 }) => {
     let lastDate = '';
+
     const messagesToRender = filteredMessages || [];
+    console.log(messagesToRender);
     return messagesToRender.map((msg, index) => {
       const messageDate = formatDate(msg.timestamp);
       const showDateHeader = messageDate !== lastDate;
@@ -50,6 +58,8 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
             :
             <RenderMessageItem 
                 msg={msg}
+                currentChat={currentChat}
+                activeChat={activeChat}
                 prev_msg={index > 0 ? messagesToRender[index - 1] : null}
                 quotedMessageData={quotedMessageData}
                 contactMap={contactMap}
@@ -59,6 +69,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
                 setShowImageModal={setShowImageModal}
                 loadMessagesAround={loadMessagesAround}
                 setImageUrl={setImageUrl}
+                handleContextMenuQuote={handleContextMenuQuote}
             />
           }
         </React.Fragment>

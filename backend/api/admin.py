@@ -1,410 +1,338 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from datetime import datetime
+# api/admin.py
+from fastapi import APIRouter, HTTPException, Depends, Header, Query
+from services.admin_manager import admin_manager
+from services.jwt_utils import verify_token
+from sqlalchemy.orm import Session
+from db.database import get_db_connection
+import json
 import logging
 import os
-from typing import List, Optional
-from pydantic import BaseModel
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey, func, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.exc import SQLAlchemyError
-from cachetools import TTLCache
-from concurrent.futures import ThreadPoolExecutor
-import asyncio
-from api.auth import verify_token
-from sqlalchemy.orm import relationship
+from typing import Dict, Any, List
 
-router = APIRouter(tags=["admin"])
+router = APIRouter()
 
-logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO if os.getenv("ENV") == "production" else logging.DEBUG,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("admin")
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://portal_admin:season@localhost/portalAdmins_db")
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-executor = ThreadPoolExecutor(max_workers=4)
-security = HTTPBearer()
-CACHE_TTL = 300
-cache = TTLCache(maxsize=1000, ttl=CACHE_TTL)
-
-# Модели базы данных
-class Admin(Base):
-    __tablename__ = "admins"
+async def get_current_admin_user(authorization: str = Header(alias="Authorization")):
+    """Проверка прав администратора"""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authorization header required")
     
-    id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True, nullable=False)
-    service_id = Column(Integer, ForeignKey('services.id'), nullable=True)
-    permissions = Column(String, nullable=False, default='{"read": true, "write": true, "delete": true}')
-    is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-
-class Service(Base):
-    __tablename__ = "services"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True, nullable=False)
-    description = Column(String, nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=func.now())
-    
-    admins = relationship("Admin", backref="service")
-
-# Pydantic модели
-class AdminBase(BaseModel):
-    username: str
-    service_id: Optional[int] = None
-    permissions: str = '{"read": true, "write": true, "delete": true}'
-
-class AdminCreate(AdminBase):
-    pass
-
-class AdminResponse(AdminBase):
-    id: int
-    is_active: bool
-    created_at: datetime
-    updated_at: datetime
-    
-    class Config:
-        from_attributes = True
-
-class ServiceBase(BaseModel):
-    name: str
-    description: Optional[str] = None
-
-class ServiceCreate(ServiceBase):
-    pass
-
-class ServiceResponse(ServiceBase):
-    id: int
-    is_active: bool
-    created_at: datetime
-    admin_count: Optional[int] = 0
-    
-    class Config:
-        from_attributes = True
-
-class AdminListResponse(BaseModel):
-    admins: List[AdminResponse]
-    total_count: int
-
-class ServiceListResponse(BaseModel):
-    services: List[ServiceResponse]
-    total_count: int
-
-# Зависимости
-async def verify_token_dependency(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
+    token = authorization[7:]
     user_data = verify_token(token)
     if not user_data:
-        logger.warning(f"Недействительный или истёкший токен: {token[:10]}...")
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Недействительный или истёкший токен")
-
-    if not user_data.get('is_global_admin', False):
-        logger.warning(f"Попытка доступа к админ-панели без прав глобального администратора: {user_data.get('username')}")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Доступ разрешен только глобальным администраторам")
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+    # Проверяем, является ли пользователь администратором
+    username = user_data.get("username")
+    admin = admin_manager.get_admin_by_username(username)
+    
+    if not admin or not admin.get('is_active'):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    user_data["is_admin"] = True
+    user_data["admin_permissions"] = admin.get('permissions', {})
     
     return user_data
 
-def get_db_session():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-def get_admins_sync(db: Session, user_data: dict):
-    try:
-        cache_key = "admins_list"
-        cached_data = cache.get(cache_key)
-        if cached_data:
-            logger.debug("Возвращены кэшированные данные списка администраторов")
-            return cached_data
-
-        admins = db.query(Admin).filter(Admin.is_active == True).order_by(Admin.created_at.desc()).all()
-        
-        result = {
-            "admins": admins,
-            "total_count": len(admins)
-        }
-        
-        cache[cache_key] = result
-        return result
-    except SQLAlchemyError as e:
-        logger.error(f"Ошибка базы данных при получении списка администраторов: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ошибка получения списка администраторов")
-    except Exception as e:
-        logger.error(f"Неожиданная ошибка при получении списка администраторов: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Внутренняя ошибка сервера")
-
-def get_services_sync(db: Session, user_data: dict):
-    try:
-        cache_key = "services_list"
-        cached_data = cache.get(cache_key)
-        if cached_data:
-            logger.debug("Возвращены кэшированные данные списка сервисов")
-            return cached_data
-
-        services = db.query(Service).filter(Service.is_active == True).order_by(Service.name).all()
-        
-        # Добавляем количество администраторов для каждого сервиса
-        services_with_count = []
-        for service in services:
-            admin_count = db.query(Admin).filter(
-                Admin.service_id == service.id, 
-                Admin.is_active == True
-            ).count()
-            services_with_count.append({
-                **service.__dict__,
-                "admin_count": admin_count
-            })
-        
-        result = {
-            "services": services_with_count,
-            "total_count": len(services)
-        }
-        
-        cache[cache_key] = result
-        return result
-    except SQLAlchemyError as e:
-        logger.error(f"Ошибка базы данных при получении списка сервисов: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ошибка получения списка сервисов")
-    except Exception as e:
-        logger.error(f"Неожиданная ошибка при получении списка сервисов: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Внутренняя ошибка сервера")
-
-def create_admin_sync(db: Session, admin_data: AdminCreate, user_data: dict):
-    try:
-        existing_admin = db.query(Admin).filter(Admin.username == admin_data.username).first()
-        if existing_admin:
-            logger.warning(f"Попытка создания администратора с существующим username: {admin_data.username}")
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Администратор с таким username уже существует")
-        try:
-            import json
-            permissions = json.loads(admin_data.permissions)
-            if not isinstance(permissions, dict):
-                raise ValueError("Permissions должен быть JSON объектом")
-        except (json.JSONDecodeError, ValueError) as e:
-            logger.warning(f"Невалидный формат permissions: {admin_data.permissions}")
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Невалидный формат permissions. Должен быть валидный JSON объект")
-
-        if admin_data.service_id:
-            service = db.query(Service).filter(Service.id == admin_data.service_id, Service.is_active == True).first()
-            if not service:
-                logger.warning(f"Попытка создания администратора с несуществующим service_id: {admin_data.service_id}")
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Указанный сервис не существует")
-
-        new_admin = Admin(
-            username=admin_data.username,
-            service_id=admin_data.service_id,
-            permissions=admin_data.permissions
-        )
-        
-        db.add(new_admin)
-        db.commit()
-        db.refresh(new_admin)
-        
-
-        cache.clear()
-        
-        logger.info(f"Администратор создан пользователем {user_data.get('username')}: {admin_data.username}")
-        return new_admin
-        
-    except HTTPException:
-        raise
-    except SQLAlchemyError as e:
-        db.rollback()
-        logger.error(f"Ошибка базы данных при создании администратора: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ошибка создания администратора")
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Неожиданная ошибка при создании администратора: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Внутренняя ошибка сервера")
-
-def delete_admin_sync(db: Session, admin_id: int, user_data: dict):
-    try:
-
-        admin = db.query(Admin).filter(Admin.id == admin_id, Admin.is_active == True).first()
-        if not admin:
-            logger.warning(f"Попытка удаления несуществующего администратора с id: {admin_id}")
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Администратор не найден")
-
-
-        admin.is_active = False
-        admin.updated_at = func.now()
-        
-        db.commit()
-
-        cache.clear()
-        
-        logger.info(f"Администратор удален пользователем {user_data.get('username')}: {admin.username} (id: {admin_id})")
-        return {"detail": "Администратор успешно удален"}
-        
-    except HTTPException:
-        raise
-    except SQLAlchemyError as e:
-        db.rollback()
-        logger.error(f"Ошибка базы данных при удалении администратора: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ошибка удаления администратора")
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Неожиданная ошибка при удалении администратора: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Внутренняя ошибка сервера")
-
-def create_service_sync(db: Session, service_data: ServiceCreate, user_data: dict):
-    try:
-
-        existing_service = db.query(Service).filter(Service.name == service_data.name).first()
-        if existing_service:
-            logger.warning(f"Попытка создания сервиса с существующим именем: {service_data.name}")
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Сервис с таким именем уже существует")
-
-
-        new_service = Service(
-            name=service_data.name,
-            description=service_data.description
-        )
-        
-        db.add(new_service)
-        db.commit()
-        db.refresh(new_service)
-
-        cache.clear()
-        
-        logger.info(f"Сервис создан пользователем {user_data.get('username')}: {service_data.name}")
-        return new_service
-        
-    except HTTPException:
-        raise
-    except SQLAlchemyError as e:
-        db.rollback()
-        logger.error(f"Ошибка базы данных при создании сервиса: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ошибка создания сервиса")
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Неожиданная ошибка при создании сервиса: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Внутренняя ошибка сервера")
-
-@router.get("/", response_model=AdminListResponse)
+@router.get("/admin")
 async def get_admins(
-    user_data: dict = Depends(verify_token_dependency),
-    db: Session = Depends(get_db_session)
+    include_inactive: bool = Query(False, description="Включить неактивных администраторов"),
+    current_user: dict = Depends(get_current_admin_user)
 ):
-    loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(executor, get_admins_sync, db, user_data)
-    return result
+    """Получение списка администраторов"""
+    try:
+        admins = admin_manager.get_all_admins(include_inactive=include_inactive)
+        # Обеспечиваем совместимость с фронтендом
+        return {"admins": admins} if isinstance(admins, list) else admins
+    except Exception as e:
+        logger.error(f"Error getting admins: {str(e)}")
+        raise HTTPException(status_code=500, detail="Ошибка получения списка администраторов")
 
-@router.get("/services", response_model=ServiceListResponse)
-async def get_services(
-    user_data: dict = Depends(verify_token_dependency),
-    db: Session = Depends(get_db_session)
+@router.post("/admin_add")
+async def add_admin(
+    admin_data: dict,
+    current_user: dict = Depends(get_current_admin_user)
 ):
-    loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(executor, get_services_sync, db, user_data)
-    return result
+    """Добавление нового администратора"""
+    try:
+        # Проверяем права на управление администраторами
+        permissions = current_user.get("admin_permissions", {})
+        if not permissions.get("manage_admins"):
+            raise HTTPException(status_code=403, detail="Недостаточно прав для управления администраторами")
+        
+        username = admin_data.get("username")
+        service_id = admin_data.get("service_id", 0)
+        permissions_data = admin_data.get("permissions", {})
+        email = admin_data.get("email", f"{username}@minskhleb.by")
+        is_active = admin_data.get("is_active", True)
+        
+        if not username:
+            raise HTTPException(status_code=400, detail="Username required")
+        
+        # Преобразуем permissions в dict если это строка
+        if isinstance(permissions_data, str):
+            try:
+                permissions_data = json.loads(permissions_data)
+            except json.JSONDecodeError:
+                permissions_data = {"read": True, "write": True, "delete": True, "manage_admins": False}
+        
+        # Убедимся, что permissions_data является словарем
+        if not isinstance(permissions_data, dict):
+            permissions_data = {"read": True, "write": True, "delete": True, "manage_admins": False}
+        
+        logger.info(f"Adding admin: {username}, email: {email}, service_id: {service_id}, active: {is_active}")
+        
+        # Проверяем существование администратора (включая неактивных)
+        existing_admin = admin_manager.get_admin_by_username(username, include_inactive=True)
+        if existing_admin:
+            # Если администратор существует, но неактивен - активируем его
+            if not existing_admin.get('is_active', True):
+                logger.info(f"Reactivating existing inactive admin: {username}")
+                update_data = {
+                    'is_active': True,
+                    'service_id': service_id,
+                    'permissions': permissions_data,
+                    'email': email
+                }
+                success = admin_manager.update_admin(existing_admin['id'], **update_data)
+                if success:
+                    # Получаем обновленного администратора
+                    updated_admin = admin_manager.get_admin_by_id(existing_admin['id'])
+                    return {
+                        "message": "Неактивный администратор активирован", 
+                        "username": username,
+                        "admin": updated_admin
+                    }
+                else:
+                    raise HTTPException(status_code=400, detail="Ошибка активации существующего администратора")
+            else:
+                # Администратор уже существует и активен
+                raise HTTPException(status_code=400, detail="Администратор с таким именем уже существует")
+        
+        # Пробуем добавить нового администратора
+        success = admin_manager.add_admin(
+            username=username, 
+            service_id=service_id, 
+            permissions=permissions_data, 
+            is_active=is_active,
+            email=email
+        )
+        
+        if success:
+            # Получаем обновленный список администраторов для возврата
+            new_admin = admin_manager.get_admin_by_username(username)
+            response_data = {
+                "message": "Администратор успешно добавлен", 
+                "username": username
+            }
+            
+            if new_admin:
+                response_data["admin"] = new_admin
+            
+            return response_data
+        else:
+            raise HTTPException(status_code=400, detail="Ошибка добавления администратора")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding admin {admin_data.get('username')}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Ошибка добавления администратора: {str(e)}")
 
-@router.post("/", response_model=AdminResponse)
-async def create_admin(
-    admin: AdminCreate,
-    user_data: dict = Depends(verify_token_dependency),
-    db: Session = Depends(get_db_session)
+@router.put("/admin/{admin_id}")
+async def update_admin(
+    admin_id: int,
+    admin_data: dict,
+    current_user: dict = Depends(get_current_admin_user)
 ):
-    loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(executor, create_admin_sync, db, admin, user_data)
-    return result
+    """Обновление администратора"""
+    try:
+        permissions = current_user.get("admin_permissions", {})
+        if not permissions.get("manage_admins"):
+            raise HTTPException(status_code=403, detail="Недостаточно прав для управления администраторами")
+        
+        # Обработка permissions если это строка
+        if 'permissions' in admin_data and isinstance(admin_data['permissions'], str):
+            try:
+                admin_data['permissions'] = json.loads(admin_data['permissions'])
+            except json.JSONDecodeError:
+                admin_data['permissions'] = {"read": True, "write": True, "delete": True, "manage_admins": False}
+        
+        # Обеспечиваем наличие email
+        if 'email' not in admin_data and 'username' in admin_data:
+            admin_data['email'] = f"{admin_data['username']}@minskhleb.by"
+        
+        logger.info(f"Updating admin {admin_id} with data: {admin_data}")
+        
+        success = admin_manager.update_admin(admin_id, **admin_data)
+        
+        if success:
+            # Возвращаем обновленные данные администратора
+            updated_admin = admin_manager.get_admin_by_id(admin_id)
+            response_data = {
+                "message": "Администратор успешно обновлен"
+            }
+            
+            if updated_admin:
+                response_data["admin"] = updated_admin
+            
+            return response_data
+        else:
+            raise HTTPException(status_code=400, detail="Ошибка обновления администратора")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating admin {admin_id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Ошибка обновления администратора: {str(e)}")
+@router.get("/ad-users")
+async def get_ad_users(
+    search: str = Query("", description="Поиск по имени, фамилии или логину"),
+    current_user: dict = Depends(get_current_admin_user)
+):
+    """Получение списка пользователей из Active Directory"""
+    try:
+        # Проверяем права на управление администраторами
+        permissions = current_user.get("admin_permissions", {})
+        if not permissions.get("manage_admins"):
+            raise HTTPException(status_code=403, detail="Недостаточно прав для просмотра пользователей AD")
+        
+        # Получаем список администраторов для проверки статуса
+        admins = admin_manager.get_all_admins(include_inactive=False)
+        admin_usernames = {admin['username'] for admin in admins}
+        
+        # Используем существующую функцию поиска пользователей AD
+        ad_users = search_ad_users_for_admin(search)
+        
+        # Обогащаем данные информацией о статусе администратора
+        for user in ad_users:
+            user['is_admin'] = user['username'] in admin_usernames
+        
+        return {"users": ad_users}
+        
+    except Exception as e:
+        logger.error(f"Error getting AD users: {str(e)}")
+        raise HTTPException(status_code=500, detail="Ошибка получения списка пользователей из AD")
 
-@router.delete("/{admin_id}")
+def search_ad_users_for_admin(search_term: str = "", max_results: int = 100) -> List[Dict[str, Any]]:
+    """Поиск пользователей в AD для админ-панели"""
+    try:
+        from services.ldap_service import search_users, get_user_details
+        
+        # Используем существующую функцию поиска
+        users = search_users(search_term=search_term, max_results=max_results)
+        
+        # Обогащаем данные дополнительной информацией
+        enriched_users = []
+        for user in users:
+            # Получаем дополнительные детали если нужно
+            if not user.get('email') or not user.get('display_name'):
+                user_details = get_user_details(user['username'])
+                if user_details:
+                    user.update({
+                        'email': user_details.get('email', f"{user['username']}@minskhleb.by"),
+                        'display_name': user_details.get('full_name', user['username']),
+                        'department': user_details.get('department', 'Не указан')
+                    })
+            
+            # Обеспечиваем наличие обязательных полей
+            if not user.get('email'):
+                user['email'] = f"{user['username']}@minskhleb.by"
+            if not user.get('display_name'):
+                user['display_name'] = user['username']
+            if not user.get('department'):
+                user['department'] = 'Не указан'
+            if not user.get('title'):
+                user['title'] = 'Не указана'
+                
+            enriched_users.append(user)
+        
+        logger.info(f"Найдено {len(enriched_users)} пользователей в AD")
+        return enriched_users
+        
+    except Exception as e:
+        logger.error(f"Ошибка поиска пользователей в AD: {str(e)}")
+        # Возвращаем тестовые данные в случае ошибки
+        return get_fallback_users(search_term)
+
+def get_fallback_users(search_term: str = "") -> List[Dict[str, Any]]:
+    """Резервные тестовые данные"""
+    test_users = [
+        {
+            "username": "ivanovii",
+            "email": "ivanovii@minskhleb.by",
+            "display_name": "Иванов Иван Иванович",
+            "department": "ИТ отдел",
+            "title": "Системный администратор"
+        },
+        {
+            "username": "petrovap", 
+            "email": "petrovap@minskhleb.by",
+            "display_name": "Петрова Анна Сергеевна",
+            "department": "Отдел кадров", 
+            "title": "Менеджер по персоналу"
+        },
+        {
+            "username": "sidorovms",
+            "email": "sidorovms@minskhleb.by",
+            "display_name": "Сидоров Михаил Сергеевич",
+            "department": "Бухгалтерия",
+            "title": "Главный бухгалтер"
+        }
+    ]
+    
+    if search_term:
+        search_lower = search_term.lower()
+        return [
+            user for user in test_users
+            if (search_lower in user['username'].lower() or 
+                search_lower in user['display_name'].lower() or
+                search_lower in user['email'].lower())
+        ]
+    
+    return test_users
+@router.delete("/admin/{admin_id}")
 async def delete_admin(
     admin_id: int,
-    user_data: dict = Depends(verify_token_dependency),
-    db: Session = Depends(get_db_session)
+    current_user: dict = Depends(get_current_admin_user)
 ):
-    loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(executor, delete_admin_sync, db, admin_id, user_data)
-    return result
-
-@router.post("/services", response_model=ServiceResponse)
-async def create_service(
-    service: ServiceCreate,
-    user_data: dict = Depends(verify_token_dependency),
-    db: Session = Depends(get_db_session)
-):
-    loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(executor, create_service_sync, db, service, user_data)
-    return result
-
-
-@router.delete("/services/{service_id}")
-async def delete_service(
-    service_id: int,
-    user_data: dict = Depends(verify_token_dependency),
-    db: Session = Depends(get_db_session)
-):
+    """Удаление администратора"""
     try:
-
-        service = db.query(Service).filter(Service.id == service_id, Service.is_active == True).first()
-        if not service:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Сервис не найден")
-
-        active_admins = db.query(Admin).filter(Admin.service_id == service_id, Admin.is_active == True).count()
-        if active_admins > 0:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT, 
-                detail="Невозможно удалить сервис, так как у него есть активные администраторы"
-            )
-
-        service.is_active = False
+        # Проверяем права на управление администраторами
+        permissions = current_user.get("admin_permissions", {})
+        if not permissions.get("manage_admins"):
+            raise HTTPException(status_code=403, detail="Недостаточно прав для управления администраторами")
         
-        db.commit()
-        cache.clear()
+        # Проверяем, не пытается ли пользователь удалить самого себя
+        current_admin = admin_manager.get_admin_by_username(current_user.get("username"))
+        if current_admin and current_admin.get('id') == admin_id:
+            raise HTTPException(status_code=400, detail="Нельзя удалить собственный аккаунт")
         
-        logger.info(f"Сервис удален пользователем {user_data.get('username')}: {service.name}")
-        return {"detail": "Сервис успешно удален"}
+        success = admin_manager.delete_admin(admin_id)
         
+        if success:
+            return {"message": "Администратор успешно удален"}
+        else:
+            raise HTTPException(status_code=400, detail="Ошибка удаления администратора")
+            
     except HTTPException:
         raise
-    except SQLAlchemyError as e:
-        db.rollback()
-        logger.error(f"Ошибка базы данных при удалении сервиса: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ошибка удаления сервиса")
     except Exception as e:
-        db.rollback()
-        logger.error(f"Неожиданная ошибка при удалении сервиса: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Внутренняя ошибка сервера")
+        logger.error(f"Error deleting admin {admin_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Ошибка удаления администратора")
 
-@router.get("/stats")
-async def get_admin_stats(
-    user_data: dict = Depends(verify_token_dependency),
-    db: Session = Depends(get_db_session)
-):
+@router.get("/services")
+async def get_services(current_user: dict = Depends(get_current_admin_user)):
+    """Получение списка сервисов"""
     try:
-        total_admins = db.query(Admin).filter(Admin.is_active == True).count()
-        global_admins = db.query(Admin).filter(Admin.service_id == None, Admin.is_active == True).count()
-        service_admins = total_admins - global_admins
-
-        total_services = db.query(Service).filter(Service.is_active == True).count()
-        services_with_admins = db.query(Service).filter(
-            Service.is_active == True,
-            Service.id.in_(
-                db.query(Admin.service_id).filter(Admin.is_active == True).distinct()
-            )
-        ).count()
-        
-        return {
-            "total_admins": total_admins,
-            "global_admins": global_admins,
-            "service_admins": service_admins,
-            "total_services": total_services,
-            "services_with_admins": services_with_admins,
-            "services_without_admins": total_services - services_with_admins
-        }
-        
-    except SQLAlchemyError as e:
-        logger.error(f"Ошибка базы данных при получении статистики: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ошибка получения статистики")
+        services = admin_manager.get_services()
+        # Обеспечиваем совместимость с фронтендом
+        return {"services": services} if isinstance(services, list) else services
     except Exception as e:
-        logger.error(f"Неожиданная ошибка при получении статистики: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Внутренняя ошибка сервера")
+        logger.error(f"Error getting services: {str(e)}")
+        raise HTTPException(status_code=500, detail="Ошибка получения списка сервисов")

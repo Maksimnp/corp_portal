@@ -15,7 +15,7 @@ import ServerStats from './pages/ServerStats/ServerStats';
 import FAQ from './pages/FAQ/faq';
 import EmployeeTrackerApp from './pages/EmplStat/EmployeeTrackerApp';
 import Software from './pages/Software/software';
-import RemoteDesktop from './pages/RemoteDesktop/RemoteDesktop'; // Добавлен импорт
+import RemoteDesktop from './pages/RemoteDesktop/RemoteDesktop'; 
 import { useTheme } from './hooks/ThemeContext';
 import { ConfigProvider, theme as antdTheme } from 'antd';
 import ResetPasswordPage from './pages/ResetPasswordPage/ResetPasswordPage';

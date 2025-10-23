@@ -42,7 +42,7 @@ const Login: React.FC = () => {
       if (response.ok) {
         const { access_token, role, full_name = username } = (await response.json()) as LoginResponse;;
         login(access_token, String(role));
-        localStorage.setItem('token', access_token);
+        localStorage.setItem('access_token', access_token);
         localStorage.setItem('role', String(role));
         localStorage.setItem('username', full_name);
         navigate('/dashboard');

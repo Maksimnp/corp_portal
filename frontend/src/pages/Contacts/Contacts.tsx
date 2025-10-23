@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTheme } from '../../hooks/ThemeContext';
-import { Moon, Sun, Printer, MagnifyingGlass, ArrowLeft } from 'phosphor-react';
+import { Moon, Sun, MagnifyingGlass, ArrowLeft, Cards, Table } from 'phosphor-react';
 
 // Интерфейс контакта
 export interface Contact {
@@ -74,6 +74,251 @@ const getInitials = (contact: Contact): string => {
   return '?';
 };
 
+// Компонент для отображения контакта в виде карточки
+const ContactCard = ({ contact, theme }: { contact: Contact, theme: string }) => {
+  const hasPhone = contact.phone_internal || contact.phone_city || contact.phone_mobile;
+  const hasEmail = contact.email;
+  const hasPosition = contact.position;
+  const hasDepartment = contact.department;
+  const hasLogin = contact.sam_account_name;
+  const hasData = hasPhone || hasEmail || hasPosition || hasDepartment || hasLogin;
+
+  return (
+    <div
+      key={contact.id}
+      className={`relative rounded-2xl backdrop-blur-md border-2 shadow-2xl hover:shadow-2xl transition-all duration-500 overflow-hidden hover:scale-105 ${
+        theme === 'dark' 
+          ? 'bg-gray-900/30 border-gray-600/50 hover:border-blue-400/50' 
+          : 'bg-white/30 border-white/50 hover:border-blue-400/50'
+      }`}
+      style={{
+        border: '3px solid',
+        borderColor: theme === 'dark' ? 'rgba(0, 44, 100, 5)' : 'rgba(255, 255, 255, 0.5)'
+      }}
+    >
+      {/* Gradient Border Effect */}
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
+      
+      <div className="relative p-5 z-10">
+        {/* Заголовок карточки */}
+        <div className="flex items-center gap-4 mb-4">
+          <div
+            className={`rounded-full w-14 h-14 flex items-center justify-center text-xl font-bold shadow-lg ${
+              theme === 'dark' 
+                ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white' 
+                : 'bg-gradient-to-br from-blue-400 to-purple-400 text-white'
+            }`}
+          >
+            {getInitials(contact)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3
+              className={`text-xl font-bold break-words ${
+                theme === 'dark' ? 'text-white' : 'text-gray-900'
+              }`}
+            >
+              {contact.displayName || 'Не указано'}
+            </h3>
+            {contact.position && (
+              <p className={`text-sm ${
+                theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+              }`}>
+                {contact.position}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Если нет данных */}
+        {!hasData && (
+          <div className={`mt-4 p-3 rounded-xl text-center backdrop-blur-md ${
+            theme === 'dark' ? 'bg-gray-800/50 text-gray-400' : 'bg-white/50 text-gray-500'
+          }`}>
+            <p>Нет контактных данных</p>
+          </div>
+        )}
+
+        {/* Контактные телефоны */}
+        {hasPhone && (
+          <div className="mt-4">
+            <h4 className={`text-xs uppercase tracking-wider mb-3 ${
+              theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
+            }`}>
+              Телефоны
+            </h4>
+            <div className="space-y-3">
+              {contact.phone_internal && (
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-xl backdrop-blur-md ${
+                    theme === 'dark' ? 'bg-gray-800/50' : 'bg-white/50'
+                  }`}>
+                    <PhoneIcon className={`w-4 h-4 ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
+                  </div>
+                  <div>
+                    <p className={`text-xs ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      Внутренний
+                    </p>
+                    <p className={`font-bold font-medium ${
+                      theme === 'dark' ? 'text-white' : 'text-gray-900'
+                    }`}>
+                      {contact.phone_internal}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {contact.phone_city && (
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-xl backdrop-blur-md ${
+                    theme === 'dark' ? 'bg-gray-800/50' : 'bg-white/50'
+                  }`}>
+                    <PhoneIcon className={`w-4 h-4 ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
+                  </div>
+                  <div>
+                    <p className={`text-xs ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      Городской
+                    </p>
+                    <p className={`font-bold font-medium ${
+                      theme === 'dark' ? 'text-white' : 'text-gray-900'
+                    }`}>
+                      {contact.phone_city}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {contact.phone_mobile && (
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-xl backdrop-blur-md ${
+                    theme === 'dark' ? 'bg-gray-800/50' : 'bg-white/50'
+                  }`}>
+                    <PhoneIcon className={`w-4 h-4 ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
+                  </div>
+                  <div>
+                    <p className={`text-xs ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      Мобильный
+                    </p>
+                    <p className={`font-bold font-medium ${
+                      theme === 'dark' ? 'text-white' : 'text-gray-900'
+                    }`}>
+                      {contact.phone_mobile}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Электронная почта */}
+        {contact.email && (
+          <div className="mt-4">
+            <h4 className={`text-xs uppercase tracking-wider mb-3 ${
+              theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
+            }`}>
+              Email
+            </h4>
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-xl backdrop-blur-md ${
+                theme === 'dark' ? 'bg-gray-800/50' : 'bg-white/50'
+              }`}>
+                <EmailIcon className={`w-4 h-4 ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
+              </div>
+              <a
+                href={`mailto:${contact.email}`}
+                className={`break-all hover:underline transition-colors duration-200 ${
+                  theme === 'dark' ? 'text-blue-300 hover:text-blue-200' : 'text-blue-600 hover:text-blue-500'
+                }`}
+              >
+                {contact.email}
+              </a>
+            </div>
+          </div>
+        )}
+
+        {/* Дополнительная информация */}
+        {(hasPosition || hasDepartment || hasLogin) && (
+          <div className="mt-4">
+            <h4 className={`text-xs uppercase tracking-wider mb-3 ${
+              theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
+            }`}>
+              Отдел
+            </h4>
+            <div className={`p-3 rounded-xl backdrop-blur-md ${
+              theme === 'dark' ? 'bg-gray-800/50' : 'bg-white/50'
+            }`}>
+              <div className="space-y-2">
+                {contact.department && (
+                  <div className="flex items-start gap-2">
+                    <BuildingIcon className={`w-4 h-4 ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
+                    <span className={`text-sm ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                      {contact.department}
+                    </span>
+                  </div>
+                )}
+                {contact.sam_account_name && (
+                  <div className="flex items-start gap-2">
+                    <UserIcon className={`w-4 h-4 ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
+                    <span className={`text-sm ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                      {contact.sam_account_name}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Компонент для отображения контакта в виде строки таблицы
+const ContactTableRow = ({ contact, theme }: { contact: Contact, theme: string }) => {
+  return (
+    <tr className={`border-b ${
+      theme === 'dark' 
+        ? 'border-gray-700 hover:bg-gray-800/50' 
+        : 'border-gray-200 hover:bg-gray-50/50'
+    } transition-colors`}>
+      <td className={`py-3 px-4 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+        {contact.displayName || 'Не указано'}
+      </td>
+      <td className={`py-3 px-4 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+        {contact.position || '-'}
+      </td>
+      <td className={`py-3 px-4 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+        {contact.department || '-'}
+      </td>
+      <td className={`py-3 px-4 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+        {contact.phone_internal || '-'}
+      </td>
+      <td className={`py-3 px-4 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+        {contact.phone_city || '-'}
+      </td>
+      <td className={`py-3 px-4 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+        {contact.phone_mobile || '-'}
+      </td>
+      <td className={`py-3 px-4 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+        {contact.email ? (
+          <a 
+            href={`mailto:${contact.email}`}
+            className={`hover:underline ${
+              theme === 'dark' ? 'text-blue-300 hover:text-blue-200' : 'text-blue-600 hover:text-blue-500'
+            }`}
+          >
+            {contact.email}
+          </a>
+        ) : '-'}
+      </td>
+    </tr>
+  );
+};
+
 export default function ContactsPage() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -83,8 +328,17 @@ export default function ContactsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLimited, setIsLimited] = useState(false);
-  const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large' | 'xlarge'>('medium');
-  const [isPrintMode, setIsPrintMode] = useState(false);
+  
+  // Загрузка сохраненных настроек из localStorage
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>(() => {
+    const savedViewMode = localStorage.getItem('contactsViewMode');
+    return (savedViewMode as 'cards' | 'table') || 'cards';
+  });
+  
+  const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large' | 'xlarge'>(() => {
+    const savedFontSize = localStorage.getItem('contactsFontSize');
+    return (savedFontSize as 'small' | 'medium' | 'large' | 'xlarge') || 'medium';
+  });
 
   // Размеры шрифтов
   const fontSizeClasses = {
@@ -96,14 +350,17 @@ export default function ContactsPage() {
 
   // Учётные записи, которые нужно скрыть
   const HIDDEN_USERS = [
-    'service_reader',
-    'test.user',
-    'temp.user',
+    'ServiceReader',
+    'asu',
+    'test',
     'jibri',
     'jigasi',
     'focus',
     'admin.test',
-    'backup.user'
+    'backup.user',
+    'gbsuser',
+    'hz2_test',
+    'jira'
   ];
 
   const HIDDEN_EMAILS = [
@@ -124,6 +381,47 @@ export default function ContactsPage() {
     'mhp@minskhleb.by',
     'a.lutorevich@minskhleb.by'
   ];
+
+  // Функция для фильтрации контактов
+  const filterContacts = (contactsToFilter: Contact[]): Contact[] => {
+    return contactsToFilter.filter(contact => {
+      // Проверяем логин пользователя
+      const userLogin = contact.sam_account_name?.toLowerCase().trim();
+      const isHiddenByLogin = HIDDEN_USERS.some(hiddenUser => 
+        userLogin === hiddenUser.toLowerCase().trim()
+      );
+
+      // Проверяем email пользователя
+      const userEmail = contact.email?.toLowerCase().trim();
+      const isHiddenByEmail = HIDDEN_EMAILS.some(hiddenEmail => 
+        userEmail === hiddenEmail.toLowerCase().trim()
+      );
+
+      // Проверяем имя пользователя
+      const userName = contact.displayName?.toLowerCase().trim();
+      const isHiddenByName = HIDDEN_USERS.some(hiddenUser => 
+        userName?.includes(hiddenUser.toLowerCase().trim())
+      );
+
+      // Пропускаем контакт если он должен быть скрыт по любому из критериев
+      if (isHiddenByLogin || isHiddenByEmail || isHiddenByName) {
+        console.log('Скрыт контакт:', {
+          name: contact.displayName,
+          login: contact.sam_account_name,
+          email: contact.email,
+          reason: isHiddenByLogin ? 'логин' : isHiddenByEmail ? 'email' : 'имя'
+        });
+        return false;
+      }
+
+      // Также пропускаем контакты без имени
+      if (!contact.displayName || !contact.displayName.trim()) {
+        return false;
+      }
+
+      return true;
+    });
+  };
 
   // Функция сортировки контактов
   const sortContacts = (contactsToSort: Contact[]): Contact[] => {
@@ -166,6 +464,7 @@ export default function ContactsPage() {
   const fetchAllContacts = async () => {
     setError(null);
     setIsLimited(false);
+    setLoading(true);
 
     try {
       const token = localStorage.getItem('token');
@@ -210,14 +509,10 @@ export default function ContactsPage() {
 
       const data: Contact[] = await response.json();
 
+      console.log('Получено контактов с сервера:', data.length);
+      
       // Фильтрация и форматирование контактов
-      const filteredData = data
-        .filter(contact => {
-          const isHiddenByLogin = HIDDEN_USERS.includes(contact.sam_account_name || '');
-          const isHiddenByEmail = HIDDEN_EMAILS.includes(contact.email || '');
-          return !isHiddenByLogin && !isHiddenByEmail;
-        })
-        .filter(contact => contact.displayName && contact.displayName.trim())
+      const filteredData = filterContacts(data)
         .map(contact => ({
           ...contact,
           phone_mobile: formatPhoneNumber(contact.phone_mobile),
@@ -225,7 +520,10 @@ export default function ContactsPage() {
           phone_city: formatPhoneNumber(contact.phone_city)
         }));
 
-      setContacts(sortContacts(filteredData));
+      console.log('После фильтрации осталось:', filteredData.length);
+      
+      const sortedData = sortContacts(filteredData);
+      setContacts(sortedData);
 
       if (data.length === 100) {
         setIsLimited(true);
@@ -246,10 +544,13 @@ export default function ContactsPage() {
   // Поиск контактов
   const handleSearch = async (searchQuery: string) => {
     if (searchQuery.length < 2) {
+      fetchAllContacts();
       return;
     }
     
     setIsLimited(false);
+    setLoading(true);
+    
     try {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Токен аутентификации не найден.');
@@ -292,13 +593,9 @@ export default function ContactsPage() {
 
       const data: Contact[] = await response.json();
 
-      const filteredData = data
-        .filter(contact => {
-          const isHiddenByLogin = HIDDEN_USERS.includes(contact.sam_account_name || '');
-          const isHiddenByEmail = HIDDEN_EMAILS.includes(contact.email || '');
-          return !isHiddenByLogin && !isHiddenByEmail;
-        })
-        .filter(contact => contact.displayName && contact.displayName.trim())
+      console.log('Найдено контактов по поиску:', data.length);
+
+      const filteredData = filterContacts(data)
         .map(contact => ({
           ...contact,
           phone_mobile: formatPhoneNumber(contact.phone_mobile),
@@ -306,7 +603,10 @@ export default function ContactsPage() {
           phone_city: formatPhoneNumber(contact.phone_city)
         }));
 
-      setContacts(sortContacts(filteredData));
+      console.log('После фильтрации поиска осталось:', filteredData.length);
+
+      const sortedData = sortContacts(filteredData);
+      setContacts(sortedData);
 
       if (data.length === 50) {
         setIsLimited(true);
@@ -320,13 +620,22 @@ export default function ContactsPage() {
     }
   };
 
-  // Печать страницы
-  const handlePrint = () => {
-    setIsPrintMode(true);
-    setTimeout(() => {
-      window.print();
-      setIsPrintMode(false);
-    }, 100);
+  // Сохранение настроек в localStorage при изменении
+  useEffect(() => {
+    localStorage.setItem('contactsViewMode', viewMode);
+  }, [viewMode]);
+
+  useEffect(() => {
+    localStorage.setItem('contactsFontSize', fontSize);
+  }, [fontSize]);
+
+  // Обработчики для изменения настроек
+  const handleViewModeChange = (mode: 'cards' | 'table') => {
+    setViewMode(mode);
+  };
+
+  const handleFontSizeChange = (size: 'small' | 'medium' | 'large' | 'xlarge') => {
+    setFontSize(size);
   };
 
   useEffect(() => {
@@ -340,101 +649,31 @@ export default function ContactsPage() {
   }, [searchParams]);
   
   useEffect(() => {
-    const timeoutId = setTimeout(() => handleSearch(query), 300);
+    const timeoutId = setTimeout(() => {
+      if (query.length >= 2) {
+        handleSearch(query);
+      }
+    }, 300);
     return () => clearTimeout(timeoutId);
   }, [query]);
 
   return (
     <>
-      <style>
-        {`
-          @media print {
-            body {
-              margin: 1cm;
-              font-family: Arial, sans-serif;
-              font-size: 10pt;
-              color: #000;
-              background: #fff;
-            }
-            .no-print {
-              display: none !important;
-            }
-            .contact-card {
-              page-break-inside: avoid;
-              border: 1px solid #000;
-              margin-bottom: 0.5cm;
-              padding: 0.5cm;
-              background: #fff;
-              box-shadow: none;
-            }
-            .contact-grid {
-              display: block;
-              column-count: 2;
-              column-gap: 0.5cm;
-              break-inside: avoid;
-            }
-            .contact-header {
-              font-size: 12pt;
-              font-weight: bold;
-              margin-bottom: 0.3cm;
-            }
-            .contact-section-title {
-              font-size: 10pt;
-              font-weight: bold;
-              text-transform: uppercase;
-              margin-top: 0.3cm;
-              margin-bottom: 0.2cm;
-            }
-            .contact-info {
-              font-size: 10pt;
-              margin-bottom: 0.2cm;
-            }
-            .contact-icon {
-              display: inline-block;
-              width: 12pt;
-              height: 12pt;
-              vertical-align: middle;
-              margin-right: 0.2cm;
-            }
-            .initials-circle {
-              display: none;
-            }
-            a[href^="mailto:"] {
-              text-decoration: none;
-              color: #000;
-            }
-            .break-words {
-              word-break: break-all;
-            }
-          }
-        `}
-      </style>
-      
       {/* Glassmorphism Background */}
-      <div className={`min-h-screen p-4 md:p-6 transition-colors duration-200 ${
-        theme === 'dark' 
-          ? 'bg-gradient-to-br from-gray-900 via-black-900 to-blue-900' 
-          : 'bg-gradient-to-br from-blue-50 via-purple-50 to-cyan-50'
-      } ${fontSizeClasses[fontSize]} relative`}>
+      <div className={`min-h-screen transition-colors duration-500 ${
+        theme === 'dark'
+          ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white'
+          : 'bg-gradient-to-br from-gray-50 via-blue-50 to-gray-50 text-gray-800'
+      } py-6 px-4 relative overflow-hidden ${fontSizeClasses[fontSize]}`}>
         
-        {/* Animated Background Elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className={`absolute -top-40 -right-32 w-80 h-80 rounded-full blur-3xl opacity-20 ${
-            theme === 'dark' ? 'bg-blue-500' : 'bg-blue-300'
-          } animate-pulse`}></div>
-          <div className={`absolute -bottom-40 -left-32 w-80 h-80 rounded-full blur-3xl opacity-20 ${
-            theme === 'dark' ? 'bg-purple-500' : 'bg-purple-300'
-          } animate-pulse delay-1000`}></div>
-        </div>
-
-        <div className={`max-w-7xl mx-auto relative z-10 ${isPrintMode ? 'print:max-w-none' : ''}`}>
+        <div className="max-w-7xl mx-auto relative z-10">
           
           {/* Glassmorphism Header */}
           <div className={`backdrop-blur-xl rounded-2xl p-6 mb-6 border ${
             theme === 'dark' 
               ? 'bg-gray-900/30 border-gray-700/50 text-white' 
               : 'bg-white/30 border-white/50 text-gray-800'
-          } shadow-2xl no-print`}>
+          } shadow-2xl`}>
             <div className="flex flex-wrap items-center justify-between gap-4">
               <Link
                 to="/dashboard"
@@ -448,6 +687,36 @@ export default function ContactsPage() {
               </h1>
 
               <div className="flex items-center gap-3">
+                {/* Переключатель режима просмотра */}
+                <div className={`flex rounded-xl p-1 backdrop-blur-md border ${
+                  theme === 'dark'
+                    ? 'bg-gray-800/50 border-gray-600/50'
+                    : 'bg-white/50 border-white/70'
+                }`}>
+                  <button
+                    onClick={() => handleViewModeChange('cards')}
+                    className={`p-2 rounded-lg transition-colors ${
+                      viewMode === 'cards'
+                        ? theme === 'dark' ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'
+                        : theme === 'dark' ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                    title="Карточки"
+                  >
+                    <Cards size={20} />
+                  </button>
+                  <button
+                    onClick={() => handleViewModeChange('table')}
+                    className={`p-2 rounded-lg transition-colors ${
+                      viewMode === 'table'
+                        ? theme === 'dark' ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'
+                        : theme === 'dark' ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                    title="Таблица"
+                  >
+                    <Table size={20} />
+                  </button>
+                </div>
+
                 <button
                   onClick={toggleTheme}
                   className={`w-12 h-12 rounded-2xl backdrop-blur-md border transition-all duration-300 flex items-center justify-center ${
@@ -462,7 +731,7 @@ export default function ContactsPage() {
 
                 <select
                   value={fontSize}
-                  onChange={(e) => setFontSize(e.target.value as 'small' | 'medium' | 'large' | 'xlarge')}
+                  onChange={(e) => handleFontSizeChange(e.target.value as 'small' | 'medium' | 'large' | 'xlarge')}
                   className={`p-2 rounded-xl backdrop-blur-md border transition-all duration-300 ${
                     theme === 'dark'
                       ? 'bg-gray-800/50 border-gray-600/50 text-gray-200'
@@ -474,24 +743,12 @@ export default function ContactsPage() {
                   <option value="large">Крупный</option>
                   <option value="xlarge">Очень крупный</option>
                 </select>
-
-                <button
-                  onClick={handlePrint}
-                  className={`px-4 py-2 rounded-xl backdrop-blur-md border transition-all duration-300 flex items-center gap-2 ${
-                    theme === 'dark'
-                      ? 'bg-blue-600/50 border-blue-500/50 text-white hover:bg-blue-500/50'
-                      : 'bg-blue-500/50 border-blue-400/50 text-white hover:bg-blue-400/50'
-                  }`}
-                >
-                  <Printer size={20} />
-                  Печать
-                </button>
               </div>
             </div>
           </div>
 
           {/* Glassmorphism Search */}
-          <div className={`relative mb-6 no-print`}>
+          <div className="relative mb-6">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <MagnifyingGlass 
                 size={20} 
@@ -516,7 +773,7 @@ export default function ContactsPage() {
 
           {/* Состояние загрузки */}
           {loading && (
-            <div className="flex justify-center items-center py-12 no-print">
+            <div className="flex justify-center items-center py-12">
               <div
                 className={`animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 ${
                   theme === 'dark' ? 'border-blue-400' : 'border-blue-500'
@@ -528,7 +785,7 @@ export default function ContactsPage() {
           {/* Ошибки */}
           {error && (
             <div
-              className={`p-4 mb-6 rounded-2xl backdrop-blur-md border-l-4 no-print ${
+              className={`p-4 mb-6 rounded-2xl backdrop-blur-md border-l-4 ${
                 theme === 'dark' 
                   ? 'bg-red-900/30 border-red-500 text-red-300' 
                   : 'bg-red-50/30 border-red-500 text-red-800'
@@ -549,7 +806,7 @@ export default function ContactsPage() {
           {/* Предупреждение о лимите */}
           {isLimited && !error && !loading && (
             <div
-              className={`p-4 mb-6 rounded-2xl backdrop-blur-md border-l-4 no-print ${
+              className={`p-4 mb-6 rounded-2xl backdrop-blur-md border-l-4 ${
                 theme === 'dark' 
                   ? 'bg-blue-900/30 border-blue-500 text-blue-300' 
                   : 'bg-blue-50/30 border-blue-400 text-blue-800'
@@ -567,218 +824,88 @@ export default function ContactsPage() {
             </div>
           )}
 
-          {/* Glassmorphism Contact Cards */}
-          {!loading && !error && contacts.length > 0 && (
-            <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 contact-grid ${
-              isPrintMode ? 'print:grid-cols-3 print:gap-4' : ''
+          {/* Отображение контактов в виде карточек */}
+          {!loading && !error && contacts.length > 0 && viewMode === 'cards' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {contacts.map((contact) => (
+                <ContactCard 
+                  key={contact.id} 
+                  contact={contact} 
+                  theme={theme} 
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Отображение контактов в виде таблицы */}
+          {!loading && !error && contacts.length > 0 && viewMode === 'table' && (
+            <div className={`rounded-2xl backdrop-blur-md border shadow-2xl overflow-hidden ${
+              theme === 'dark' 
+                ? 'bg-gray-900/30 border-gray-600/50' 
+                : 'bg-white/30 border-white/50'
             }`}>
-              {contacts.map((contact) => {
-                const hasPhone = contact.phone_internal || contact.phone_city || contact.phone_mobile;
-                const hasEmail = contact.email;
-                const hasPosition = contact.position;
-                const hasDepartment = contact.department;
-                const hasLogin = contact.sam_account_name;
-                const hasData = hasPhone || hasEmail || hasPosition || hasDepartment || hasLogin;
-
-                return (
-                  <div
-  key={contact.id}
-  className={`relative rounded-2xl backdrop-blur-md border-2 shadow-2xl hover:shadow-2xl transition-all duration-500 overflow-hidden hover:scale-105 contact-card ${
-    theme === 'dark' 
-      ? 'bg-gray-900/30 border-gray-600/50 hover:border-blue-400/50' 
-      : 'bg-white/30 border-white/50 hover:border-blue-400/50'
-  } ${isPrintMode ? 'print:shadow-none print:border print:p-2' : ''}`}
-  style={{
-    border: '3px solid',  // Тута размер рамки
-    borderColor: theme === 'dark' ? 'rgba(0, 44, 100, 5)' : 'rgba(255, 255, 255, 0.5)' // Тута цвет рамки
-  }}
->
-                    {/* Gradient Border Effect */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
-                    
-                    <div className="relative p-5 print:p-3 z-10">
-                      {/* Заголовок карточки */}
-                      <div className="flex items-center gap-4 mb-4">
-                        <div
-                          className={`rounded-full w-14 h-14 flex items-center justify-center text-xl font-bold shadow-lg ${
-                            theme === 'dark' 
-                              ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white' 
-                              : 'bg-gradient-to-br from-blue-400 to-purple-400 text-white'
-                          }`}
-                        >
-                          {getInitials(contact)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3
-                            className={`text-xl font-bold break-words contact-header ${
-                              theme === 'dark' ? 'text-white' : 'text-gray-900'
-                            }`}
-                          >
-                            {contact.displayName || 'Не указано'}
-                          </h3>
-                          {contact.position && (
-                            <p className={`text-sm contact-info ${
-                              theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
-                            }`}>
-                              {contact.position}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Если нет данных */}
-                      {!hasData && (
-                        <div className={`mt-4 p-3 rounded-xl text-center contact-info backdrop-blur-md ${
-                          theme === 'dark' ? 'bg-gray-800/50 text-gray-400' : 'bg-white/50 text-gray-500'
-                        }`}>
-                          <p>Нет контактных данных</p>
-                        </div>
-                      )}
-
-                      {/* Контактные телефоны */}
-                      {hasPhone && (
-                        <div className="mt-4">
-                          <h4 className={`text-xs uppercase tracking-wider mb-3 contact-section-title ${
-                            theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
-                          }`}>
-                            Телефоны
-                          </h4>
-                          <div className="space-y-3">
-                            {contact.phone_internal && (
-                              <div className="flex items-center gap-3 contact-info">
-                                <div className={`p-2 rounded-xl backdrop-blur-md ${
-                                  theme === 'dark' ? 'bg-gray-800/50' : 'bg-white/50'
-                                }`}>
-                                  <PhoneIcon className={`contact-icon ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
-                                </div>
-                                <div>
-                                  <p className={`text-xs ${
-                                    theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-                                  }`}>
-                                    Внутренний
-                                  </p>
-                                  <p className={`font-bold font-medium ${
-                                    theme === 'dark' ? 'text-white' : 'text-gray-900'
-                                  }`}>
-                                    {contact.phone_internal}
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-                            {contact.phone_city && (
-                              <div className="flex items-center gap-3 contact-info">
-                                <div className={`p-2 rounded-xl backdrop-blur-md ${
-                                  theme === 'dark' ? 'bg-gray-800/50' : 'bg-white/50'
-                                }`}>
-                                  <PhoneIcon className={`contact-icon ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
-                                </div>
-                                <div>
-                                  <p className={`text-xs ${
-                                    theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-                                  }`}>
-                                    Городской
-                                  </p>
-                                  <p className={`font-bold font-medium ${
-                                    theme === 'dark' ? 'text-white' : 'text-gray-900'
-                                  }`}>
-                                    {contact.phone_city}
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-                            {contact.phone_mobile && (
-                              <div className="flex items-center gap-3 contact-info">
-                                <div className={`p-2 rounded-xl backdrop-blur-md ${
-                                  theme === 'dark' ? 'bg-gray-800/50' : 'bg-white/50'
-                                }`}>
-                                  <PhoneIcon className={`contact-icon ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
-                                </div>
-                                <div>
-                                  <p className={`text-xs ${
-                                    theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-                                  }`}>
-                                    Мобильный
-                                  </p>
-                                  <p className={`font-bold font-medium ${
-                                    theme === 'dark' ? 'text-white' : 'text-gray-900'
-                                  }`}>
-                                    {contact.phone_mobile}
-                                  </p>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Электронная почта */}
-                      {contact.email && (
-                        <div className="mt-4">
-                          <h4 className={`text-xs uppercase tracking-wider mb-3 contact-section-title ${
-                            theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
-                          }`}>
-                            Email
-                          </h4>
-                          <div className="flex items-center gap-3 contact-info">
-                            <div className={`p-2 rounded-xl backdrop-blur-md ${
-                              theme === 'dark' ? 'bg--800/50' : 'bg-white/50'
-                            }`}>
-                              <EmailIcon className={`contact-icon ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
-                            </div>
-                            <a
-                              href={`mailto:${contact.email}`}
-                              className={`break-all hover:underline transition-colors duration-200 ${
-                                theme === 'dark' ? 'text-blue-300 hover:text-blue-200' : 'text-blue-600 hover:text-blue-500'
-                              }`}
-                            >
-                              {contact.email}
-                            </a>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Дополнительная информация */}
-{(hasPosition || hasDepartment || hasLogin) && (
-  <div className="mt-4">
-    <h4 className={`text-xs uppercase tracking-wider mb-3 contact-section-title ${
-      theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
-    }`}>
-      Отдел
-    </h4>
-    <div className={`p-3 rounded-xl backdrop-blur-md ${
-      theme === 'dark' ? 'bg-gray-800/50' : 'bg-white/50'
-    }`}>
-      <div className="space-y-2">
-        {contact.department && (
-          <div className="flex items-start gap-2 contact-info">
-            <BuildingIcon className={`contact-icon ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
-            <span className={`text-sm ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-              {contact.department}
-            </span>
-          </div>
-        )}
-        {contact.sam_account_name && (
-          <div className="flex items-start gap-2 contact-info">
-            <UserIcon className={`contact-icon ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`} />
-            <span className={`text-sm ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-              {contact.sam_account_name}
-            </span>
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-)}
-</div>
-</div>
-);
-})}
-</div>
-)}
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className={`${
+                      theme === 'dark' 
+                        ? 'bg-gray-800/50 border-b border-gray-700' 
+                        : 'bg-white/50 border-b border-gray-200'
+                    }`}>
+                      <th className={`py-3 px-4 text-left font-semibold ${
+                        theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
+                      }`}>
+                        ФИО
+                      </th>
+                      <th className={`py-3 px-4 text-left font-semibold ${
+                        theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
+                      }`}>
+                        Должность
+                      </th>
+                      <th className={`py-3 px-4 text-left font-semibold ${
+                        theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
+                      }`}>
+                        Отдел
+                      </th>
+                      <th className={`py-3 px-4 text-left font-semibold ${
+                        theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
+                      }`}>
+                        Внутренний
+                      </th>
+                      <th className={`py-3 px-4 text-left font-semibold ${
+                        theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
+                      }`}>
+                        Городской
+                      </th>
+                      <th className={`py-3 px-4 text-left font-semibold ${
+                        theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
+                      }`}>
+                        Мобильный
+                      </th>
+                      <th className={`py-3 px-4 text-left font-semibold ${
+                        theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
+                      }`}>
+                        Email
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {contacts.map((contact) => (
+                      <ContactTableRow 
+                        key={contact.id} 
+                        contact={contact} 
+                        theme={theme} 
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Пустой результат */}
           {!loading && !error && contacts.length === 0 && (
-            <div className={`text-center py-12 no-print rounded-2xl backdrop-blur-md border ${
+            <div className={`text-center py-12 rounded-2xl backdrop-blur-md border ${
               theme === 'dark' 
                 ? 'bg-gray-900/30 border-gray-600/50' 
                 : 'bg-white/30 border-white/50'

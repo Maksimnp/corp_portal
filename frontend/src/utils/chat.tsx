@@ -124,6 +124,7 @@ export const getFileIcon = (fileName: string | undefined, size: number) => {
   const iconPath = `${API_BASE}/static/icons/${FILE_ICONS[extension]}`;
   return (
     <img
+      loading="lazy"
       src={iconPath}
       alt={`${extension} file`}
       className="rounded-lg max-h-12 object-contain"
@@ -131,7 +132,10 @@ export const getFileIcon = (fileName: string | undefined, size: number) => {
   );
 };
 
-export const messageIsPhoto = (msg: Message): boolean => {
+export const messageIsPhoto = (msg: Message | null): boolean => {
+  if (!msg) {
+    return false;
+  }
   const url = msg.file_url;
   if (!url) return false;
 
@@ -142,4 +146,14 @@ export const messageIsPhoto = (msg: Message): boolean => {
     }
   }
   return false;
+};
+
+export const resolveFileUrl = (fileUrl: string | undefined): string => {
+  if (!fileUrl) return '';
+  try {
+    new URL(fileUrl);
+    return fileUrl;
+  } catch {
+    return `${API_BASE}${fileUrl}`;
+  }
 };

@@ -25,8 +25,28 @@ import {
   ExclamationTriangleIcon,
   XMarkIcon,
   PaperAirplaneIcon,
+  CameraIcon,
+  EnvelopeIcon,
+  BuildingOfficeIcon,
+  PhoneArrowUpRightIcon,
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../../hooks/ThemeContext';
+import { SupportModal } from '../../components/SupportModal';
+
+// Функция для получения приветствия в зависимости от времени суток
+const getGreeting = (): string => {
+  const currentHour = new Date().getHours();
+  
+  if (currentHour >= 5 && currentHour < 12) {
+    return 'Доброе утро';
+  } else if (currentHour >= 12 && currentHour < 18) {
+    return 'Добрый день';
+  } else if (currentHour >= 18 && currentHour < 23) {
+    return 'Добрый вечер';
+  } else {
+    return 'Доброй ночи';
+  }
+};
 
 // Сервисы
 const services = [
@@ -48,182 +68,144 @@ const services = [
 const JITSI_URL = import.meta.env.VITE_API_JITSI_URL;
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-// Компонент модального окна поддержки
-const SupportModal: React.FC<{
+// Интерфейс для данных пользователя из AD
+interface UserProfile {
+  id: string;
+  username: string;
+  full_name: string;
+  email: string;
+  role: string;
+  department?: string;
+  position?: string;
+  phone?: string;
+  avatar?: string;
+  lastLogin?: string;
+  createdAt?: string;
+  distinguishedName?: string;
+  manager?: string;
+  office?: string;
+  title?: string;
+  company?: string;
+}
+
+// Интерфейс для уведомлений
+interface Notification {
+  id: string;
+  title: string;
+  description: string;
+  type: 'info' | 'warning' | 'error' | 'message' | 'request';
+  date: string;
+  isRead: boolean;
+  source?: 'chat' | 'requests';
+  link?: string;
+}
+
+// Компонент модального окна профиля
+const ProfileModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
   theme: string;
-}> = ({ isOpen, onClose, theme }) => {
-  const [message, setMessage] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [userInfo, setUserInfo] = useState<any>(null);
-  const [isLoadingUserInfo, setIsLoadingUserInfo] = useState(false);
+  userProfile: UserProfile;
+  onAvatarUpdate: (newAvatarUrl: string) => void;
+}> = ({ isOpen, onClose, theme, userProfile, onAvatarUpdate }) => {
+  const [isEditingAvatar, setIsEditingAvatar] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Получаем базовые данные из localStorage
-  const fullName = localStorage.getItem('username') || 'Неизвестный пользователь';
-  const userId = localStorage.getItem('userId') || 'unknown';
-  const role = localStorage.getItem('role') || 'user';
-  const token = localStorage.getItem('token') || '';
-
-  // Функция для получения расширенной информации о пользователе из AD
-  const fetchUserDetails = async () => {
-    if (!token) return;
-    
-    setIsLoadingUserInfo(true);
-    try {
-      const response = await fetch(`${BASE_URL}/auth/user-details`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        setUserInfo(userData);
-      } else {
-        console.warn('Не удалось получить расширенную информацию о пользователе');
-        // Используем базовые данные из localStorage
-        setUserInfo({
-          full_name: fullName,
-          role: role,
-          is_admin: role === 'admin'
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching user details:', error);
-      // Используем базовые данные при ошибке
-      setUserInfo({
-        full_name: fullName,
-        role: role,
-        is_admin: role === 'admin'
-      });
-    } finally {
-      setIsLoadingUserInfo(false);
-    }
-  };
-
+  // Сброс состояния при закрытии
   useEffect(() => {
-    if (isOpen && token) {
-      fetchUserDetails();
+    if (!isOpen) {
+      setIsEditingAvatar(false);
+      setAvatarFile(null);
+      setAvatarPreview(null);
     }
-  }, [isOpen, token]);
+  }, [isOpen]);
 
- const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  if (!message.trim()) {
-    return;
-  }
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
 
-  setIsSubmitting(true);
-  setSubmitStatus('idle');
-
-  try {
-    // Упрощенная структура данных для избежания ошибок валидации
-    const supportData = {
-      user_info: {
-        user_id: userId,
-        user_name: fullName,
-        user_role: role,
-        is_admin: role === 'admin',
-        // Добавляем только основные поля из AD чтобы избежать проблем
-        ...(userInfo && {
-          ad_username: userInfo.username,
-          display_name: userInfo.display_name,
-          job_title: userInfo.job_title,
-          department: userInfo.department,
-          company: userInfo.company,
-          telephone_number: userInfo.telephone_number,
-          mobile_phone: userInfo.mobile,
-          email: userInfo.mail,
-        })
-      },
-      system_info: {
-        browser: navigator.userAgent,
-        platform: navigator.platform,
-        language: navigator.language,
-        screen_resolution: `${window.screen.width}x${window.screen.height}`,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        current_url: window.location.href,
-      },
-      request_info: {
-        message: message.trim(),
-        timestamp: new Date().toISOString(),
-        local_time: new Date().toLocaleString('ru-RU'),
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Проверяем тип файла
+      if (!file.type.startsWith('image/')) {
+        alert('Пожалуйста, выберите файл изображения');
+        return;
       }
-    };
 
-    const response = await fetch(`${BASE_URL}/support/request`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(supportData),
-    });
+      // Проверяем размер файла (максимум 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Размер файла не должен превышать 5MB');
+        return;
+      }
 
-    if (response.ok) {
-      setSubmitStatus('success');
-      setMessage('');
-      setTimeout(() => {
-        onClose();
-        setSubmitStatus('idle');
-      }, 2000);
-    } else {
-      const errorText = await response.text();
-      console.error('Response error:', errorText);
-      throw new Error('Ошибка при отправке запроса');
-    }
-  } catch (error) {
-    console.error('Error sending support request:', error);
-    setSubmitStatus('error');
-  } finally {
-    setIsSubmitting(false);
-  }
-};
-
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose();
+      setAvatarFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setAvatarPreview(previewUrl);
+      setIsEditingAvatar(true);
     }
   };
 
-  // Функция для форматирования телефона
-  const formatPhone = (phone: string) => {
-    if (!phone) return 'Не указан';
-    // Убираем все нецифровые символы
-    const cleaned = phone.replace(/\D/g, '');
-    
-    // Форматирование для белорусских номеров
-    if (cleaned.startsWith('375')) {
-      return cleaned.replace(/(\d{3})(\d{2})(\d{3})(\d{2})(\d{2})/, '+$1 ($2) $3-$4-$5');
+  const handleSaveAvatar = async () => {
+    if (!avatarFile) return;
+
+    setIsUploading(true);
+    try {
+      // Здесь должна быть логика загрузки аватара на сервер
+      // Временная имитация загрузки
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // В реальном приложении здесь будет API call
+      // const formData = new FormData();
+      // formData.append('avatar', avatarFile);
+      // const response = await fetch(`${BASE_URL}/users/avatar`, { method: 'POST', body: formData });
+      // const data = await response.json();
+
+      // Для демонстрации используем preview URL
+      if (avatarPreview) {
+        onAvatarUpdate(avatarPreview);
+        localStorage.setItem('userAvatar', avatarPreview);
+      }
+
+      setIsEditingAvatar(false);
+      setAvatarFile(null);
+    } catch (error) {
+      console.error('Ошибка при загрузке аватара:', error);
+      alert('Ошибка при загрузке аватара');
+    } finally {
+      setIsUploading(false);
     }
-    
-    // Форматирование для коротких внутренних номеров
-    if (cleaned.length <= 4) {
-      return `вн. ${cleaned}`;
-    }
-    
-    return phone;
   };
 
-  // Функция для сокращения длинных значений
-  const truncateLongText = (text: string, maxLength: number = 30) => {
-    if (!text) return '';
-    return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
+  const handleCancelEdit = () => {
+    setIsEditingAvatar(false);
+    setAvatarFile(null);
+    setAvatarPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const formatADField = (value: string | undefined): string => {
+    return value || 'Не указано';
   };
 
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-      onClick={handleOverlayClick}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Overlay */}
       <div 
-        className={`relative w-full max-w-4xl rounded-3xl shadow-2xl border-2 transform transition-all duration-300 ${
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
+        onClick={onClose}
+      />
+      
+      {/* Модальное окно */}
+      <div 
+        className={`relative w-full max-w-4xl rounded-3xl shadow-2xl border-2 transform transition-all duration-300 scale-100 ${
           theme === 'dark'
             ? 'bg-gray-900 border-gray-700'
             : 'bg-white border-gray-200'
@@ -233,263 +215,307 @@ const SupportModal: React.FC<{
         <div className={`flex items-center justify-between p-6 border-b ${
           theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
         }`}>
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-2xl ${
-              theme === 'dark' ? 'bg-cyan-900' : 'bg-cyan-100'
-            }`}>
-              <QuestionMarkCircleIcon className={`h-6 w-6 ${
-                theme === 'dark' ? 'text-cyan-400' : 'text-cyan-600'
-              }`} />
-            </div>
-            <div>
-              <h2 className={`text-xl font-bold ${
-                theme === 'dark' ? 'text-white' : 'text-gray-900'
-              }`}>
-                Служба поддержки
-              </h2>
-              <p className={`text-sm ${
-                theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
-              }`}>
-                Опишите вашу проблему или вопрос
-              </p>
-            </div>
-          </div>
+          <h2 className={`text-2xl font-bold ${
+            theme === 'dark' ? 'text-white' : 'text-gray-900'
+          }`}>
+            Профиль пользователя
+          </h2>
           <button
             onClick={onClose}
             className={`p-2 rounded-xl transition-all duration-200 hover:scale-110 ${
               theme === 'dark'
-                ? 'text-gray-400 hover:text-white hover:bg-gray-800'
+                ? 'text-gray-400 hover:text-white hover:bg-gray-700'
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <XMarkIcon className="h-5 w-5" />
+            <XMarkIcon className="h-6 w-6" />
           </button>
         </div>
 
-        {/* Информация о пользователе */}
-        <div className={`p-4 border-b ${
-          theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
-        }`}>
-          <h3 className={`font-semibold mb-3 ${
-            theme === 'dark' ? 'text-cyan-400' : 'text-cyan-600'
-          }`}>
-            Информация о пользователе
-          </h3>
-          
-          {isLoadingUserInfo ? (
-            <div className="flex items-center justify-center py-4">
-              <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin mr-2" />
-              <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>
-                Загрузка информации из Active Directory...
-              </span>
+        {/* Контент */}
+        <div className="p-6">
+          <div className="flex flex-col md:flex-row gap-6">
+            {/* Аватар */}
+            <div className="flex flex-col items-center space-y-4">
+              <div className="relative group">
+                <div 
+                  className={`w-32 h-32 rounded-3xl border-4 overflow-hidden cursor-pointer transition-all duration-300 group-hover:scale-105 ${
+                    theme === 'dark' ? 'border-cyan-600' : 'border-blue-400'
+                  }`}
+                  onClick={handleAvatarClick}
+                >
+                  {avatarPreview || userProfile.avatar ? (
+                    <img 
+                      src={avatarPreview || userProfile.avatar} 
+                      alt="Аватар" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className={`w-full h-full flex items-center justify-center ${
+                      theme === 'dark' 
+                        ? 'bg-gradient-to-r from-cyan-600 to-indigo-700' 
+                        : 'bg-gradient-to-r from-cyan-500 to-indigo-600'
+                    }`}>
+                      <UserIcon className="h-12 w-12 text-white" />
+                    </div>
+                  )}
+                </div>
+                
+                {/* Кнопка изменения аватара */}
+                <div className="absolute bottom-2 right-2">
+                  <button
+                    onClick={handleAvatarClick}
+                    className={`p-2 rounded-2xl shadow-lg border-2 transition-all duration-300 hover:scale-110 ${
+                      theme === 'dark'
+                        ? 'bg-gray-800 border-gray-600 text-white hover:bg-gray-700 hover:border-cyan-500'
+                        : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-blue-400'
+                    }`}
+                  >
+                    <CameraIcon className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* Скрытый input для выбора файла */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  accept="image/*"
+                  className="hidden"
+                />
+              </div>
+
+              {/* Кнопки управления аватаром */}
+              {isEditingAvatar && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSaveAvatar}
+                    disabled={isUploading}
+                    className={`px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 ${
+                      isUploading
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-green-500 hover:bg-green-600 text-white'
+                    }`}
+                  >
+                    {isUploading ? 'Загрузка...' : 'Сохранить'}
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
+                    disabled={isUploading}
+                    className={`px-4 py-2 rounded-2xl text-sm font-medium border transition-all duration-300 ${
+                      theme === 'dark'
+                        ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    Отмена
+                  </button>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>ФИО:</span>
-                  <span className={theme === 'dark' ? 'text-white' : 'text-gray-800'}>{userInfo?.full_name || fullName}</span>
+
+            {/* Информация о пользователе */}
+            <div className="flex-1 space-y-6">
+              {/* Основная информация */}
+              <div>
+                <h3 className={`text-lg font-semibold mb-4 ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-900'
+                }`}>
+                  Основная информация
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className={`text-sm font-medium flex items-center gap-2 ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      <UserIcon className="h-4 w-4" />
+                      Полное имя
+                    </label>
+                    <p className={`text-lg font-semibold mt-1 ${
+                      theme === 'dark' ? 'text-white' : 'text-gray-900'
+                    }`}>
+                      {formatADField(userProfile.full_name)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className={`text-sm font-medium flex items-center gap-2 ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      <EnvelopeIcon className="h-4 w-4" />
+                      Логин
+                    </label>
+                    <p className={`mt-1 ${
+                      theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                      {formatADField(userProfile.username)}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Логин AD:</span>
-                  <span className={theme === 'dark' ? 'text-white' : 'text-gray-800'}>{userInfo?.username || userId}</span>
+              </div>
+
+              {/* Контактная информация */}
+              <div>
+                <h3 className={`text-lg font-semibold mb-4 ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-900'
+                }`}>
+                  Контактная информация
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className={`text-sm font-medium flex items-center gap-2 ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      <EnvelopeIcon className="h-4 w-4" />
+                      Email
+                    </label>
+                    <p className={`mt-1 ${
+                      theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                      {formatADField(userProfile.email)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className={`text-sm font-medium flex items-center gap-2 ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      <PhoneArrowUpRightIcon className="h-4 w-4" />
+                      Телефон
+                    </label>
+                    <p className={`mt-1 ${
+                      theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                      {formatADField(userProfile.phone)}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Роль в системе:</span>
-                  <span className={theme === 'dark' ? 'text-white' : 'text-gray-800'}>
-                    {userInfo?.is_admin ? 'Администратор' : 'Пользователь'}
+              </div>
+
+              {/* Рабочая информация */}
+              <div>
+                <h3 className={`text-lg font-semibold mb-4 ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-900'
+                }`}>
+                  Рабочая информация
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className={`text-sm font-medium flex items-center gap-2 ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      <BuildingOfficeIcon className="h-4 w-4" />
+                      Должность
+                    </label>
+                    <p className={`mt-1 ${
+                      theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                      {formatADField(userProfile.title)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className={`text-sm font-medium flex items-center gap-2 ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      <UsersIcon className="h-4 w-4" />
+                      Отдел
+                    </label>
+                    <p className={`mt-1 ${
+                      theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                      {formatADField(userProfile.department)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className={`text-sm font-medium flex items-center gap-2 ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      <BuildingOfficeIcon className="h-4 w-4" />
+                      Компания
+                    </label>
+                    <p className={`mt-1 ${
+                      theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                      {formatADField(userProfile.company)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className={`text-sm font-medium flex items-center gap-2 ${
+                      theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      <BuildingOfficeIcon className="h-4 w-4" />
+                      Офис
+                    </label>
+                    <p className={`mt-1 ${
+                      theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                    }`}>
+                      {formatADField(userProfile.office)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Системная информация */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-700">
+                <div>
+                  <label className={`text-sm font-medium ${
+                    theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                  }`}>
+                    Роль в системе
+                  </label>
+                  <span className={`inline-block mt-1 px-3 py-1 rounded-2xl text-sm font-medium ${
+                    userProfile.role === 'admin'
+                      ? theme === 'dark'
+                        ? 'bg-red-900 text-red-200 border border-red-700'
+                        : 'bg-red-100 text-red-700 border border-red-300'
+                      : theme === 'dark'
+                      ? 'bg-gray-700 text-gray-300 border border-gray-600'
+                      : 'bg-gray-200 text-gray-700 border border-gray-300'
+                  }`}>
+                    {userProfile.role === 'admin' ? 'Администратор' : 'Пользователь'}
                   </span>
                 </div>
-                {userInfo?.job_title && (
-                  <div className="flex justify-between">
-                    <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Должность:</span>
-                    <span className={theme === 'dark' ? 'text-white' : 'text-gray-800'} title={userInfo.job_title}>
-                      {truncateLongText(userInfo.job_title)}
-                    </span>
-                  </div>
-                )}
-                {userInfo?.department && (
-                  <div className="flex justify-between">
-                    <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Отдел:</span>
-                    <span className={theme === 'dark' ? 'text-white' : 'text-gray-800'} title={userInfo.department}>
-                      {truncateLongText(userInfo.department)}
-                    </span>
-                  </div>
-                )}
-              </div>
-              
-              <div className="space-y-2">
-                {userInfo?.company && (
-                  <div className="flex justify-between">
-                    <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Компания:</span>
-                    <span className={theme === 'dark' ? 'text-white' : 'text-gray-800'}>{userInfo.company}</span>
-                  </div>
-                )}
-                {userInfo?.office && (
-                  <div className="flex justify-between">
-                    <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Офис:</span>
-                    <span className={theme === 'dark' ? 'text-white' : 'text-gray-800'}>{userInfo.office}</span>
-                  </div>
-                )}
-                {userInfo?.telephone_number && (
-                  <div className="flex justify-between">
-                    <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Рабочий телефон:</span>
-                    <span className={theme === 'dark' ? 'text-white' : 'text-gray-800'}>
-                      {formatPhone(userInfo.telephone_number)}
-                    </span>
-                  </div>
-                )}
-                {userInfo?.mobile && (
-                  <div className="flex justify-between">
-                    <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Мобильный телефон:</span>
-                    <span className={theme === 'dark' ? 'text-white' : 'text-gray-800'}>
-                      {formatPhone(userInfo.mobile)}
-                    </span>
-                  </div>
-                )}
-                {userInfo?.mail && (
-                  <div className="flex justify-between">
-                    <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Email:</span>
-                    <span className={theme === 'dark' ? 'text-white' : 'text-gray-800'}>{userInfo.mail}</span>
-                  </div>
-                )}
+
+                <div>
+                  <label className={`text-sm font-medium ${
+                    theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                  }`}>
+                    Последний вход
+                  </label>
+                  <p className={`mt-1 ${
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    {userProfile.lastLogin ? new Date(userProfile.lastLogin).toLocaleString('ru-RU') : 'Неизвестно'}
+                  </p>
+                </div>
               </div>
             </div>
-          )}
-          
-          {userInfo && (userInfo.manager || userInfo.distinguished_name) && (
-            <div className={`mt-4 pt-3 border-t ${
-              theme === 'dark' ? 'border-gray-600' : 'border-gray-300'
-            }`}>
-              <div className="grid grid-cols-1 gap-2 text-xs">
-                {userInfo.manager && (
-                  <div className="flex justify-between">
-                    <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>Руководитель:</span>
-                    <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} title={userInfo.manager}>
-                      {truncateLongText(userInfo.manager, 40)}
-                    </span>
-                  </div>
-                )}
-                {userInfo.distinguished_name && (
-                  <div className="flex justify-between">
-                    <span className={theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}>DN в AD:</span>
-                    <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} title={userInfo.distinguished_name}>
-                      {truncateLongText(userInfo.distinguished_name, 50)}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          </div>
         </div>
 
-        {/* Остальной код формы остается без изменений */}
-        <form onSubmit={handleSubmit} className="p-6">
-          <div className="mb-6">
-            <label 
-              htmlFor="support-message"
-              className={`block text-sm font-medium mb-3 ${
-                theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
-              }`}
-            >
-              Описание проблемы или вопроса *
-            </label>
-            <textarea
-              id="support-message"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Подробно опишите вашу проблему, вопрос или предложение. Укажите шаги для воспроизведения проблемы, если это возможно..."
-              className={`w-full h-40 px-4 py-3 rounded-2xl border-2 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-transparent transition-all duration-300 resize-none ${
-                theme === 'dark'
-                  ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400 hover:border-cyan-600'
-                  : 'bg-white border-gray-300 text-gray-800 placeholder-gray-500 hover:border-blue-400'
-              }`}
-              required
-            />
-            <div className={`text-xs mt-2 ${
-              theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-            }`}>
-              Чем подробнее вы опишете проблему, тем быстрее мы сможем помочь
-            </div>
-          </div>
-
-          {/* Статус отправки */}
-          {submitStatus === 'success' && (
-            <div className={`mb-4 p-3 rounded-2xl border ${
-              theme === 'dark' 
-                ? 'bg-green-900/20 border-green-700 text-green-300' 
-                : 'bg-green-100 border-green-300 text-green-700'
-            }`}>
-              ✅ Запрос успешно отправлен в службу поддержки
-            </div>
-          )}
-
-          {submitStatus === 'error' && (
-            <div className={`mb-4 p-3 rounded-2xl border ${
-              theme === 'dark' 
-                ? 'bg-red-900/20 border-red-700 text-red-300' 
-                : 'bg-red-100 border-red-300 text-red-700'
-            }`}>
-              ❌ Ошибка при отправке запроса. Попробуйте позже.
-            </div>
-          )}
-
-          {/* Кнопки */}
-          <div className="flex gap-3 justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className={`px-6 py-3 rounded-2xl border-2 transition-all duration-300 font-medium ${
-                theme === 'dark'
-                  ? 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700 hover:border-gray-500'
-                  : 'bg-gray-100 border-gray-300 text-gray-600 hover:bg-gray-200 hover:border-gray-400'
-              }`}
-            >
-              Отмена
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || !message.trim()}
-              className={`px-6 py-3 rounded-2xl border-2 transition-all duration-300 font-medium flex items-center gap-2 ${
-                isSubmitting || !message.trim()
-                  ? theme === 'dark'
-                    ? 'bg-gray-700 border-gray-600 text-gray-400 cursor-not-allowed'
-                    : 'bg-gray-300 border-gray-400 text-gray-500 cursor-not-allowed'
-                  : theme === 'dark'
-                    ? 'bg-cyan-600 border-cyan-500 text-white hover:bg-cyan-500 hover:border-cyan-400'
-                    : 'bg-cyan-500 border-cyan-400 text-white hover:bg-cyan-400 hover:border-cyan-300'
-              }`}
-            >
-              {isSubmitting ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Отправка...
-                </>
-              ) : (
-                <>
-                  <PaperAirplaneIcon className="h-4 w-4" />
-                  Отправить запрос
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-
-        {/* Подсказка */}
-        <div className={`p-4 rounded-b-3xl ${
-          theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'
+        {/* Футер */}
+        <div className={`flex justify-end p-6 border-t ${
+          theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
         }`}>
-          <p className={`text-xs text-center ${
-            theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-          }`}>
-            Запрос будет отправлен на portal@minskhleb.by и обработан в ближайшее время. 
-            Вся информация из Active Directory будет включена в запрос для быстрого решения проблемы.
-          </p>
+          <button
+            onClick={onClose}
+            className={`px-6 py-3 rounded-2xl font-medium transition-all duration-300 ${
+              theme === 'dark'
+                ? 'bg-cyan-600 hover:bg-cyan-700 text-white'
+                : 'bg-blue-500 hover:bg-blue-600 text-white'
+            }`}
+          >
+            Закрыть
+          </button>
         </div>
       </div>
     </div>
   );
 };
+
 // Компонент часов и даты
 const DateTimeWidget: React.FC<{ theme: string; availableServices: number }> = React.memo(({ theme, availableServices }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -512,45 +538,62 @@ const DateTimeWidget: React.FC<{ theme: string; availableServices: number }> = R
   return (
     <div className="relative group z-10">
       <div
-        className={`relative p-10 rounded-3xl shadow-2xl border-2 h-full transition-all duration-500 hover:shadow-3xl hover:-translate-y-1 ${
+        className={`relative p-6 rounded-3xl shadow-2xl border border-white/20 h-full transition-all duration-500 hover:shadow-3xl hover:-translate-y-1 backdrop-blur-xl ${
           theme === 'dark'
-            ? 'bg-gray-900 border-gray-700 hover:border-cyan-600'
-            : 'bg-white border-gray-200 hover:border-blue-400'
+            ? 'bg-gradient-to-br from-gray-900/80 via-cyan-900/20 to-gray-800/80 hover:from-cyan-900/30 hover:via-gray-900/40 hover:to-blue-900/30'
+            : 'bg-gradient-to-br from-white/60 via-blue-50/50 to-white/40 hover:from-blue-100/60 hover:via-white/50 hover:to-cyan-100/50'
         }`}
+        style={{
+          background: theme === 'dark' 
+            ? 'linear-gradient(135deg, rgba(17,24,39,0.8) 0%, rgba(12,74,110,0.2) 50%, rgba(31,41,55,0.8) 100%)'
+            : 'linear-gradient(135deg, rgba(255,255,255,0.6) 0%, rgba(219,234,254,0.5) 50%, rgba(255,255,255,0.4) 100%)'
+        }}
       >
-        <div className="text-center h-full flex flex-col justify-center space-y-4">
+        {/* Liquid glass эффект */}
+        <div className={`absolute inset-0 rounded-3xl bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 transform opacity-20 group-hover:opacity-30 transition-opacity duration-500 ${
+          theme === 'dark' ? 'via-cyan-500/10' : 'via-blue-500/10'
+        }`} />
+        
+        <div className="text-center h-full flex flex-col justify-center space-y-3 relative z-10">
+          {/* Время */}
           <div className="space-y-1">
             <div
-              className={`text-7xl font-bold font-black tracking-tight leading-none ${
-                theme === 'dark' ? 'text-white' : 'text-gray-900'
+              className={`text-4xl font-bold font-bold tracking-tight leading-none drop-shadow-lg ${
+                theme === 'dark' 
+                  ? 'text-white bg-gradient-to-r from-cyan-300 to-blue-300 bg-clip-text text-transparent' 
+                  : 'text-gray-900 bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent'
               }`}
             >
               {formatTime(currentTime)}
             </div>
           </div>
+          
+          {/* Дата */}
           <div
-            className={`text-lg font-semibold leading-tight px-2 ${
-              theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
+            className={`text-sm font-medium leading-tight px-2 ${
+              theme === 'dark' 
+                ? 'text-cyan-100/90' 
+                : 'text-blue-700/90'
             }`}
           >
             {formatDate(currentTime)}
           </div>
           
           {/* Информация о сервисах и активности системы */}
-          <div className="flex flex-col gap-3 mt-4">
-            <div className={`px-3 py-2 rounded-2xl text-xxl text-center border ${
+          <div className="flex flex-col gap-2 mt-2">
+            <div className={`px-3 py-1.5 rounded-2xl text-xs text-center border border-white/20 backdrop-blur-sm ${
               theme === 'dark' 
-                ? 'bg-cyan-900 text-cyan-100 border-cyan-700' 
-                : 'bg-blue-100 text-blue-800 border-blue-300'
+                ? 'bg-cyan-500/20 text-cyan-100' 
+                : 'bg-blue-500/20 text-blue-800'
             }`}>
               {availableServices} сервисов доступно
             </div>
-            <div className={`px-3 py-2 rounded-2xl text-xll text-center border ${
+            <div className={`px-3 py-1.5 rounded-2xl text-xs text-center border border-white/20 backdrop-blur-sm ${
               theme === 'dark' 
-                ? 'bg-green-900 text-green-100 border-green-700' 
-                : 'bg-green-100 text-green-800 border-green-300'
+                ? 'bg-emerald-500/20 text-emerald-100' 
+                : 'bg-emerald-500/20 text-emerald-800'
             }`}>
-              Все сервисы доступны
+              Все системы активны
             </div>
           </div>
         </div>
@@ -655,17 +698,6 @@ const ServiceCard: React.FC<{ service: typeof services[number]; theme: string }>
   );
 });
 
-interface Notification {
-  id: string;
-  title: string;
-  description: string;
-  type: 'info' | 'warning' | 'error' | 'message' | 'request';
-  date: string;
-  isRead: boolean;
-  source?: 'chat' | 'requests';
-  link?: string;
-}
-
 const NotificationsDropdown: React.FC<{
   notifications: Notification[];
   theme: string;
@@ -723,7 +755,8 @@ const NotificationsDropdown: React.FC<{
         return <ExclamationTriangleIcon className="h-4 w-4" />;
       case 'error':
         return <ExclamationTriangleIcon className="h-4 w-4" />;
-      
+      default:
+        return <BellIcon className="h-4 w-4" />;
     }
   };
 
@@ -779,17 +812,19 @@ const NotificationsDropdown: React.FC<{
             <div className={`p-4 border-b ${
               theme === 'dark' ? 'border-gray-700' : 'border-gray-300'
             }`}>
-              <h3 className={`text-lg font-semibold flex items-center gap-2 ${
-                theme === 'dark' ? 'text-white' : 'text-gray-800'
-              }`}>
-                <BellIcon className="h-5 w-5" />
-                Уведомления
-                {unreadCount > 0 && (
-                  <span className="px-2 py-1 text-xs bg-cyan-500 text-white rounded-full">
-                    {unreadCount} новых
-                  </span>
-                )}
-              </h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className={`text-lg font-semibold flex items-center gap-2 ${
+                  theme === 'dark' ? 'text-white' : 'text-gray-800'
+                }`}>
+                  <BellIcon className="h-5 w-5" />
+                  Уведомления
+                  {unreadCount > 0 && (
+                    <span className="px-2 py-1 text-xs bg-cyan-500 text-white rounded-full">
+                      {unreadCount} новых
+                    </span>
+                  )}
+                </h3>
+              </div>
             </div>
             
             <div className="p-2">
@@ -801,58 +836,74 @@ const NotificationsDropdown: React.FC<{
                   <p>Нет новых уведомлений</p>
                 </div>
               ) : (
-                notifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    className={`p-4 mb-2 rounded-2xl duration-300 cursor-pointer border group ${
-                      notification.isRead
-                        ? theme === 'dark'
-                          ? 'bg-gray-800 hover:bg-gray-700 border-gray-600'
-                          : 'bg-gray-100 hover:bg-gray-200 border-gray-300'
-                        : theme === 'dark'
-                          ? 'bg-cyan-900 hover:bg-cyan-800 border-cyan-600'
-                          : 'bg-blue-100 hover:bg-blue-200 border-blue-400'
-                    }`}
-                    onClick={() => handleNotificationClick(notification)}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`w-8 h-8 rounded-2xl flex items-center justify-center mt-1 flex-shrink-0 text-white shadow-lg ${getNotificationColor(notification.type)}`}
-                      >
-                        {getNotificationIcon(notification.type)}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <h4 className={`text-sm font-medium ${
-                            theme === 'dark' ? 'text-white' : 'text-gray-800'
-                          }`}>
-                            {notification.title}
-                          </h4>
-                          <div className="flex items-center gap-2">
-                            {!notification.isRead && (
-                              <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse shadow-lg" />
-                            )}
-                            {notification.link && (
-                              <div className="text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                {theme === 'dark' ? 'Перейти →' : 'Перейти →'}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <p className={`text-sm mb-2 ${
-                          theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
-                        }`}>
-                          {notification.description}
-                        </p>
-                        <p className={`text-xs ${
-                          theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
-                        }`}>
-                          {new Date(notification.date).toLocaleString('ru-RU')}
-                        </p>
-                      </div>
+                <>
+                  {/* Статистика уведомлений */}
+                  <div className={`px-3 py-2 mb-3 rounded-2xl text-xs ${
+                    theme === 'dark' 
+                      ? 'bg-gray-800 text-gray-300' 
+                      : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    <div className="flex justify-between items-center">
+                      <span>
+                        Показано {notifications.length} уведомлений
+                      </span>
                     </div>
                   </div>
-                ))
+
+                  {/* Список уведомлений */}
+                  {notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`p-4 mb-2 rounded-2xl duration-300 cursor-pointer border group ${
+                        notification.isRead
+                          ? theme === 'dark'
+                            ? 'bg-gray-800 hover:bg-gray-700 border-gray-600'
+                            : 'bg-gray-100 hover:bg-gray-200 border-gray-300'
+                          : theme === 'dark'
+                            ? 'bg-cyan-900 hover:bg-cyan-800 border-cyan-600'
+                            : 'bg-blue-100 hover:bg-blue-200 border-blue-400'
+                      }`}
+                      onClick={() => handleNotificationClick(notification)}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`w-8 h-8 rounded-2xl flex items-center justify-center mt-1 flex-shrink-0 text-white shadow-lg ${getNotificationColor(notification.type)}`}
+                        >
+                          {getNotificationIcon(notification.type)}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <h4 className={`text-sm font-medium ${
+                              theme === 'dark' ? 'text-white' : 'text-gray-800'
+                            }`}>
+                              {notification.title}
+                            </h4>
+                            <div className="flex items-center gap-2">
+                              {!notification.isRead && (
+                                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse shadow-lg" />
+                              )}
+                              {notification.link && (
+                                <div className="text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                  {theme === 'dark' ? 'Перейти →' : 'Перейти →'}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <p className={`text-sm mb-2 ${
+                            theme === 'dark' ? 'text-gray-200' : 'text-gray-700'
+                          }`}>
+                            {notification.description}
+                          </p>
+                          <p className={`text-xs ${
+                            theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+                          }`}>
+                            {new Date(notification.date).toLocaleString('ru-RU')}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </>
               )}
             </div>
           </div>
@@ -866,7 +917,7 @@ export const Dashboard: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const role = localStorage.getItem('role') || 'user';
   const isAdmin = role === 'admin';
-  const fullName = localStorage.getItem('username') || 'Пользователь';
+  const username = localStorage.getItem('username') || '';
   const userId = localStorage.getItem('userId') || 'unknown';
   const token = localStorage.getItem('token') || '';
   const [searchQuery, setSearchQuery] = useState('');
@@ -874,6 +925,81 @@ export const Dashboard: React.FC = () => {
   const [unreadMessages, setUnreadMessages] = useState<number>(0);
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [wsConnectionStatus, setWsConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
+  const [greeting, setGreeting] = useState(getGreeting());
+  const [userAvatar, setUserAvatar] = useState<string | null>(localStorage.getItem('userAvatar'));
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+
+  // Загрузка данных пользователя из Active Directory
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!username) return;
+      
+      setIsLoadingProfile(true);
+      try {
+        const response = await fetch(`${BASE_URL}/api/user/profile`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          setUserProfile(userData);
+        } else {
+          console.warn('Не удалось загрузить профиль пользователя из AD');
+          // Создаем базовый профиль из localStorage
+          setUserProfile({
+            id: userId,
+            username: username,
+            full_name: localStorage.getItem('full_name') || username,
+            email: localStorage.getItem('email') || `${username}@mhp.net`,
+            role: role,
+            department: localStorage.getItem('department') || 'Не указан',
+            position: localStorage.getItem('position') || 'Не указана',
+            phone: localStorage.getItem('phone') || 'Не указан',
+            avatar: userAvatar || undefined,
+            lastLogin: localStorage.getItem('lastLogin') || new Date().toISOString(),
+            createdAt: localStorage.getItem('createdAt') || new Date().toISOString(),
+          });
+        }
+      } catch (error) {
+        console.error('Ошибка при загрузке профиля:', error);
+        // Создаем базовый профиль из localStorage
+        setUserProfile({
+          id: userId,
+          username: username,
+          full_name: localStorage.getItem('full_name') || username,
+          email: localStorage.getItem('email') || `${username}@mhp.net`,
+          role: role,
+          department: localStorage.getItem('department') || 'Не указан',
+          position: localStorage.getItem('position') || 'Не указана',
+          phone: localStorage.getItem('phone') || 'Не указан',
+          avatar: userAvatar || undefined,
+          lastLogin: localStorage.getItem('lastLogin') || new Date().toISOString(),
+          createdAt: localStorage.getItem('createdAt') || new Date().toISOString(),
+        });
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    if (isProfileModalOpen) {
+      fetchUserProfile();
+    }
+  }, [isProfileModalOpen, username, token, userId, role, userAvatar]);
+
+  // Обновляем приветствие каждую минуту
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setGreeting(getGreeting());
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const filteredServices = useMemo(() => {
     return services
@@ -885,48 +1011,10 @@ export const Dashboard: React.FC = () => {
       );
   }, [searchQuery, isAdmin]);
 
-  // Функция для получения уведомлений о заявках
-  const fetchRequestNotifications = async () => {
-    try {
-      const response = await fetch(`${BASE_URL}/request_list/notifications`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      
-      if (result.status === 'success' && result.data) {
-        const requestNotifications: Notification[] = result.data.map((request: any) => ({
-          id: `request-${request.request_id}`,
-          title: 'Новая заявка',
-          description: `Заявка #${request.request_id} от ${request.sender_fullname}: ${request.theme || 'Без темы'}`,
-          type: 'request' as const,
-          date: request.send_date,
-          isRead: false,
-          source: 'requests',
-          link: '/requests_list'
-        }));
-
-        setNotifications(prev => {
-          // Фильтруем старые уведомления о заявках и добавляем новые
-          const filtered = prev.filter(n => n.source !== 'requests');
-          return [...filtered, ...requestNotifications];
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching request notifications:', error);
-    }
-  };
-
   // Функция для получения уведомлений о сообщениях
   const fetchUnreadMessages = async () => {
     try {
-      const response = await fetch('/chat/unread/total', {
+      const response = await fetch(`${BASE_URL}/chat/unread/total`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -966,69 +1054,176 @@ export const Dashboard: React.FC = () => {
     }
   };
 
+  // Функция для проверки доступности сервера
+  const checkServerAvailability = async (): Promise<boolean> => {
+    try {
+      const response = await fetch(`${BASE_URL}/health`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Server health check failed:', error);
+      return false;
+    }
+  };
+
+  // Получение WebSocket URL
+  const getWebSocketUrl = (): string => {
+    if (BASE_URL) {
+      return BASE_URL.replace('http', 'ws') + '/chat/ws?token=' + encodeURIComponent(token);
+    }
+    
+    return `ws://${window.location.hostname}:8000/chat/ws?token=${encodeURIComponent(token)}`;
+  };
+
   // Подключение к WebSocket
   useEffect(() => {
     let websocket: WebSocket | null = null;
     let reconnectAttempts = 0;
-    const maxReconnectAttempts = 5;
-    const reconnectDelay = 5000;
+    const maxReconnectAttempts = 3;
+    const reconnectDelay = 3000;
+    let reconnectTimeout: NodeJS.Timeout;
+    let pollingInterval: NodeJS.Timeout;
 
-    const connectWebSocket = () => {
-      const wsUrl = `ws://${window.location.hostname}:8000/chat/ws?token=${encodeURIComponent(token)}`;
-      websocket = new WebSocket(wsUrl);
+    const connectWebSocket = async () => {
+      const isServerAvailable = await checkServerAvailability();
+      if (!isServerAvailable) {
+        console.warn('❌ Server is not available, skipping WebSocket connection');
+        setWsConnectionStatus('error');
+        return;
+      }
 
-      websocket.onopen = () => {
-        console.log('WebSocket connected');
-        reconnectAttempts = 0;
-      };
+      if (websocket) {
+        websocket.close(1000, 'Reconnecting');
+      }
 
-      websocket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log('WebSocket message received:', data);
+      setWsConnectionStatus('connecting');
+      
+      const wsUrl = getWebSocketUrl();
+      console.log('🔄 Connecting to WebSocket:', wsUrl);
+      
+      try {
+        websocket = new WebSocket(wsUrl);
+
+        websocket.onopen = () => {
+          console.log('✅ WebSocket connected successfully');
+          reconnectAttempts = 0;
+          setWsConnectionStatus('connected');
+        };
+
+        websocket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('📨 WebSocket message received:', data);
+            
+            if (data.type === 'notification') {
+              setNotifications((prev) => [...prev, data.data]);
+            }
+            if (data.type === 'user_status' || data.type === 'new_message') {
+              fetchUnreadMessages();
+            }
+          } catch (error) {
+            console.error('❌ Error parsing WebSocket message:', error);
+          }
+        };
+
+        websocket.onclose = (event) => {
+          console.log('🔴 WebSocket disconnected:', {
+            code: event.code,
+            reason: event.reason,
+            wasClean: event.wasClean
+          });
           
-          if (data.type === 'notification') {
-            setNotifications((prev) => [...prev, data.data]);
-          }
-          if (data.type === 'user_status' || data.type === 'new_message') {
-            fetchUnreadMessages();
-          }
-          if (data.type === 'new_request') {
-            fetchRequestNotifications();
-          }
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-        }
-      };
+          setWsConnectionStatus('disconnected');
 
-      websocket.onclose = () => {
-        console.log('WebSocket disconnected');
-        if (reconnectAttempts < maxReconnectAttempts) {
-          setTimeout(() => {
-            reconnectAttempts++;
-            console.log(`Reconnecting WebSocket, attempt ${reconnectAttempts}`);
-            connectWebSocket();
-          }, reconnectDelay * Math.pow(2, reconnectAttempts));
-        }
-      };
+          const fatalCodes = [1000, 1001, 1002, 1003, 1005, 1006, 1007, 1008, 1009, 1010, 1011, 4001, 4003, 4004];
+          if (fatalCodes.includes(event.code) || event.wasClean) {
+            console.log('ℹ️  WebSocket closed cleanly, not reconnecting');
+            setWsConnectionStatus('error');
+            return;
+          }
 
-      websocket.onerror = (error) => {
-        console.error('WebSocket error:', error);
-      };
+          if (reconnectAttempts < maxReconnectAttempts) {
+            const delay = reconnectDelay * Math.pow(1.5, reconnectAttempts);
+            console.log(`🔄 Reconnecting in ${delay}ms, attempt ${reconnectAttempts + 1}/${maxReconnectAttempts}`);
+            
+            reconnectTimeout = setTimeout(() => {
+              reconnectAttempts++;
+              connectWebSocket();
+            }, delay);
+          } else {
+            console.error('❌ Max reconnection attempts reached');
+            setWsConnectionStatus('error');
+          }
+        };
 
-      setWs(websocket);
+        websocket.onerror = (error) => {
+          console.error('❌ WebSocket error:', error);
+          setWsConnectionStatus('error');
+        };
+
+        setWs(websocket);
+      } catch (error) {
+        console.error('❌ Failed to create WebSocket:', error);
+        setWsConnectionStatus('error');
+      }
     };
 
-    if (token) {
+    const disconnectWebSocket = () => {
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+      if (websocket) {
+        websocket.close(1000, 'Component unmounting');
+        websocket = null;
+      }
+    };
+
+    const startPolling = () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+      pollingInterval = setInterval(() => {
+        if (token) {
+          fetchUnreadMessages();
+        }
+      }, 30000);
+    };
+
+    if (token && token.length > 10) {
+      console.log('🟡 Starting WebSocket connection');
       connectWebSocket();
-      fetchRequestNotifications();
       fetchUnreadMessages();
+      
+      startPolling();
+    } else {
+      console.warn('🟡 No valid token for WebSocket connection');
+      setWsConnectionStatus('error');
+      startPolling();
     }
 
     return () => {
-      websocket?.close();
+      console.log('🟡 Cleaning up WebSocket connection');
+      disconnectWebSocket();
     };
-  }, [userId, role, token]);
+  }, [token]);
+
+  // Функция для обновления аватара
+  const handleAvatarUpdate = (newAvatarUrl: string) => {
+    setUserAvatar(newAvatarUrl);
+    if (userProfile) {
+      setUserProfile({
+        ...userProfile,
+        avatar: newAvatarUrl
+      });
+    }
+  };
 
   const handleMarkAsRead = (id: string) => {
     setNotifications((prev) =>
@@ -1044,8 +1239,18 @@ export const Dashboard: React.FC = () => {
     localStorage.removeItem('username');
     localStorage.removeItem('userId');
     localStorage.removeItem('theme');
+    localStorage.removeItem('userAvatar');
+    localStorage.removeItem('full_name');
+    localStorage.removeItem('email');
+    localStorage.removeItem('department');
+    localStorage.removeItem('position');
+    localStorage.removeItem('phone');
+    localStorage.removeItem('lastLogin');
+    localStorage.removeItem('createdAt');
     window.location.href = '/';
   };
+
+  const displayName = userProfile?.full_name || username;
 
   return (
     <div
@@ -1130,52 +1335,65 @@ export const Dashboard: React.FC = () => {
             />
 
             {/* Профиль пользователя */}
-            <div
-              className={`flex items-center space-x-4 rounded-2xl py-2 px-4 border-2 ${
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-600 hover:border-cyan-600' 
-                  : 'bg-gray-100 border-gray-300 hover:border-blue-400'
-              } transition-all duration-300`}
-            >
-              <div
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl ${
-                  theme === 'dark'
-                    ? 'bg-gradient-to-r from-cyan-600 to-indigo-700 border border-gray-600'
-                    : 'bg-gradient-to-r from-cyan-500 to-indigo-600 border border-gray-300'
-                }`}
-              >
-                <UserIcon className="h-6 w-6 text-white" />
-              </div>
-              <div className="hidden md:block">
-                <p className="text-sm font-medium">{fullName}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span
-                    className={`text-xs px-2 py-1 rounded-2xl border ${
-                      isAdmin
-                        ? theme === 'dark'
-                          ? 'bg-red-900 text-red-200 border-red-700'
-                          : 'bg-red-100 text-red-700 border-red-300'
-                        : theme === 'dark'
-                        ? 'bg-gray-700 text-gray-300 border-gray-600'
-                        : 'bg-gray-200 text-gray-700 border-gray-300'
-                    }`}
-                  >
-                    {role === 'admin' ? 'Администратор' : 'Пользователь'}
-                  </span>
-                </div>
-              </div>
+            <div className="relative">
               <button
-                onClick={handleLogout}
-                className={`p-2 rounded-xl transition-all duration-300 hover:scale-110 ${
-                  theme === 'dark'
-                    ? 'text-gray-300 hover:text-red-400 hover:bg-gray-700'
-                    : 'text-gray-500 hover:text-red-500 hover:bg-gray-200'
+                onClick={() => setIsProfileModalOpen(true)}
+                className={`flex items-center space-x-4 rounded-2xl py-2 px-4 border-2 transition-all duration-300 hover:scale-105 ${
+                  theme === 'dark' 
+                    ? 'bg-gray-800 border-gray-600 hover:border-cyan-600' 
+                    : 'bg-gray-100 border-gray-300 hover:border-blue-400'
                 }`}
-                title="Выйти"
               >
-                <ArrowRightOnRectangleIcon className="h-5 w-5" />
+                <div
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-2xl overflow-hidden ${
+                    theme === 'dark'
+                      ? 'bg-gradient-to-r from-cyan-600 to-indigo-700 border border-gray-600'
+                      : 'bg-gradient-to-r from-cyan-500 to-indigo-600 border border-gray-300'
+                  }`}
+                >
+                  {userAvatar ? (
+                    <img 
+                      src={userAvatar} 
+                      alt="Аватар" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <UserIcon className="h-6 w-6 text-white" />
+                  )}
+                </div>
+                <div className="hidden md:block">
+                  <p className="text-sm font-medium">{displayName}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span
+                      className={`text-xs px-2 py-1 rounded-2xl border ${
+                        isAdmin
+                          ? theme === 'dark'
+                            ? 'bg-red-900 text-red-200 border-red-700'
+                            : 'bg-red-100 text-red-700 border-red-300'
+                          : theme === 'dark'
+                          ? 'bg-gray-700 text-gray-300 border-gray-600'
+                          : 'bg-gray-200 text-gray-700 border-gray-300'
+                      }`}
+                    >
+                      {role === 'admin' ? 'Администратор' : 'Пользователь'}
+                    </span>
+                  </div>
+                </div>
               </button>
             </div>
+
+            {/* Выход */}
+            <button
+              onClick={handleLogout}
+              className={`p-3 rounded-2xl transition-all duration-300 hover:scale-105 border-2 ${
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-600 text-gray-300 hover:text-red-400 hover:bg-gray-700 hover:border-red-500'
+                  : 'bg-gray-100 border-gray-300 text-gray-500 hover:text-red-500 hover:bg-gray-200 hover:border-red-400'
+              }`}
+              title="Выйти"
+            >
+              <ArrowRightOnRectangleIcon className="h-6 w-6" />
+            </button>
           </div>
         </header>
 
@@ -1196,7 +1414,7 @@ export const Dashboard: React.FC = () => {
                     theme === 'dark' ? 'text-white' : 'text-gray-900'
                   }`}
                 >
-                  Добро пожаловать, {fullName}!
+                  {greeting}, {displayName}!
                 </h2>
                 <p className={`text-base ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}`}>
                   Все корпоративные сервисы в одном месте для эффективной работы
@@ -1258,8 +1476,16 @@ export const Dashboard: React.FC = () => {
         >
           <div className="flex items-center justify-center gap-6 mb-4">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-lg" />
-              <span>Сервис доступен</span>
+              <div className={`w-2 h-2 rounded-full animate-pulse shadow-lg ${
+                wsConnectionStatus === 'connected' ? 'bg-green-500' :
+                wsConnectionStatus === 'connecting' ? 'bg-yellow-500' :
+                'bg-red-500'
+              }`} />
+              <span>
+                {wsConnectionStatus === 'connected' ? 'Сервис доступен' :
+                 wsConnectionStatus === 'connecting' ? 'Подключение...' :
+                 'Сервис временно недоступен'}
+              </span>
             </div>
             <div className="w-px h-4 bg-current opacity-30" />
             <div>Версия 2.0</div>
@@ -1273,9 +1499,9 @@ export const Dashboard: React.FC = () => {
               }`}
             >
               Поддержка
-            </button>
+            </button>            
           </div>
-          <p>© {new Date().getFullYear()} Корпоративный Портал. Все права защищены.</p>
+          <p className="text-gray-400">© 2025 Все права защищены. Разработка портала ТЭРиОВТ</p>
         </footer>
       </div>
 
@@ -1285,6 +1511,17 @@ export const Dashboard: React.FC = () => {
         onClose={() => setIsSupportModalOpen(false)}
         theme={theme}
       />
+
+      {/* Модальное окно профиля */}
+      {userProfile && (
+        <ProfileModal
+          isOpen={isProfileModalOpen}
+          onClose={() => setIsProfileModalOpen(false)}
+          theme={theme}
+          userProfile={userProfile}
+          onAvatarUpdate={handleAvatarUpdate}
+        />
+      )}
     </div>
   );
 };
