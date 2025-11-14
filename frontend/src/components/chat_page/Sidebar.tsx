@@ -1,10 +1,12 @@
-import { MagnifyingGlass, Plus, Users, User, Broadcast, ArrowLeft, Moon, Sun, Check, Checks, ArrowBendUpLeft } from "phosphor-react";
+import { MagnifyingGlass, Plus, Users, User, Broadcast, ArrowLeft, Moon, Sun, Check, Checks, ArrowBendUpLeft, Heart } from "phosphor-react";
 import type React from "react";
 import { formatTimestamp, getChatDisplayIcon, getChatDisplayName, getTypingText, formatTimestampSidebar, messageIsPhoto, resolveFileUrl } from '../../utils/chat';
 import type { Chat, Message, Contact } from '../../types/chat';
+import { IoArrowUndoOutline, IoArrowRedoOutline  } from "react-icons/io5";
 import type { NewLifecycle } from "react";
 import { useTheme } from '../../hooks/ThemeContext';
 import { Link } from "react-router-dom";
+import { getAvatarData } from "../../utils/avatarCache";
 
 interface RenderSidebarProps {
 	searchQuery: string;
@@ -29,6 +31,7 @@ interface RenderSidebarProps {
 	setShouldScrollToBottom: React.Dispatch<React.SetStateAction<boolean>>;
 	quotedMessageData: Record<string, Message | null>;
 	fetchQuotedMessageData: (id: string) => Promise<Message | null>;
+	unreadReactionNotifications: Record<string, string[]>;
 }
 
 const RenderSidebar: React.FC<RenderSidebarProps> = ({
@@ -53,7 +56,8 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 	currentChat,
 	setShouldScrollToBottom,
 	quotedMessageData,
-	fetchQuotedMessageData
+	fetchQuotedMessageData,
+	unreadReactionNotifications
 }) => {
 	const { theme, toggleTheme } = useTheme();
 	const API_BASE = import.meta.env.VITE_API_BASE_URL;
@@ -215,7 +219,8 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 					<div className="p-4 space-y-2">
 						{filteredChats.map((chat) => {
 							const isActive = activeChat === chat.id;
-							const unreadCount = unreadCounts[chat.id] || 0;
+							const unreadCountMessages = unreadCounts[chat.id] || 0;
+							const unreadCountReactions = Object.hasOwn(unreadReactionNotifications, chat.id) ? true : false;
 							const lastMessage = messagesByChat[chat.id]?.[messagesByChat[chat.id].length - 1] || chat.last_message;
 							const displayName = getChatDisplayName(chat, 'full', contactMap, username);
 							
@@ -237,7 +242,12 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 											isActive ? 'ring-2 ring-white/40' : ''
 										}`}>
 											<div className={`w-full h-full rounded-2xl ${theme === 'light' ? 'bg-white' : 'bg-slate-900'} flex items-center justify-center`}>
-												{getChatDisplayIcon(chat, 44, theme)}
+												
+												{getAvatarData(displayName) ? 
+													<img src={getAvatarData(displayName) || undefined} alt="avatar" loading="lazy" className="w-14 h-13 rounded-2xl object-cover" />
+													:
+													getChatDisplayIcon(chat, 44, theme)
+												}
 											</div>
 										</div>
 										{userStatuses[getChatDisplayName(chat, "short", contactMap, username)] === "online" && (
@@ -267,9 +277,19 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 														{formatTimestampSidebar(lastMessage.timestamp)}
 													</span>
 												)}
-												{unreadCount > 0 && !isActive && (
+												{unreadCountMessages > 0 && !isActive && (
 													<span className="inline-flex items-center justify-center min-w-6 h-6 px-2 text-xs font-bold text-white bg-red-500 rounded-full shadow-lg">
-														{unreadCount}
+														{unreadCountMessages}
+													</span>
+												)}
+												{isActive && unreadCountMessages > 0 && (
+													<span className="inline-flex items-center justify-center min-w-6 h-6 px-2 text-xs font-bold text-white bg-red-500 rounded-full shadow-lg">
+														{unreadCountMessages}
+													</span>
+												)}
+												{unreadCountReactions && (
+													<span className={`inline-flex items-center justify-center min-w-6 h-6 px-2 text-xs font-bold text-white bg-gradient-to-br from-blue-500 to-purple-500 rounded-full shadow-lg`}>
+														<Heart size={22}/>
 													</span>
 												)}
 											</div>
@@ -300,7 +320,7 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 																<span className="truncate">
 																	{lastMessage.forward_message_id ? 
 																		<div className="flex gap-2">
-																			<ArrowBendUpLeft size={17}/>{getContentForwardMsg(lastMessage)}
+																			<IoArrowRedoOutline size={17}/>{getContentForwardMsg(lastMessage)}
 																			{messageIsPhoto(quotedMessageData[lastMessage.forward_message_id]) && 
 																				(<div className="flex gap-1">
 																					<img src={resolveFileUrl(quotedMessageData[lastMessage.forward_message_id]?.file_url)} loading="lazy" className="rounded-lg max-h-6 mr-1 object-contain" />
@@ -308,8 +328,8 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 																				</div>)
 																			}
 																		</div>
-																		 : 
-																		 ''}{lastMessage.content?.split('\n')[0] || lastMessage.file_name}
+																	: 
+																		<span>{lastMessage.content?.split('\n')[0] || lastMessage.file_name}</span>}
 																</span>
 															)}
 														</div>
@@ -326,12 +346,6 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 												) : (
 													<span className={`${theme === 'light' ? 'text-slate-400' : 'text-slate-500'}`}>{lastMessage ? '':"Нет сообщений"}</span>
 												)}
-											
-											{isActive && unreadCount > 0 && (
-												<span className="inline-flex items-center justify-center min-w-6 h-6 px-2 text-xs font-bold text-blue-600 bg-white rounded-full shadow-lg">
-													{unreadCount}
-												</span>
-											)}
 										</div>
 									</div>
 

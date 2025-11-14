@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { PaperPlaneRight, Paperclip, Smiley, DotsThreeVertical, X, Microphone, Sticker, Plus, Trash, UserCircle, ArrowLeft, MagnifyingGlass, ArrowDown } from 'phosphor-react';
+import { PaperPlaneRight, Paperclip, Smiley, DotsThreeVertical, X, Microphone, Sticker, Plus, Heart, Trash, UserCircle, ArrowLeft, MagnifyingGlass, ArrowDown } from 'phosphor-react';
 import type { Chat, Message, Contact, MessageContextMenuState, UserContextMenuState } from '../../types/chat';
+import TextareaAutosize from 'react-textarea-autosize';
+import { IoCheckmarkOutline } from "react-icons/io5";
 import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
 import { getChatDisplayIcon, getChatDisplayName, getTypingText } from '../../utils/chat';
 import RenderEditingMessage from "./EditingMessage";
@@ -12,13 +14,18 @@ import RenderUserContextMenu from "./UserContextMenu";
 import { useTheme } from '../../hooks/ThemeContext';
 import { stickerPacks } from '../../data/StickerPacks'
 import FileDragModal from './modals/FileDragModal';
+import { getAvatarData } from "../../utils/avatarCache";
+import RenderForwardMessage from "./ForwardMessage";
 
 interface RenderChatWindowProps {
+    forwardMessage: Message | null;
+    cancelForward: () => void;
     activeChat: string | null;
     currentChat: Chat | undefined;
     showChatInfoSidebar: boolean;
     typingUsers: Map<string, Set<string>>;
     username: string | null;
+    unreadCounts: { [key: string]: number };
     userStatuses: { [username: string]: string };
     showChatOptions: boolean;
     setShowChatOptions: React.Dispatch<React.SetStateAction<boolean>>;
@@ -42,7 +49,7 @@ interface RenderChatWindowProps {
     messageToDelete: Message | null;
     showDeleteMessageModal: boolean;
     isRecording: boolean;
-    inputRef: React.RefObject<HTMLInputElement | null>;
+    inputRef: React.RefObject<HTMLTextAreaElement | null>;
     editingMessage: Message | null;
     cancelEdit: () => void;
     handleSendMessage: () => Promise<void>;
@@ -95,18 +102,26 @@ interface RenderChatWindowProps {
     searchContacts: (query: string) => Promise<void>;
     showFileDragModal: boolean;
     setShowFileDragModal: React.Dispatch<React.SetStateAction<boolean>>;
-    handleReactToMessage: (messageId: string, reaction: string) => void;
+    handleReactToMessage: (messageId: string, messageSender: string | undefined, reaction: string) => void;
     userReactions?: Record<string, string>; // Сделал опциональным
+    onMessageInView: (messageId: string, channelId: string) => void;
+    unreadReactionNotifications: Record<string, string[]>;
+    onReactionInView: (messageId: string, channelId: string) => void;
 }
 
 const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
+    forwardMessage,
+    cancelForward,
     activeChat,
+    unreadReactionNotifications,
     currentChat,
+    onReactionInView,
     showChatInfoSidebar,
     typingUsers,
     username,
     userStatuses = {},
     showChatOptions,
+    unreadCounts,
     setShowChatOptions,
     setShowInviteModal,
     setShowKickModal,
@@ -182,7 +197,8 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
     showFileDragModal,
     setShowFileDragModal,
     handleReactToMessage,
-    userReactions = {} // Значение по умолчанию - пустой объект
+    userReactions = {}, // Значение по умолчанию - пустой объект
+    onMessageInView
 }) => {
   const { theme, toggleTheme } = useTheme();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -242,7 +258,7 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
           `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(searchQueryGifs)}&key=${TENOR_API_KEY}&limit=12&media_filter=minimal`
         );
         const data = await response.json();
-        console.log(data);
+        // console.log(data);
         const urls = data.results
           .map((item: any) => item.media_formats?.gif?.url || item.media_formats?.mediumgif?.url)
           .filter(Boolean);
@@ -363,10 +379,26 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
     }
   };
 
-  // Безопасное получение текущей реакции
   const getCurrentReaction = () => {
     if (!messageContextMenu.message) return undefined;
     return safeUserReactions[messageContextMenu.message.id];
+  };
+
+  const scrollToMessage = (messageId: string | null) => {
+    if (!messageId) {
+      return;
+    }
+    const element = document.getElementById(`message-${messageId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element.classList.add('bg-gray-300', 'dark:bg-yellow-400/30');
+      setTimeout(() => {
+        element.classList.remove('bg-gray-300', 'dark:bg-yellow-400/30');
+      }, 1000);
+    } else {
+      loadMessagesAround(messageId);
+      console.info('Цитируемое сообщение не найдено в текущем списке.');
+    }
   };
 
   return (
@@ -392,7 +424,11 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
               <div className="flex-shrink-0 mr-4 relative">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 p-0.5 shadow-lg">
                   <div className={`w-full h-full rounded-xl ${theme === 'light' ? 'bg-white' : 'bg-slate-900'} flex items-center justify-center`}>
-                    {getChatDisplayIcon(currentChat, 32, theme)}
+                    {getAvatarData(getChatDisplayName(currentChat, 'full', safeContactMap, username)) ? 
+                      <img src={getAvatarData(getChatDisplayName(currentChat, 'full', safeContactMap, username)) || undefined} alt="avatar" className="w-12 h-11 rounded-xl object-cover" />
+                      :
+                      getChatDisplayIcon(currentChat, 32, theme)
+                    }
                   </div>
                 </div>
                 {isUserOnline && (
@@ -534,306 +570,328 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
 
         {/* Messages Area - без скроллбара */}
         <div
-          ref={messagesContainerRef}
-          className={`flex flex-col flex-1 overflow-y-auto p-4 space-y-4 messages-container relative font-sans no-scrollbar`}
-          onScroll={handleScroll}
+          className={`flex flex-col flex-1 overflow-y-auto text-base messages-container`}
           style={{
-            backgroundImage: currentChat?.font_name ? `url(${VITE_API_BASE_URL}/chat-fonts/${currentChat.font_name})` : 'none',
-            backgroundSize: 'auto',
+            background: currentChat?.font_name
+              ? `url(${VITE_API_BASE_URL}/chat-fonts/${currentChat.font_name}.png), linear-gradient(90deg, rgba(42, 123, 155, 1) 0%, rgba(87, 199, 133, 1) 50%, rgba(237, 221, 83, 1) 100%)`
+              : 'linear-gradient(90deg, rgba(42, 123, 155, 1) 0%, rgba(87, 199, 133, 1) 50%, rgba(237, 221, 83, 1) 100%)',
+            backgroundColor: '#ffbb78',
             backgroundRepeat: 'repeat',
-            backgroundPosition: 'top left',
-            backgroundAttachment: 'fixed',
-            scrollbarWidth: 'none', /* Для Firefox */
-            msOverflowStyle: 'none', /* Для IE/Edge */
           }}
         >
-          <FileDragModal 
-            showFileDragModal={showFileDragModal}
-            setShowFileDragModal={setShowFileDragModal}
-            currentChat={currentChat}
-          />
-          {isLoadingMessages && (
-            <div className="flex justify-center py-4">
-              <div className={`w-6 h-6 border-2 ${theme === 'light' ? 'border-slate-300' : 'border-slate-600'} border-t-blue-500 rounded-full animate-spin`}></div>
-            </div>
-          )}
+          <div 
+            onScroll={handleScroll}
+            ref={messagesContainerRef}
+            className={`flex flex-col text-base pr-4 pb-4 pl-4 flex-1 overflow-y-auto mb-[55px] messages-container relative font-sans`} style={{ scrollbarWidth: 'none' }}>
+            <FileDragModal 
+              showFileDragModal={showFileDragModal}
+              setShowFileDragModal={setShowFileDragModal}
+              currentChat={currentChat}
+            />
+            {isLoadingMessages && (
+              <div className="flex justify-center py-4">
+                <div className={`w-6 h-6 border-2 ${theme === 'light' ? 'border-slate-300' : 'border-slate-600'} border-t-blue-500 rounded-full animate-spin`}></div>
+              </div>
+            )}
+            
+            <RenderMessages
+              unreadCounts={unreadCounts}
+              onReactionInView={onReactionInView}
+              unreadReactionNotifications={unreadReactionNotifications}
+              currentChat={currentChat}
+              filteredMessages={safeFilteredMessages}
+              quotedMessageData={safeQuotedMessageData}
+              contactMap={safeContactMap}
+              handleMessageContextMenu={handleMessageContextMenu}
+              fetchQuotedMessageData={fetchQuotedMessageData}
+              username={username}
+              setShowImageModal={setShowImageModal}
+              loadMessagesAround={loadMessagesAround}
+              setImageUrl={setImageUrl}
+              activeChat={activeChat}
+              handleContextMenuQuote={handleContextMenuQuote}
+              onMessageInView={onMessageInView}
+              onReact={(reaction) => handleReactToMessage(messageContextMenu.message!.id, messageContextMenu.message?.sender, reaction)}
+            />
+            
+            <div ref={messagesEndRef} />
+            <RenderContextMenu 
+              messageContextMenu={messageContextMenu}
+              messageContextMenuRef={messageContextMenuRef}
+              handleContextMenuEdit={handleContextMenuEdit}
+              handleContextMenuDelete={handleContextMenuDelete}
+              handleContextMenuCopy={handleContextMenuCopy}
+              handleContextMenuQuote={handleContextMenuQuote}
+              handleContextMenuForward={handleContextMenuForward}
+              username={username}
+              searchContacts={searchContacts}
+              onReact={(reaction) => handleReactToMessage(messageContextMenu.message!.id, messageContextMenu.message?.sender, reaction)}
+              currentReaction={getCurrentReaction()}
+            />
+          </div>
           
-          <RenderMessages
-            currentChat={currentChat}
-            filteredMessages={safeFilteredMessages}
-            quotedMessageData={safeQuotedMessageData}
-            contactMap={safeContactMap}
-            handleMessageContextMenu={handleMessageContextMenu}
-            fetchQuotedMessageData={fetchQuotedMessageData}
-            username={username}
-            setShowImageModal={setShowImageModal}
-            loadMessagesAround={loadMessagesAround}
-            setImageUrl={setImageUrl}
-            activeChat={activeChat}
-            handleContextMenuQuote={handleContextMenuQuote}
-          />
-          
-          <button 
-            className={`fixed bottom-24 w-10 h-10 flex items-center justify-center right-[42%] z-100 rounded-full bg-gray-300 transform-opacite duration-300 ${isAtBottom ? 'opacity-0' : 'opacity-full'}`}
-            onClick={() => {
-              setIsAutoScrolling(true);
-              if (messagesContainerRef.current) {
-                messagesContainerRef.current.scrollTo({
-                  top: messagesContainerRef.current.scrollHeight,
-                  behavior: 'smooth'
-                });
-              }
-              setTimeout(() => {
-                setIsAutoScrolling(false);
-              }, 300)
-            }}
-          >
-            <ArrowDown size={22}/>
-          </button>
-          <div ref={messagesEndRef} />
-          
-          <RenderContextMenu 
-            messageContextMenu={messageContextMenu}
-            messageContextMenuRef={messageContextMenuRef}
-            handleContextMenuEdit={handleContextMenuEdit}
-            handleContextMenuDelete={handleContextMenuDelete}
-            handleContextMenuCopy={handleContextMenuCopy}
-            handleContextMenuQuote={handleContextMenuQuote}
-            handleContextMenuForward={handleContextMenuForward}
-            username={username}
-            searchContacts={searchContacts}
-            onReact={(reaction) => handleReactToMessage(messageContextMenu.message!.id, reaction)}
-            currentReaction={getCurrentReaction()} // Используем безопасную функцию
-          />
-        </div>
+          {/* Input Area */}
+          <div className={`absolute z-20 bottom-[20px] left-1/2 -translate-x-1/2 bg-none ${theme === 'light' ? 'border-slate-200/60' : 'border-slate-700/60'} font-sans`}>
 
-        {/* Input Area */}
-        <div className={`p-4 border-t ${theme === 'light' ? 'border-slate-200/60' : 'border-slate-700/60'} ${theme === 'light' ? 'bg-white/95' : 'bg-slate-900/95'} backdrop-blur-xl shadow-lg relative z-20 font-sans`}>
-          <RenderQuotedMessage 
-            quotedMessage={quotedMessage}
-            contactMap={safeContactMap}
-            cancelQuote={cancelQuote}
-          />
-          
-          <RenderEditingMessage 
-            editingMessage={editingMessage}
-            cancelEdit={cancelEdit}
-          />
+            {/* Emoji Picker */}
+            {showEmojiPicker && (
+              <div className="absolute bottom-20 left-4 z-50 animate-in fade-in-0 zoom-in-95">
+                <div className={`rounded-2xl shadow-2xl border ${theme === 'light' ? 'border-slate-200/80' : 'border-slate-700/80'} overflow-hidden font-sans`}>
+                  <div className={`p-3 border-b ${theme === 'light' ? 'border-slate-200/80' : 'border-slate-700/80'} flex justify-between items-center ${theme === 'light' ? 'bg-white' : 'bg-slate-800'}`}>
+                    <span className={`text-sm font-semibold font-sans ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
+                      Выберите смайлики
+                    </span>
+                    <button 
+                      onClick={closeEmojiPicker}
+                      className={`w-6 h-6 rounded-lg ${theme === 'light' ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'} transition-colors flex items-center justify-center`}
+                    >
+                      <X size={14} weight="bold" />
+                    </button>
+                  </div>
+                  <EmojiPicker 
+                    onEmojiClick={handleEmojiClick}
+                    width={320}
+                    height={360}
+                    previewConfig={{ showPreview: false }}
+                    skinTonesDisabled
+                  />
+                </div>
+              </div>
+            )}
 
-          {/* Emoji Picker */}
-          {showEmojiPicker && (
-            <div className="absolute bottom-20 left-4 z-50 animate-in fade-in-0 zoom-in-95">
-              <div className={`rounded-2xl shadow-2xl border ${theme === 'light' ? 'border-slate-200/80' : 'border-slate-700/80'} overflow-hidden font-sans`}>
-                <div className={`p-3 border-b ${theme === 'light' ? 'border-slate-200/80' : 'border-slate-700/80'} flex justify-between items-center ${theme === 'light' ? 'bg-white' : 'bg-slate-800'}`}>
-                  <span className={`text-sm font-semibold font-sans ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'}`}>
-                    Выберите смайлики
-                  </span>
+            {/* Sticker Picker */}
+            {showStickerPicker && (
+              <div 
+                ref={stickerPickerRef} 
+                className={`absolute bottom-20 left-4 z-50 ${theme === 'light' ? 'bg-white' : 'bg-slate-800'} rounded-2xl shadow-2xl border ${theme === 'light' ? 'border-slate-200/80' : 'border-slate-700/80'} p-3 animate-in fade-in-0 zoom-in-95 max-w-sm font-sans`}
+              >
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className={`text-base font-semibold font-sans ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>Стикеры</h3>
                   <button 
-                    onClick={closeEmojiPicker}
-                    className={`w-6 h-6 rounded-lg ${theme === 'light' ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'} transition-colors flex items-center justify-center`}
+                    onClick={() => setShowStickerPicker(false)}
+                    className={`w-6 h-6 rounded-lg ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'} transition-colors flex items-center justify-center`}
                   >
                     <X size={14} weight="bold" />
                   </button>
                 </div>
-                <EmojiPicker 
-                  onEmojiClick={handleEmojiClick}
-                  width={320}
-                  height={360}
-                  previewConfig={{ showPreview: false }}
-                  skinTonesDisabled
-                />
-              </div>
-            </div>
-          )}
 
-          {/* Sticker Picker */}
-          {showStickerPicker && (
-            <div 
-              ref={stickerPickerRef} 
-              className={`absolute bottom-20 left-4 z-50 ${theme === 'light' ? 'bg-white' : 'bg-slate-800'} rounded-2xl shadow-2xl border ${theme === 'light' ? 'border-slate-200/80' : 'border-slate-700/80'} p-3 animate-in fade-in-0 zoom-in-95 max-w-sm font-sans`}
-            >
-              <div className="flex justify-between items-center mb-3">
-                <h3 className={`text-base font-semibold font-sans ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>Стикеры</h3>
-                <button 
-                  onClick={() => setShowStickerPicker(false)}
-                  className={`w-6 h-6 rounded-lg ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'} transition-colors flex items-center justify-center`}
-                >
-                  <X size={14} weight="bold" />
-                </button>
-              </div>
+                <div className="mb-3">
+                  <input
+                    type="text"
+                    value={searchQueryGifs}
+                    onChange={(e) => setSearchQueryGifs(e.target.value)}
+                    placeholder="Поиск GIF..."
+                    className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      theme === 'light'
+                        ? 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400'
+                        : 'bg-slate-700 border-slate-600 text-white placeholder-slate-400'
+                    }`}
+                  />
+                </div>
 
-              <div className="mb-3">
-                <input
-                  type="text"
-                  value={searchQueryGifs}
-                  onChange={(e) => setSearchQueryGifs(e.target.value)}
-                  placeholder="Поиск GIF..."
-                  className={`w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    theme === 'light'
-                      ? 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400'
-                      : 'bg-slate-700 border-slate-600 text-white placeholder-slate-400'
-                  }`}
-                />
-              </div>
-
-              <div className="space-y-3 max-h-80 overflow-y-auto overflow-x-hidden no-scrollbar">
-                {searchQueryGifs.length >= 2 ? (
-                  <>
-                    {loadingGifs ? (
-                      <div className="flex justify-center py-6">
-                        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="space-y-3 max-h-80 overflow-y-auto overflow-x-hidden no-scrollbar">
+                  {searchQueryGifs.length >= 2 ? (
+                    <>
+                      {loadingGifs ? (
+                        <div className="flex justify-center py-6">
+                          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                      ) : gifResults.length > 0 ? (
+                        <div className="grid grid-cols-4 gap-2">
+                          {gifResults.map((url, index) => (
+                            <button
+                              key={index}
+                              onClick={() => handleStickerClick(url)}
+                              className={`w-20 h-20 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-300 hover:scale-110 transform border ${
+                                theme === 'light' ? 'border-slate-200/60' : 'border-slate-600/60'
+                              }`}
+                            >
+                              <img
+                                src={url}
+                                alt={`GIF ${index + 1}`}
+                                className="w-full h-full object-contain p-1"
+                                loading="lazy"
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className={`text-center text-sm ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                          Ничего не найдено
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    Object.entries(stickerPacks).map(([packName, stickers]) => (
+                      <div key={packName}>
+                        <h4 className={`text-xs font-semibold font-sans ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'} mb-2 capitalize`}>
+                          {packName}
+                        </h4>
+                        <div className="grid grid-cols-4 gap-2">
+                          {stickers.map((sticker, index) => (
+                            <button 
+                              key={index} 
+                              onClick={() => handleStickerClick(sticker)} 
+                              className={`w-20 h-20 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-300 hover:scale-110 transform border ${theme === 'light' ? 'border-slate-200/60' : 'border-slate-600/60'}`}
+                            >
+                              <img 
+                                src={sticker} 
+                                alt={`Sticker ${packName} ${index + 1}`} 
+                                className="w-full h-full object-contain p-1"
+                                loading="lazy"
+                              />
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    ) : gifResults.length > 0 ? (
-                      <div className="grid grid-cols-4 gap-2">
-                        {gifResults.map((url, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleStickerClick(url)}
-                            className={`w-20 h-20 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-300 hover:scale-110 transform border ${
-                              theme === 'light' ? 'border-slate-200/60' : 'border-slate-600/60'
-                            }`}
-                          >
-                            <img
-                              src={url}
-                              alt={`GIF ${index + 1}`}
-                              className="w-full h-full object-contain p-1"
-                              loading="lazy"
-                            />
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className={`text-center text-sm ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
-                        Ничего не найдено
-                      </p>
-                    )}
-                  </>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Input Controls */}
+            <div className="flex items-end space-x-3" onPaste={handlePaste}>
+              <div className="flex flex-col">
+                <RenderForwardMessage 
+                  forwardMessage={forwardMessage}
+                  contactMap={safeContactMap}
+                  cancelForward={cancelForward}
+                />
+                <RenderEditingMessage 
+                  editingMessage={editingMessage}
+                  cancelEdit={cancelEdit}
+                />
+                <RenderQuotedMessage 
+                  quotedMessage={quotedMessage}
+                  contactMap={safeContactMap}
+                  cancelQuote={cancelQuote}
+                />
+                <div className={`flex items-end ${theme === 'light' ? 'bg-slate-100':'bg-slate-800'} rounded-xl`}>
+                  <div className="flex space-x-1 mb-[3px]">
+                    <button 
+                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                      className={`w-10 h-10 rounded-xl ${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:text-blue-500 hover:bg-blue-50' : 'bg-slate-800 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10'} transition-all duration-300 flex items-center justify-center cursor-pointer`}
+                    >
+                      <Smiley size={20} weight="regular" />
+                    </button>
+                    <button 
+                      onClick={() => setShowStickerPicker(!showStickerPicker)}
+                      className={`w-10 h-10 rounded-xl ${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:text-purple-500 hover:bg-purple-50' : 'bg-slate-800 text-slate-400 hover:text-purple-400 hover:bg-purple-500/10'} transition-all duration-300 flex items-center justify-center cursor-pointer`}
+                    >
+                      <Sticker size={20} weight="regular" />
+                    </button>
+                  </div>
+
+                  <div className="flex-1 relative flex items-center">
+                    <TextareaAutosize
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      onInput={handleTyping}
+                      onFocus={() => setIsInputFocused(true)}
+                      onBlur={() => setIsInputFocused(false)}
+                      // minRows={1}
+                      maxRows={15}
+                      placeholder={editingMessage ? 'Редактировать сообщение...' : 'Напишите сообщение...'}
+                      className={`w-[500px] px-4 py-3 rounded-xl font-sans [scrollbar-width:none] resize-none transition-all duration-300 ${
+                        theme === 'light' 
+                          ? 'text-slate-900 placeholder-slate-500' 
+                          : 'text-white placeholder-slate-400'
+                      } focus:outline-none backdrop-blur-sm text-base`}
+                      ref={inputRef}
+                    />
+                  </div>
+
+                  <div className="flex space-x-1 mb-[3px]">
+                    <label className={`w-10 h-10 rounded-xl ${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:text-green-500 hover:bg-green-50' : 'bg-slate-800 text-slate-400 hover:text-green-400 hover:bg-blue-500/10'} transition-all duration-300 flex items-center justify-center cursor-pointer`}>
+                      <Paperclip size={20} weight="regular" />
+                      <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept='.jpg, .jpeg, .png, .pdf, .txt, .ogg, .mp4, .gif, .tiff, .webp, .svg, .doc, .docx, .rtf, .zip, .rar, .7z, .xls, .xlsx, .ppt'/>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div className="flex space-x-2 items-end">
+                {editingMessage ? (
+                  <button 
+                    onClick={handleSendMessage}
+                    className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 text-white hover:bg-red-600 transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-105 transform"
+                  >
+                    <IoCheckmarkOutline size={24}/>
+                  </button>
                 ) : (
-                  Object.entries(stickerPacks).map(([packName, stickers]) => (
-                    <div key={packName}>
-                      <h4 className={`text-xs font-semibold font-sans ${theme === 'light' ? 'text-slate-700' : 'text-slate-300'} mb-2 capitalize`}>
-                        {packName}
-                      </h4>
-                      <div className="grid grid-cols-4 gap-2">
-                        {stickers.map((sticker, index) => (
-                          <button 
-                            key={index} 
-                            onClick={() => handleStickerClick(sticker)} 
-                            className={`w-20 h-20 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-all duration-300 hover:scale-110 transform border ${theme === 'light' ? 'border-slate-200/60' : 'border-slate-600/60'}`}
-                          >
-                            <img 
-                              src={sticker} 
-                              alt={`Sticker ${packName} ${index + 1}`} 
-                              className="w-full h-full object-contain p-1"
-                              loading="lazy"
-                            />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))
+                  <div className="flex flex-col items-center gap-2">
+                    <button 
+                      className={`relative w-12 h-12 flex items-center justify-center z-100 cursor-pointer rounded-full bg-slate-100 transform-opacite duration-300 ${unreadReactionNotifications[currentChat.id] ? 'opacity-full' : 'opacity-0'}`}
+                      onClick={() => {
+                        scrollToMessage(unreadReactionNotifications[currentChat.id][0]);
+                      }}
+                    >
+                      {unreadReactionNotifications[currentChat.id] && (
+                        <span className="absolute -top-1 -right-2 bg-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                          {unreadReactionNotifications[currentChat.id] ? unreadReactionNotifications[currentChat.id].length : null}
+                        </span>
+                      )}
+                      <Heart size={22}/>
+                    </button>
+                    <button 
+                      className={`relative w-12 h-12 flex items-center justify-center z-100 cursor-pointer rounded-full bg-slate-100 transform-opacite duration-300 ${isAtBottom ? 'opacity-0' : 'opacity-full'}`}
+                      onClick={() => {
+                        setIsAutoScrolling(true);
+                        if (messagesContainerRef.current) {
+                          messagesContainerRef.current.scrollTo({
+                            top: messagesContainerRef.current.scrollHeight,
+                            behavior: 'smooth'
+                          });
+                        }
+                        setTimeout(() => {
+                          setIsAutoScrolling(false);
+                        }, 300)
+                      }}
+                    >
+                      {unreadCounts[currentChat.id] > 0 && (
+                        <span className="absolute -top-1 -right-2 bg-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                          {unreadCounts[currentChat.id]}
+                        </span>
+                      )}
+                      <ArrowDown size={22}/>
+                    </button>
+                    <button 
+                      onClick={handleSendMessage}
+                      className={`w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 transform flex items-center justify-center group`}
+                    >
+                      <PaperPlaneRight size={20} weight="bold" className="transform group-hover:translate-x-0.5 transition-transform" />
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
-          )}
 
-          {/* Input Controls */}
-          <div className="flex items-end space-x-3" onPaste={handlePaste}>
-            <div className="flex space-x-1">
-              <button 
-                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className={`w-10 h-10 rounded-xl ${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:text-blue-500 hover:bg-blue-50' : 'bg-slate-800 text-slate-400 hover:text-blue-400 hover:bg-blue-500/10'} transition-all duration-300 flex items-center justify-center`}
-              >
-                <Smiley size={20} weight="regular" />
-              </button>
-              <button 
-                onClick={() => setShowStickerPicker(!showStickerPicker)}
-                className={`w-10 h-10 rounded-xl ${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:text-purple-500 hover:bg-purple-50' : 'bg-slate-800 text-slate-400 hover:text-purple-400 hover:bg-purple-500/10'} transition-all duration-300 flex items-center justify-center`}
-              >
-                <Sticker size={20} weight="regular" />
-              </button>
-              <label className={`w-10 h-10 rounded-xl ${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:text-green-500 hover:bg-green-50' : 'bg-slate-800 text-slate-400 hover:text-green-400 hover:bg-blue-500/10'} transition-all duration-300 flex items-center justify-center cursor-pointer`}>
-                <Paperclip size={20} weight="regular" />
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept='.jpg, .jpeg, .png, .pdf, .txt, .ogg, .mp4, .gif, .tiff, .webp, .svg, .doc, .docx, .rtf, .zip, .rar, .7z, .xls, .xlsx, .ppt'/>
-              </label>
-            </div>
-
-            <div className="flex-1 relative">
-              <input
-                type="text"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onInput={handleTyping}
-                onFocus={() => setIsInputFocused(true)}
-                onBlur={() => setIsInputFocused(false)}
-                placeholder={editingMessage ? 'Редактировать сообщение...' : 'Напишите сообщение...'}
-                className={`w-full px-4 py-3 rounded-xl font-sans transition-all duration-300 ${
-                  theme === 'light' 
-                    ? 'bg-slate-100/80 border border-slate-200/60 text-slate-900 placeholder-slate-500 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20' 
-                    : 'bg-slate-800/80 border-slate-700/60 text-white placeholder-slate-400 focus:bg-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30'
-                } focus:outline-none backdrop-blur-sm text-base`}
-                ref={inputRef}
-              />
-            </div>
-
-            <div className="flex space-x-2">
-              {editingMessage ? (
-                <button 
-                  onClick={cancelEdit}
-                  className="w-12 h-12 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-105 transform"
-                >
-                  <X size={20} weight="bold" />
-                </button>
-              ) : (
-                <button 
-                  onClick={handleSendMessage}
-                  disabled={!message.trim() && !selectedFile}
-                  className={`w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 transform flex items-center justify-center group ${
-                    (!message.trim() && !selectedFile) ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                >
-                  <PaperPlaneRight size={20} weight="bold" className="transform group-hover:translate-x-0.5 transition-transform" />
-                </button>
-              )}
-              
-              <button 
-                onClick={isRecording ? stopRecording : startRecording}
-                className={`w-12 h-12 rounded-xl transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-105 transform ${
-                  isRecording 
-                    ? 'bg-red-500 text-white animate-pulse shadow-red-500/50' 
-                    : `${theme === 'light' ? 'bg-slate-100 text-slate-500 hover:text-red-500 hover:bg-red-50' : 'bg-slate-800 text-slate-400 hover:text-red-400 hover:bg-red-500/10'}`
-                }`}
-              >
-                <Microphone size={20} weight={isRecording ? "fill" : "regular"} />
-              </button>
-            </div>
-          </div>
-
-          {/* Selected File */}
-          {selectedFile && (
-            <div className={`mt-3 flex items-center justify-between p-3 ${theme === 'light' ? 'bg-blue-50' : 'bg-blue-500/10'} rounded-xl border ${theme === 'light' ? 'border-blue-200/60' : 'border-blue-500/20'} font-sans`}>
-              <div className="flex items-center space-x-3">
-                <div className={`w-10 h-10 ${theme === 'light' ? 'bg-blue-100' : 'bg-blue-500/20'} rounded-lg flex items-center justify-center`}>
-                  <Paperclip size={16} className={`${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`} />
-                </div>
-                <div>
-                  <div className={`text-sm font-semibold font-sans ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
-                    {selectedFile.name}
+            {/* Selected File */}
+            {selectedFile && (
+              <div className={`mt-3 flex items-center justify-between p-3 ${theme === 'light' ? 'bg-blue-50' : 'bg-blue-500/10'} rounded-xl border ${theme === 'light' ? 'border-blue-200/60' : 'border-blue-500/20'} font-sans`}>
+                <div className="flex items-center space-x-3">
+                  <div className={`w-10 h-10 ${theme === 'light' ? 'bg-blue-100' : 'bg-blue-500/20'} rounded-lg flex items-center justify-center`}>
+                    <Paperclip size={16} className={`${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`} />
                   </div>
-                  <div className={`text-xs font-mono ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
-                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                  <div>
+                    <div className={`text-sm font-semibold font-sans ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
+                      {selectedFile.name}
+                    </div>
+                    <div className={`text-xs font-mono ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>
+                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                    </div>
                   </div>
                 </div>
+                <button 
+                  onClick={() => setSelectedFile(null)}
+                  className={`w-8 h-8 rounded-lg text-red-500 hover:bg-red-100 ${theme === 'dark' ? 'hover:bg-red-500/10' : ''} transition-colors flex items-center justify-center`}
+                >
+                  <X size={16} weight="bold" />
+                </button>
               </div>
-              <button 
-                onClick={() => setSelectedFile(null)}
-                className={`w-8 h-8 rounded-lg text-red-500 hover:bg-red-100 ${theme === 'dark' ? 'hover:bg-red-500/10' : ''} transition-colors flex items-center justify-center`}
-              >
-                <X size={16} weight="bold" />
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 

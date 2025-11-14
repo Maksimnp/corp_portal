@@ -17,7 +17,6 @@ import {
   ChartBarIcon,
   FolderIcon,
   DocumentIcon,
-  //TerminalIcon,
   ClipboardIcon,
   SpeakerWaveIcon,
   WrenchIcon,
@@ -27,8 +26,9 @@ import {
   MagnifyingGlassIcon,
   ArrowUpTrayIcon,
   ArrowDownTrayIcon,
-  //ComputerIcon,
-  XMarkIcon
+  XMarkIcon,
+  CpuChipIcon,
+  ServerIcon
 } from '@heroicons/react/24/outline';
 
 interface PC {
@@ -43,15 +43,20 @@ interface PC {
     ip_address?: string;
     cpu_cores?: number;
     total_memory?: number;
+    platform?: string;
+    architecture?: string;
   };
-  connection_type?: 'WebSocket' | 'REST';
+  connection_type?: 'ws' | 'rest' | 'vnc';
   capabilities?: {
     file_transfer?: boolean;
     audio_transfer?: boolean;
     clipboard_sync?: boolean;
     remote_shell?: boolean;
     multi_monitor?: boolean;
+    vnc_support?: boolean;
   };
+  is_owner?: boolean;
+  can_view?: boolean;
 }
 
 interface RemoteSession {
@@ -63,7 +68,9 @@ interface RemoteSession {
     file_transfer?: boolean;
     remote_shell?: boolean;
     clipboard_sync?: boolean;
+    vnc_available?: boolean;
   };
+  vnc_session?: any;
 }
 
 interface FileItem {
@@ -72,6 +79,22 @@ interface FileItem {
   size: number;
   modified: number;
   permissions?: string;
+}
+
+interface VNCConnectionInfo {
+  type: string;
+  session_id: string;
+  host: string;
+  port: number;
+  password?: string;
+  display: number;
+  security_info: {
+    encryption_supported: boolean;
+    password_required: boolean;
+  };
+  connection_string: string;
+  web_url: string;
+  viewer_download_url: string;
 }
 
 const RemoteDesktop: React.FC = () => {
@@ -91,7 +114,7 @@ const RemoteDesktop: React.FC = () => {
   const [userRole, setUserRole] = useState<string>('user');
   
   // Advanced features state
-  const [activeTab, setActiveTab] = useState<'remote' | 'files' | 'shell' | 'clipboard'>('remote');
+  const [activeTab, setActiveTab] = useState<'remote' | 'files' | 'shell' | 'clipboard' | 'vnc'>('remote');
   const [fileManagerPath, setFileManagerPath] = useState('/');
   const [fileManagerFiles, setFileManagerFiles] = useState<FileItem[]>([]);
   const [shellOutput, setShellOutput] = useState<string>('');
@@ -103,6 +126,11 @@ const RemoteDesktop: React.FC = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showFileUpload, setShowFileUpload] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  
+  // VNC state
+  const [vncConnectionInfo, setVncConnectionInfo] = useState<VNCConnectionInfo | null>(null);
+  const [isVncConnected, setIsVncConnected] = useState(false);
+  const [showVncHelp, setShowVncHelp] = useState(false);
   
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -128,7 +156,7 @@ const RemoteDesktop: React.FC = () => {
     }
   }, []);
 
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://192.1.66.117:8000';
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
   const WS_BASE = API_BASE.replace(/^http/, 'ws');
 
   // Enhanced connection management
@@ -183,7 +211,9 @@ const RemoteDesktop: React.FC = () => {
     setIsConnected(false);
     setIsPending(false);
     setIsLoading(false);
+    setIsVncConnected(false);
     setActiveSession(null);
+    setVncConnectionInfo(null);
     setActiveTab('remote');
     setFileManagerPath('/');
     setFileManagerFiles([]);
@@ -200,8 +230,6 @@ const RemoteDesktop: React.FC = () => {
     console.log('UI Disconnect called');
     safeDisconnect();
   }, [safeDisconnect]);
-
-  
 
   // Enhanced PC management
   const fetchPCs = useCallback(async () => {
@@ -249,13 +277,108 @@ const RemoteDesktop: React.FC = () => {
     }
   }, [API_BASE, getToken]);
 
-  // Enhanced connection handler
-  const connectToPC = useCallback(async (pc: PC) => {
+  // VNC connection functions
+  const startVncSession = useCallback(async (pc: PC) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const token = getToken();
+      const response = await fetch(`${API_BASE}/api/ubuntu/vnc/sessions/${pc.pc_id}/start`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: pc.username,
+          capabilities: pc.capabilities
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setVncConnectionInfo(result.connection_info);
+          setIsVncConnected(true);
+          setActiveTab('vnc');
+          setError('VNC сессия запущена успешно');
+          
+          // Create WebSocket session for additional features
+          await createWebSocketSession(pc, 'view', true);
+        } else {
+          throw new Error(result.detail || 'Failed to start VNC session');
+        }
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `HTTP error: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Error starting VNC session:', error);
+      setError(`Ошибка запуска VNC: ${error}`);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [API_BASE, getToken]);
+
+  const stopVncSession = useCallback(async (pcId: string) => {
+    try {
+      const token = getToken();
+      await fetch(`${API_BASE}/api/ubuntu/vnc/sessions/${pcId}/stop`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      setIsVncConnected(false);
+      setVncConnectionInfo(null);
+      safeDisconnect();
+      setError('VNC сессия остановлена');
+    } catch (error) {
+      console.error('Error stopping VNC session:', error);
+      setError('Ошибка остановки VNC сессии');
+    }
+  }, [API_BASE, getToken, safeDisconnect]);
+
+  const getVncConnectionInfo = useCallback(async (pcId: string) => {
+    try {
+      const token = getToken();
+      const response = await fetch(`${API_BASE}/api/ubuntu/vnc/sessions/${pcId}/connection`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setVncConnectionInfo(result.connection);
+          return result.connection;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting VNC connection info:', error);
+      return null;
+    }
+  }, [API_BASE, getToken]);
+
+  // Enhanced connection handler with VNC support
+  const connectToPC = useCallback(async (pc: PC, useVnc: boolean = false) => {
     if (!pc || pc.status !== 'online' || isConnectingRef.current) {
       setError('Выбранный компьютер недоступен для подключения');
       return;
     }
     
+    // Use VNC if available and requested
+    if (useVnc && pc.capabilities?.vnc_support) {
+      await startVncSession(pc);
+      return;
+    }
+    
+    // Standard WebSocket connection
     isConnectingRef.current = true;
     safeDisconnect();
     
@@ -264,6 +387,10 @@ const RemoteDesktop: React.FC = () => {
     setError(null);
     setSelectedPc(pc);
 
+    await createWebSocketSession(pc, sessionType, false);
+  }, [safeDisconnect, sessionType, startVncSession]);
+
+  const createWebSocketSession = useCallback(async (pc: PC, sessionType: 'view' | 'control', isVnc: boolean) => {
     try {
       const token = getToken();
       if (!token) {
@@ -290,7 +417,8 @@ const RemoteDesktop: React.FC = () => {
           requested_capabilities: {
             file_transfer: true,
             remote_shell: true,
-            clipboard_sync: true
+            clipboard_sync: true,
+            vnc_support: isVnc
           }
         };
         
@@ -363,9 +491,9 @@ const RemoteDesktop: React.FC = () => {
       setIsLoading(false);
       isConnectingRef.current = false;
     }
-  }, [getToken, sessionType, isConnected, isPending, safeDisconnect, WS_BASE]);
+  }, [getToken, isConnected, isPending, safeDisconnect, WS_BASE]);
 
-  // Enhanced message handler
+  // Enhanced message handler with VNC support
   const handleWebSocketMessage = useCallback((data: any) => {
     console.log('WebSocket message received:', data);
 
@@ -407,7 +535,8 @@ const RemoteDesktop: React.FC = () => {
         setActiveSession(prev => prev ? { 
           ...prev, 
           status: 'connected',
-          capabilities: data.allowed_capabilities 
+          capabilities: data.allowed_capabilities,
+          vnc_session: data.vnc_session
         } : null);
         setError(null);
         
@@ -424,17 +553,26 @@ const RemoteDesktop: React.FC = () => {
           setAvailableMonitors(data.monitors.map((m: any) => m.id));
         }
         
-        // Request initial screen
-        setTimeout(() => {
-          if (wsRef.current?.readyState === WebSocket.OPEN && activeSession?.session_id) {
-            console.log('Requesting initial screen');
-            wsRef.current.send(JSON.stringify({
-              type: 'request_screen',
-              session_id: activeSession.session_id,
-              monitor_id: selectedMonitor
-            }));
-          }
-        }, 500);
+        // Request initial screen for non-VNC sessions
+        if (!data.vnc_session && activeSession?.session_id) {
+          setTimeout(() => {
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+              console.log('Requesting initial screen');
+              wsRef.current.send(JSON.stringify({
+                type: 'request_screen',
+                session_id: activeSession.session_id,
+                monitor_id: selectedMonitor
+              }));
+            }
+          }, 500);
+        }
+        break;
+
+      case 'vnc_connection':
+        console.log('VNC connection info received');
+        setVncConnectionInfo(data);
+        setIsVncConnected(true);
+        setActiveTab('vnc');
         break;
 
       case 'session_rejected':
@@ -689,7 +827,7 @@ const RemoteDesktop: React.FC = () => {
     setError('Буфер обмена синхронизирован');
   }, [activeSession]);
 
-  // Enhanced input handlers
+  // Input handlers
   const handleMouseEvent = useCallback((event: MouseEvent, action: string) => {
     if (wsRef.current?.readyState !== WebSocket.OPEN || !activeSession) return;
     
@@ -858,77 +996,14 @@ const RemoteDesktop: React.FC = () => {
 
   // Navigation
   const handleBack = useCallback(() => {
-    if (isPending || isConnected) {
+    if (isPending || isConnected || isVncConnected) {
       if (!window.confirm('Сессия активна! Отключиться и уйти?')) return;
       safeDisconnect();
     }
     navigate('/dashboard');
-  }, [isPending, isConnected, safeDisconnect, navigate]);
+  }, [isPending, isConnected, isVncConnected, safeDisconnect, navigate]);
 
-  // Initialize
-  useEffect(() => {
-    fetchPCs();
-    
-    const interval = setInterval(fetchPCs, 30000);
-    return () => {
-      clearInterval(interval);
-    };
-  }, [fetchPCs]);
-
-  // Setup input handlers when connected
-  useEffect(() => {
-    if (!isConnected || !canvasRef.current || !activeSession) return;
-
-    const canvas = canvasRef.current;
-
-    const mouseListeners: Array<[string, (e: MouseEvent) => void]> = [
-      ['mousedown', (e) => handleMouseEvent(e, 'mousedown')],
-      ['mouseup', (e) => handleMouseEvent(e, 'mouseup')],
-      ['mousemove', (e) => handleMouseEvent(e, 'mousemove')],
-      ['click', (e) => handleMouseEvent(e, 'click')],
-      ['dblclick', (e) => handleMouseEvent(e, 'dblclick')],
-    ];
-
-    mouseListeners.forEach(([type, listener]) => canvas.addEventListener(type as any, listener));
-
-    canvas.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
-      handleMouseEvent(e, 'contextmenu');
-    });
-    
-    const keyListeners: Array<[string, (e: KeyboardEvent) => void]> = [
-      ['keydown', (e) => handleKeyEvent(e, 'keydown')],
-      ['keyup', (e) => handleKeyEvent(e, 'keyup')],
-    ];
-
-    keyListeners.forEach(([type, listener]) => document.addEventListener(type as any, listener));
-
-    canvas.tabIndex = 0;
-    canvas.focus();
-
-    eventCleanupRef.current = () => {
-      mouseListeners.forEach(([type, listener]) => canvas.removeEventListener(type as any, listener));
-      canvas.removeEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        handleMouseEvent(e, 'contextmenu');
-      });
-      
-      keyListeners.forEach(([type, listener]) => document.removeEventListener(type as any, listener));
-    };
-
-    return () => {
-      if (eventCleanupRef.current) {
-        eventCleanupRef.current();
-        eventCleanupRef.current = null;
-      }
-    };
-  }, [isConnected, activeSession, handleMouseEvent, handleKeyEvent]);
-
-  // Auto-scroll shell output
-  useEffect(() => {
-    shellEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [shellOutput]);
-
+  // Component functions
   // File Manager Component
   const FileManager = () => (
     <div className="space-y-4">
@@ -1191,6 +1266,421 @@ const RemoteDesktop: React.FC = () => {
     </div>
   );
 
+  // VNC Connection Component
+  const VNCConnection = () => {
+    if (!vncConnectionInfo) return null;
+
+    return (
+      <div className="space-y-4">
+        <div className={`p-4 rounded-2xl ${
+          theme === 'dark' ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-200'
+        }`}>
+          <h3 className="font-semibold mb-2 flex items-center gap-2">
+            <ServerIcon className="h-5 w-5" />
+            VNC подключение активно
+          </h3>
+          <div className="space-y-2 text-sm">
+            <div className="grid grid-cols-2 gap-2">
+              <span>Хост:</span>
+              <code className="font-mono">{vncConnectionInfo.host}</code>
+              <span>Порт:</span>
+              <code className="font-mono">{vncConnectionInfo.port}</code>
+              <span>Дисплей:</span>
+              <code className="font-mono">{vncConnectionInfo.display}</code>
+              {vncConnectionInfo.password && (
+                <>
+                  <span>Пароль:</span>
+                  <code className="font-mono">{vncConnectionInfo.password}</code>
+                </>
+              )}
+            </div>
+            <div className="mt-3 p-2 rounded bg-yellow-500/20 border border-yellow-500/30">
+              <p className="text-xs">
+                <strong>Строка подключения:</strong>{' '}
+                <code className="font-mono break-all">{vncConnectionInfo.connection_string}</code>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setShowVncHelp(true)}
+            className={`px-4 py-2 rounded-lg ${
+              theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
+            }`}
+          >
+            Инструкция по подключению
+          </button>
+          <button
+            onClick={() => navigator.clipboard.writeText(vncConnectionInfo.connection_string)}
+            className={`px-4 py-2 rounded-lg ${
+              theme === 'dark' ? 'bg-blue-600 hover:bg-blue-500' : 'bg-blue-500 hover:bg-blue-400'
+            } text-white`}
+          >
+            Копировать строку подключения
+          </button>
+          <a
+            href={vncConnectionInfo.viewer_download_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`px-4 py-2 rounded-lg ${
+              theme === 'dark' ? 'bg-green-600 hover:bg-green-500' : 'bg-green-500 hover:bg-green-400'
+            } text-white`}
+          >
+            Скачать VNC Viewer
+          </a>
+        </div>
+
+        {/* VNC Help Modal */}
+        {showVncHelp && (
+          <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50`}>
+            <div className={`rounded-lg p-6 max-w-2xl w-full mx-4 ${
+              theme === 'dark' ? 'bg-gray-800' : 'bg-white'
+            }`}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Инструкция по VNC подключению</h3>
+                <button
+                  onClick={() => setShowVncHelp(false)}
+                  className={`p-1 rounded ${
+                    theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-200'
+                  }`}
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="space-y-3 text-sm">
+                <p><strong>1. Установите VNC Viewer:</strong></p>
+                <ul className="list-disc list-inside ml-4 space-y-1">
+                  <li>TigerVNC Viewer (рекомендуется)</li>
+                  <li>RealVNC Viewer</li>
+                  <li>UltraVNC Viewer</li>
+                </ul>
+                
+                <p><strong>2. Подключение:</strong></p>
+                <ul className="list-disc list-inside ml-4 space-y-1">
+                  <li>Запустите VNC Viewer</li>
+                  <li>Введите: <code className="font-mono">{vncConnectionInfo.connection_string}</code></li>
+                  <li>При запросе пароля введите: <code className="font-mono">{vncConnectionInfo.password || 'пустой'}</code></li>
+                </ul>
+                
+                <p><strong>3. Альтернативные способы:</strong></p>
+                <ul className="list-disc list-inside ml-4 space-y-1">
+                  <li>Веб-версия: <a href={vncConnectionInfo.web_url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">{vncConnectionInfo.web_url}</a></li>
+                  <li>Командная строка: <code className="font-mono">vncviewer {vncConnectionInfo.connection_string}</code></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className={`p-3 rounded-2xl text-center ${
+          theme === 'dark' ? 'bg-green-900 text-green-200' : 'bg-green-100 text-green-700'
+        }`}>
+          <div className="flex items-center justify-center gap-2">
+            <SignalIcon className="h-4 w-4 animate-pulse" />
+            <span>VNC сессия активна - используйте VNC Viewer для подключения</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Update the connection buttons to include VNC option
+  const renderConnectionButtons = () => {
+    if (!selectedPc) return null;
+
+    const hasVncSupport = selectedPc.capabilities?.vnc_support;
+
+    return (
+      <div className="flex gap-2">
+        {!isConnected && !isPending && !isVncConnected ? (
+          <div className="flex flex-col gap-2 w-full">
+            {/* Standard connection buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => connectToPC(selectedPc, false)}
+                disabled={isLoading || selectedPc.status !== 'online'}
+                className={`flex-1 p-4 rounded-2xl border-2 transition-all duration-300 flex items-center justify-center gap-2 ${
+                  isLoading || selectedPc.status !== 'online'
+                    ? theme === 'dark'
+                      ? 'bg-gray-700 border-gray-600 text-gray-400 cursor-not-allowed'
+                      : 'bg-gray-300 border-gray-400 text-gray-500 cursor-not-allowed'
+                    : theme === 'dark'
+                    ? 'bg-green-600 border-green-500 text-white hover:bg-green-500'
+                    : 'bg-green-500 border-green-400 text-white hover:bg-green-400'
+                }`}
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Подключение...
+                  </>
+                ) : (
+                  <>
+                    <PlayIcon className="h-5 w-5" />
+                    Стандартное подключение
+                  </>
+                )}
+              </button>
+              
+              {/* VNC connection button */}
+              {hasVncSupport && (
+                <button
+                  onClick={() => connectToPC(selectedPc, true)}
+                  disabled={isLoading || selectedPc.status !== 'online'}
+                  className={`flex-1 p-4 rounded-2xl border-2 transition-all duration-300 flex items-center justify-center gap-2 ${
+                    isLoading || selectedPc.status !== 'online'
+                      ? theme === 'dark'
+                        ? 'bg-gray-700 border-gray-600 text-gray-400 cursor-not-allowed'
+                        : 'bg-gray-300 border-gray-400 text-gray-500 cursor-not-allowed'
+                      : theme === 'dark'
+                      ? 'bg-purple-600 border-purple-500 text-white hover:bg-purple-500'
+                      : 'bg-purple-500 border-purple-400 text-white hover:bg-purple-400'
+                  }`}
+                >
+                  <ServerIcon className="h-5 w-5" />
+                  VNC подключение
+                </button>
+              )}
+            </div>
+            
+            {hasVncSupport && (
+              <div className={`text-xs text-center p-2 rounded-lg ${
+                theme === 'dark' ? 'bg-purple-900/30 text-purple-300' : 'bg-purple-100 text-purple-700'
+              }`}>
+                💡 Доступно VNC подключение для лучшей производительности
+              </div>
+            )}
+          </div>
+        ) : isPending ? (
+          <button
+            disabled
+            className={`flex-1 p-4 rounded-2xl border-2 flex items-center justify-center gap-2 ${
+              theme === 'dark'
+                ? 'bg-yellow-900 border-yellow-700 text-yellow-200'
+                : 'bg-yellow-100 border-yellow-300 text-yellow-700'
+            }`}
+          >
+            <ClockIcon className="h-5 w-5 animate-pulse" />
+            Ожидание подтверждения...
+          </button>
+        ) : (
+          <button
+            onClick={disconnect}
+            className={`flex-1 p-4 rounded-2xl border-2 transition-all duration-300 flex items-center justify-center gap-2 ${
+              theme === 'dark'
+                ? 'bg-red-600 border-red-500 text-white hover:bg-red-500'
+                : 'bg-red-500 border-red-400 text-white hover:bg-red-400'
+            }`}
+          >
+            <StopIcon className="h-5 w-5" />
+            Отключиться
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  // Update feature tabs to include VNC
+  const renderFeatureTabs = () => {
+    if (!isConnected && !isVncConnected) return null;
+
+    const tabs = [
+      { id: 'remote' as const, name: 'Экран', icon: ComputerDesktopIcon },
+      activeSession?.capabilities?.file_transfer && { id: 'files' as const, name: 'Файлы', icon: FolderIcon },
+      activeSession?.capabilities?.remote_shell && { id: 'shell' as const, name: 'Консоль', icon: CommandLineIcon },
+      activeSession?.capabilities?.clipboard_sync && { id: 'clipboard' as const, name: 'Буфер', icon: ClipboardIcon },
+      isVncConnected && { id: 'vnc' as const, name: 'VNC', icon: ServerIcon }
+    ].filter(Boolean);
+
+    return (
+      <div className="border-t pt-4">
+        <div className="flex space-x-1 mb-4">
+          {tabs.map((tab: any) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === tab.id
+                  ? theme === 'dark'
+                    ? 'bg-cyan-600 text-white'
+                    : 'bg-blue-500 text-white'
+                  : theme === 'dark'
+                  ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              <tab.icon className="h-4 w-4" />
+              <span>{tab.name}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="min-h-[200px]">
+          {activeTab === 'files' && <FileManager />}
+          {activeTab === 'shell' && <RemoteShell />}
+          {activeTab === 'clipboard' && <ClipboardManager />}
+          {activeTab === 'vnc' && <VNCConnection />}
+          {activeTab === 'remote' && !isVncConnected && (
+            <div className="text-center py-8 text-gray-500">
+              Используйте вкладку "Удалённый экран" для просмотра
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Update PC list item to show VNC support
+  const renderPCItem = (pc: PC) => (
+    <div
+      key={pc.pc_id}
+      className={`p-4 rounded-2xl border-2 cursor-pointer transition-all duration-300 ${
+        selectedPc?.pc_id === pc.pc_id
+          ? theme === 'dark'
+            ? 'bg-cyan-900 border-cyan-600'
+            : 'bg-blue-100 border-blue-400'
+          : theme === 'dark'
+          ? 'bg-gray-800 border-gray-600 hover:border-cyan-600'
+          : 'bg-gray-50 border-gray-300 hover:border-blue-400'
+      } ${pc.status === 'offline' ? 'opacity-50 cursor-not-allowed' : ''}`}
+      onClick={() => pc.status === 'online' && setSelectedPc(pc)}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className={`w-3 h-3 rounded-full ${
+            pc.status === 'online' ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+          }`} />
+          <div className="min-w-0 flex-1">
+            <h3 className="font-medium truncate">{pc.pc_name}</h3>
+            <p className={`text-sm truncate ${
+              theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
+            }`}>
+              {userRole === 'admin' ? `Пользователь: ${pc.username}` : pc.username}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {pc.capabilities && (
+            <div className="flex gap-1">
+              {pc.capabilities.file_transfer && (
+                <FolderIcon className="h-4 w-4 text-blue-500" title="Файловый менеджер" />
+              )}
+              {pc.capabilities.remote_shell && (
+                <CommandLineIcon className="h-4 w-4 text-green-500" title="Удаленная консоль" />
+              )}
+              {pc.capabilities.clipboard_sync && (
+                <ClipboardIcon className="h-4 w-4 text-purple-500" title="Синхронизация буфера" />
+              )}
+              {pc.capabilities.vnc_support && (
+                <ServerIcon className="h-4 w-4 text-orange-500" title="VNC поддержка" />
+              )}
+            </div>
+          )}
+          {pc.connection_type && (
+            <span className={`text-xs px-2 py-1 rounded-2xl ${
+              theme === 'dark' 
+                ? 'bg-blue-900 text-blue-200' 
+                : 'bg-blue-100 text-blue-700'
+            }`}>
+              {pc.connection_type.toUpperCase()}
+            </span>
+          )}
+          <div className={`text-xs px-2 py-1 rounded-2xl ${
+            pc.status === 'online'
+              ? theme === 'dark'
+                ? 'bg-green-900 text-green-200'
+                : 'bg-green-100 text-green-700'
+              : theme === 'dark'
+              ? 'bg-red-900 text-red-200'
+              : 'bg-red-100 text-red-700'
+          }`}>
+            {pc.status === 'online' ? 'Online' : 'Offline'}
+          </div>
+        </div>
+      </div>
+      {pc.system_info && (
+        <div className={`text-xs mt-2 ${
+          theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+        }`}>
+          <div className="flex flex-wrap gap-2">
+            <span>ОС: {pc.system_info.os || 'Неизвестно'}</span>
+            <span>IP: {pc.system_info.ip_address || 'Неизвестно'}</span>
+            <span>Платформа: {pc.system_info.platform || 'Неизвестно'}</span>
+          </div>
+          <div className="mt-1">
+            Обновлено: {new Date(pc.last_seen).toLocaleTimeString()}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // Initialize
+  useEffect(() => {
+    fetchPCs();
+    
+    const interval = setInterval(fetchPCs, 30000);
+    return () => {
+      clearInterval(interval);
+    };
+  }, [fetchPCs]);
+
+  // Setup input handlers when connected
+  useEffect(() => {
+    if (!isConnected || !canvasRef.current || !activeSession) return;
+
+    const canvas = canvasRef.current;
+
+    const mouseListeners: Array<[string, (e: MouseEvent) => void]> = [
+      ['mousedown', (e) => handleMouseEvent(e, 'mousedown')],
+      ['mouseup', (e) => handleMouseEvent(e, 'mouseup')],
+      ['mousemove', (e) => handleMouseEvent(e, 'mousemove')],
+      ['click', (e) => handleMouseEvent(e, 'click')],
+      ['dblclick', (e) => handleMouseEvent(e, 'dblclick')],
+    ];
+
+    mouseListeners.forEach(([type, listener]) => canvas.addEventListener(type as any, listener));
+
+    canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      handleMouseEvent(e, 'contextmenu');
+    });
+    
+    const keyListeners: Array<[string, (e: KeyboardEvent) => void]> = [
+      ['keydown', (e) => handleKeyEvent(e, 'keydown')],
+      ['keyup', (e) => handleKeyEvent(e, 'keyup')],
+    ];
+
+    keyListeners.forEach(([type, listener]) => document.addEventListener(type as any, listener));
+
+    canvas.tabIndex = 0;
+    canvas.focus();
+
+    eventCleanupRef.current = () => {
+      mouseListeners.forEach(([type, listener]) => canvas.removeEventListener(type as any, listener));
+      canvas.removeEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        handleMouseEvent(e, 'contextmenu');
+      });
+      
+      keyListeners.forEach(([type, listener]) => document.removeEventListener(type as any, listener));
+    };
+
+    return () => {
+      if (eventCleanupRef.current) {
+        eventCleanupRef.current();
+        eventCleanupRef.current = null;
+      }
+    };
+  }, [isConnected, activeSession, handleMouseEvent, handleKeyEvent]);
+
+  // Auto-scroll shell output
+  useEffect(() => {
+    shellEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [shellOutput]);
+
   return (
     <div className={`min-h-screen transition-colors duration-500 ${
       theme === 'dark'
@@ -1198,6 +1688,7 @@ const RemoteDesktop: React.FC = () => {
         : 'bg-gradient-to-br from-gray-50 via-blue-50 to-gray-50 text-gray-800'
     } py-6 px-4`}>
       <div className="max-w-7xl mx-auto">
+        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <div className={`p-4 rounded-3xl shadow-2xl ${
@@ -1237,6 +1728,7 @@ const RemoteDesktop: React.FC = () => {
           </div>
         </div>
 
+        {/* Error Display */}
         {error && (
           <div className={`mb-6 p-4 rounded-2xl border-l-4 ${
             theme === 'dark'
@@ -1341,81 +1833,7 @@ const RemoteDesktop: React.FC = () => {
             )}
 
             <div className="space-y-3 max-h-96 overflow-y-auto">
-              {pcs.map((pc) => (
-                <div
-                  key={pc.pc_id}
-                  className={`p-4 rounded-2xl border-2 cursor-pointer transition-all duration-300 ${
-                    selectedPc?.pc_id === pc.pc_id
-                      ? theme === 'dark'
-                        ? 'bg-cyan-900 border-cyan-600'
-                        : 'bg-blue-100 border-blue-400'
-                      : theme === 'dark'
-                        ? 'bg-gray-800 border-gray-600 hover:border-cyan-600'
-                        : 'bg-gray-50 border-gray-300 hover:border-blue-400'
-                  } ${pc.status === 'offline' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  onClick={() => pc.status === 'online' && setSelectedPc(pc)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${
-                        pc.status === 'online' ? 'bg-green-500 animate-pulse' : 'bg-red-500'
-                      }`} />
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-medium truncate">{pc.pc_name}</h3>
-                        <p className={`text-sm truncate ${
-                          theme === 'dark' ? 'text-gray-300' : 'text-gray-600'
-                        }`}>
-                          {userRole === 'admin' ? `Пользователь: ${pc.username}` : pc.username}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {pc.capabilities && (
-                        <div className="flex gap-1">
-                          {pc.capabilities.file_transfer && (
-                            <FolderIcon className="h-4 w-4 text-blue-500" title="Файловый менеджер" />
-                          )}
-                          {pc.capabilities.remote_shell && (
-                            <TerminalIcon className="h-4 w-4 text-green-500" title="Удаленная консоль" />
-                          )}
-                          {pc.capabilities.clipboard_sync && (
-                            <ClipboardIcon className="h-4 w-4 text-purple-500" title="Синхронизация буфера" />
-                          )}
-                        </div>
-                      )}
-                      {pc.connection_type && (
-                        <span className={`text-xs px-2 py-1 rounded-2xl ${
-                          theme === 'dark' 
-                            ? 'bg-blue-900 text-blue-200' 
-                            : 'bg-blue-100 text-blue-700'
-                        }`}>
-                          {pc.connection_type}
-                        </span>
-                      )}
-                      <div className={`text-xs px-2 py-1 rounded-2xl ${
-                        pc.status === 'online'
-                          ? theme === 'dark'
-                            ? 'bg-green-900 text-green-200'
-                            : 'bg-green-100 text-green-700'
-                          : theme === 'dark'
-                            ? 'bg-red-900 text-red-200'
-                            : 'bg-red-100 text-red-700'
-                      }`}>
-                        {pc.status === 'online' ? 'Online' : 'Offline'}
-                      </div>
-                    </div>
-                  </div>
-                  {pc.system_info && (
-                    <div className={`text-xs mt-2 ${
-                      theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-                    }`}>
-                      <div>ОС: {pc.system_info.os || 'Неизвестно'}</div>
-                      <div>IP: {pc.system_info.ip_address || 'Неизвестно'}</div>
-                      <div>Обновлено: {new Date(pc.last_seen).toLocaleTimeString()}</div>
-                    </div>
-                  )}
-                </div>
-              ))}
+              {pcs.map(renderPCItem)}
               {pcs.length === 0 && !isLoadingPCs && (
                 <div className={`text-center py-8 ${
                   theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
@@ -1474,7 +1892,14 @@ const RemoteDesktop: React.FC = () => {
                       <p className={`text-xs ${
                         theme === 'dark' ? 'text-blue-400' : 'text-blue-600'
                       }`}>
-                        Тип: {selectedPc.connection_type}
+                        Тип: {selectedPc.connection_type.toUpperCase()}
+                      </p>
+                    )}
+                    {selectedPc.capabilities?.vnc_support && (
+                      <p className={`text-xs ${
+                        theme === 'dark' ? 'text-orange-400' : 'text-orange-600'
+                      }`}>
+                        VNC
                       </p>
                     )}
                   </div>
@@ -1485,136 +1910,44 @@ const RemoteDesktop: React.FC = () => {
                   <div className="flex gap-2">
                     <button
                       onClick={() => setSessionType('view')}
-                      disabled={isConnected || isPending || selectedPc.status !== 'online'}
+                      disabled={isConnected || isPending || isVncConnected || selectedPc.status !== 'online'}
                       className={`flex-1 p-3 rounded-2xl border-2 transition-all duration-300 ${
                         sessionType === 'view'
                           ? theme === 'dark'
                             ? 'bg-cyan-600 border-cyan-500 text-white'
                             : 'bg-blue-500 border-blue-400 text-white'
                           : theme === 'dark'
-                            ? 'bg-gray-800 border-gray-600 text-gray-300 hover:border-cyan-600'
-                            : 'bg-gray-100 border-gray-300 text-gray-600 hover:border-blue-400'
-                      } ${(isConnected || isPending || selectedPc.status !== 'online') ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          ? 'bg-gray-800 border-gray-600 text-gray-300 hover:border-cyan-600'
+                          : 'bg-gray-100 border-gray-300 text-gray-600 hover:border-blue-400'
+                      } ${(isConnected || isPending || isVncConnected || selectedPc.status !== 'online') ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <EyeIcon className="h-5 w-5 mx-auto mb-1" />
                       <span className="text-xs">Только просмотр</span>
                     </button>
                     <button
                       onClick={() => setSessionType('control')}
-                      disabled={isConnected || isPending || selectedPc.status !== 'online'}
+                      disabled={isConnected || isPending || isVncConnected || selectedPc.status !== 'online'}
                       className={`flex-1 p-3 rounded-2xl border-2 transition-all duration-300 ${
                         sessionType === 'control'
                           ? theme === 'dark'
                             ? 'bg-cyan-600 border-cyan-500 text-white'
                             : 'bg-blue-500 border-blue-400 text-white'
                           : theme === 'dark'
-                            ? 'bg-gray-800 border-gray-600 text-gray-300 hover:border-cyan-600'
-                            : 'bg-gray-100 border-gray-300 text-gray-600 hover:border-blue-400'
-                      } ${(isConnected || isPending || selectedPc.status !== 'online') ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          ? 'bg-gray-800 border-gray-600 text-gray-300 hover:border-cyan-600'
+                          : 'bg-gray-100 border-gray-300 text-gray-600 hover:border-blue-400'
+                      } ${(isConnected || isPending || isVncConnected || selectedPc.status !== 'online') ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                       <CommandLineIcon className="h-5 w-5 mx-auto mb-1" />
                       <span className="text-xs">Полное управление</span>
                     </button>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  {!isConnected && !isPending ? (
-                    <button
-                      onClick={() => connectToPC(selectedPc)}
-                      disabled={isLoading || selectedPc.status !== 'online'}
-                      className={`flex-1 p-4 rounded-2xl border-2 transition-all duration-300 flex items-center justify-center gap-2 ${
-                        isLoading || selectedPc.status !== 'online'
-                          ? theme === 'dark'
-                            ? 'bg-gray-700 border-gray-600 text-gray-400 cursor-not-allowed'
-                            : 'bg-gray-300 border-gray-400 text-gray-500 cursor-not-allowed'
-                          : theme === 'dark'
-                            ? 'bg-green-600 border-green-500 text-white hover:bg-green-500'
-                            : 'bg-green-500 border-green-400 text-white hover:bg-green-400'
-                      }`}
-                    >
-                      {isLoading ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          Подключение...
-                        </>
-                      ) : (
-                        <>
-                          <PlayIcon className="h-5 w-5" />
-                          Подключиться
-                        </>
-                      )}
-                    </button>
-                  ) : isPending ? (
-                    <button
-                      disabled
-                      className={`flex-1 p-4 rounded-2xl border-2 flex items-center justify-center gap-2 ${
-                        theme === 'dark'
-                          ? 'bg-yellow-900 border-yellow-700 text-yellow-200'
-                          : 'bg-yellow-100 border-yellow-300 text-yellow-700'
-                      }`}
-                    >
-                      <ClockIcon className="h-5 w-5 animate-pulse" />
-                      Ожидание подтверждения...
-                    </button>
-                  ) : (
-                    <button
-                      onClick={disconnect}
-                      className={`flex-1 p-4 rounded-2xl border-2 transition-all duration-300 flex items-center justify-center gap-2 ${
-                        theme === 'dark'
-                          ? 'bg-red-600 border-red-500 text-white hover:bg-red-500'
-                          : 'bg-red-500 border-red-400 text-white hover:bg-red-400'
-                      }`}
-                    >
-                      <StopIcon className="h-5 w-5" />
-                      Отключиться
-                    </button>
-                  )}
-                </div>
 
-                {/* Feature Tabs when connected */}
-                {isConnected && activeSession?.capabilities && (
-                  <div className="border-t pt-4">
-                    <div className="flex space-x-1 mb-4">
-                      {[
-                        { id: 'remote', name: 'Экран', icon: ComputerDesktopIcon },
-                        activeSession.capabilities.file_transfer && { id: 'files', name: 'Файлы', icon: FolderIcon },
-                        activeSession.capabilities.remote_shell && { id: 'shell', name: 'Консоль', icon: TerminalIcon },
-                        activeSession.capabilities.clipboard_sync && { id: 'clipboard', name: 'Буфер', icon: ClipboardIcon }
-                      ].filter(Boolean).map((tab: any) => (
-                        <button
-                          key={tab.id}
-                          onClick={() => setActiveTab(tab.id)}
-                          className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            activeTab === tab.id
-                              ? theme === 'dark'
-                                ? 'bg-cyan-600 text-white'
-                                : 'bg-blue-500 text-white'
-                              : theme === 'dark'
-                              ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                          }`}
-                        >
-                          <tab.icon className="h-4 w-4" />
-                          <span>{tab.name}</span>
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="min-h-[200px]">
-                      {activeTab === 'files' && <FileManager />}
-                      {activeTab === 'shell' && <RemoteShell />}
-                      {activeTab === 'clipboard' && <ClipboardManager />}
-                      {activeTab === 'remote' && (
-                        <div className="text-center py-8 text-gray-500">
-                          Используйте вкладку "Удалённый экран" для просмотра
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                {renderConnectionButtons()}
+                {renderFeatureTabs()}
 
                 <div className={`p-3 rounded-2xl text-center ${
-                  isConnected
+                  isConnected || isVncConnected
                     ? theme === 'dark'
                       ? 'bg-green-900 text-green-200'
                       : 'bg-green-100 text-green-700'
@@ -1627,11 +1960,13 @@ const RemoteDesktop: React.FC = () => {
                     : 'bg-gray-100 text-gray-600'
                 }`}>
                   <div className="flex items-center justify-center gap-2">
-                    {isConnected ? (
+                    {isConnected || isVncConnected ? (
                       <>
                         <SignalIcon className="h-4 w-4 animate-pulse" />
-                        <span>Подключено к {selectedPc.pc_name}</span>
-                        {activeSession && (
+                        <span>
+                          {isVncConnected ? 'VNC подключено' : 'Подключено'} к {selectedPc.pc_name}
+                        </span>
+                        {activeSession && !isVncConnected && (
                           <span className="text-xs opacity-75">
                             ({activeSession.session_type === 'view' ? 'просмотр' : 'управление'})
                           </span>
@@ -1682,16 +2017,23 @@ const RemoteDesktop: React.FC = () => {
               <h2 className={`text-xl font-semibold ${
                 theme === 'dark' ? 'text-white' : 'text-gray-800'
               }`}>
-                Удалённый экран {selectedPc && `- ${selectedPc.pc_name}`}
+                {isVncConnected ? 'VNC подключение' : 'Удалённый экран'} {selectedPc && `- ${selectedPc.pc_name}`}
                 {selectedPc?.connection_type && (
                   <span className={`text-sm ml-2 ${
                     theme === 'dark' ? 'text-blue-400' : 'text-blue-600'
                   }`}>
-                    ({selectedPc.connection_type})
+                    ({selectedPc.connection_type.toUpperCase()})
+                  </span>
+                )}
+                {isVncConnected && (
+                  <span className={`text-sm ml-2 ${
+                    theme === 'dark' ? 'text-orange-400' : 'text-orange-600'
+                  }`}>
+                    (VNC)
                   </span>
                 )}
               </h2>
-              {isConnected && (
+              {isConnected && !isVncConnected && (
                 <div className="flex items-center gap-2">
                   <button
                     onClick={requestScreenUpdate}
@@ -1717,9 +2059,29 @@ const RemoteDesktop: React.FC = () => {
               ref={remoteScreenRef}
               className={`rounded-2xl border-2 aspect-video flex items-center justify-center overflow-hidden relative ${
                 theme === 'dark' ? 'bg-gray-800 border-gray-600' : 'bg-gray-100 border-gray-300'
-              } ${isConnected ? 'cursor-crosshair' : ''}`}
+              } ${isConnected && !isVncConnected ? 'cursor-crosshair' : ''}`}
             >
-              {isConnected ? (
+              {isVncConnected ? (
+                <div className="text-center p-8">
+                  <ServerIcon className="h-16 w-16 mx-auto mb-3 text-orange-500" />
+                  <h3 className="text-lg font-semibold mb-2">VNC подключение активно</h3>
+                  <p className={theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>
+                    Используйте VNC Viewer для подключения к удалённому рабочему столу
+                  </p>
+                  {vncConnectionInfo && (
+                    <div className="mt-4 p-4 rounded-lg bg-black bg-opacity-50 text-left max-w-md mx-auto">
+                      <p className="text-sm font-mono break-all">
+                        <strong>Подключение:</strong> {vncConnectionInfo.connection_string}
+                      </p>
+                      {vncConnectionInfo.password && (
+                        <p className="text-sm font-mono mt-2">
+                          <strong>Пароль:</strong> {vncConnectionInfo.password}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : isConnected ? (
                 <canvas
                   ref={canvasRef}
                   className="absolute inset-0 w-full h-full"
@@ -1749,7 +2111,7 @@ const RemoteDesktop: React.FC = () => {
               )}
             </div>
 
-            {isConnected && (
+            {isConnected && !isVncConnected && (
               <div className="mt-4 flex flex-wrap gap-2 justify-between">
                 <div className="flex flex-wrap gap-2">
                   {['Ctrl+Alt+Del', 'Alt+Tab', 'ESC', 'Print Screen', 'Win+L'].map((command) => (

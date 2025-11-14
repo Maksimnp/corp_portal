@@ -32,6 +32,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../../hooks/ThemeContext';
 import { SupportModal } from '../../components/SupportModal';
+import {getAvatarData, setAvatarData} from '../../utils/avatarCache'
 
 // Функция для получения приветствия в зависимости от времени суток
 const getGreeting = (): string => {
@@ -100,6 +101,54 @@ interface Notification {
   link?: string;
 }
 
+const UserAvatar: React.FC<{ userId: string; size?: number; mod?: string;}> = ({ userId, size = 50, mod }) => {
+  const [avatarsData, setAvatarsData] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const cached = getAvatarData(userId);
+    if (cached) {
+      setAvatarsData(cached);
+      setLoading(false);
+      return;
+    }
+
+    const fetchAndCache = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${BASE_URL}/api/users/${userId}/avatar`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok) throw new Error('Аватар не найден');
+
+        const { avatar } = await res.json();
+
+        setAvatarData(userId, avatar);
+        setAvatarsData(avatar);
+      } catch (err) {
+        console.warn('Не удалось загрузить аватар:', err);
+        setAvatarsData(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAndCache();
+  }, [userId]);
+
+  if (loading) return <div className={`${mod === 'square' ? 'rounded-1' : 'rounded-full'} bg-gray-300 animate-pulse`} style={{ width: size, height: size }} />;
+  
+  if (!avatarsData) return <UserIcon className="text-gray-500" style={{ width: size, height: size }} />;
+
+  return <img 
+    src={avatarsData} 
+    alt="avatar" 
+    className={`${mod === 'square' ? 'rounded-1' : 'rounded-2xl'} object-cover`}
+    style={{ width: size, height: size }}
+  />;
+};
+
 // Компонент модального окна профиля
 const ProfileModal: React.FC<{
   isOpen: boolean;
@@ -107,7 +156,8 @@ const ProfileModal: React.FC<{
   theme: string;
   userProfile: UserProfile;
   onAvatarUpdate: (newAvatarUrl: string) => void;
-}> = ({ isOpen, onClose, theme, userProfile, onAvatarUpdate }) => {
+  username: string;
+}> = ({ isOpen, onClose, theme, userProfile, onAvatarUpdate, username }) => {
   const [isEditingAvatar, setIsEditingAvatar] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -149,32 +199,44 @@ const ProfileModal: React.FC<{
     }
   };
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleSaveAvatar = async () => {
     if (!avatarFile) return;
-
     setIsUploading(true);
+
     try {
-      // Здесь должна быть логика загрузки аватара на сервер
-      // Временная имитация загрузки
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // В реальном приложении здесь будет API call
-      // const formData = new FormData();
-      // formData.append('avatar', avatarFile);
-      // const response = await fetch(`${BASE_URL}/users/avatar`, { method: 'POST', body: formData });
-      // const data = await response.json();
+      const base64 = await fileToBase64(avatarFile);
+      const userId = localStorage.getItem('username') || 'unknown';
 
-      // Для демонстрации используем preview URL
-      if (avatarPreview) {
-        onAvatarUpdate(avatarPreview);
-        localStorage.setItem('userAvatar', avatarPreview);
-      }
+      const formData = new FormData();
+      formData.append('avatar', avatarFile);
+      formData.append('userId', userId);
 
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${BASE_URL}/api/users/avatar`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error('Сервер не сохранил аватар');
+
+      setAvatarData(userId, base64);
+
+      onAvatarUpdate(base64);
       setIsEditingAvatar(false);
       setAvatarFile(null);
     } catch (error) {
-      console.error('Ошибка при загрузке аватара:', error);
-      alert('Ошибка при загрузке аватара');
+      console.error('Ошибка:', error);
+      alert('Не удалось сохранить аватар');
     } finally {
       setIsUploading(false);
     }
@@ -244,12 +306,9 @@ const ProfileModal: React.FC<{
                   }`}
                   onClick={handleAvatarClick}
                 >
-                  {avatarPreview || userProfile.avatar ? (
-                    <img 
-                      src={avatarPreview || userProfile.avatar} 
-                      alt="Аватар" 
-                      className="w-full h-full object-cover"
-                    />
+                  <UserAvatar userId={username} size={120} mod='square'/>
+                  {/* {avatarPreview || userProfile.avatar ? (
+                    <UserAvatar userId={username}/>
                   ) : (
                     <div className={`w-full h-full flex items-center justify-center ${
                       theme === 'dark' 
@@ -258,7 +317,7 @@ const ProfileModal: React.FC<{
                     }`}>
                       <UserIcon className="h-12 w-12 text-white" />
                     </div>
-                  )}
+                  )} */}
                 </div>
                 
                 {/* Кнопка изменения аватара */}
@@ -928,7 +987,7 @@ export const Dashboard: React.FC = () => {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [wsConnectionStatus, setWsConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
   const [greeting, setGreeting] = useState(getGreeting());
-  const [userAvatar, setUserAvatar] = useState<string | null>(localStorage.getItem('userAvatar'));
+  const [userAvatar, setUserAvatar] = useState<string | null>(localStorage.getItem(`avatar:${username}`));
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
@@ -1351,15 +1410,7 @@ export const Dashboard: React.FC = () => {
                       : 'bg-gradient-to-r from-cyan-500 to-indigo-600 border border-gray-300'
                   }`}
                 >
-                  {userAvatar ? (
-                    <img 
-                      src={userAvatar} 
-                      alt="Аватар" 
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <UserIcon className="h-6 w-6 text-white" />
-                  )}
+                  <UserAvatar userId={username}/>
                 </div>
                 <div className="hidden md:block">
                   <p className="text-sm font-medium">{displayName}</p>
@@ -1520,6 +1571,7 @@ export const Dashboard: React.FC = () => {
           theme={theme}
           userProfile={userProfile}
           onAvatarUpdate={handleAvatarUpdate}
+          username={username}
         />
       )}
     </div>

@@ -1,4 +1,3 @@
-// src/pages/Login.tsx
 import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
@@ -7,12 +6,14 @@ interface LoginResponse {
   access_token: string;
   role: number;
   full_name?: string;
+  refresh_token?: string; 
 }
 
 interface LoginError {
   detail?: string;
   status?: number;
 }
+
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const Login: React.FC = () => {
@@ -40,11 +41,14 @@ const Login: React.FC = () => {
       });
 
       if (response.ok) {
-        const { access_token, role, full_name = username } = (await response.json()) as LoginResponse;;
-        login(access_token, String(role));
-        localStorage.setItem('access_token', access_token);
+        const { access_token, role, full_name = username, refresh_token } = (await response.json()) as LoginResponse;
+        login(access_token, String(role), refresh_token || ''   ); // Передаём refresh_token
+        localStorage.setItem('access_token', access_token); // Исправлено: 'token' → 'access_token'
         localStorage.setItem('role', String(role));
         localStorage.setItem('username', full_name);
+        if (refresh_token) {
+          localStorage.setItem('refresh_token', refresh_token);
+        }
         navigate('/dashboard');
         return;
       }

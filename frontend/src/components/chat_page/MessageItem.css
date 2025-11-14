@@ -1,0 +1,44 @@
+/* Базовые стили для хвостика */
+.has-tail::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+}
+
+/* Хвостик для своих сообщений (справа) */
+.has-tail.tail-right::after {
+  right: -8px;
+  border-width: 0 0 12px 12px;
+  border-color: transparent transparent #dcf8c6 transparent; /* Цвет как у ваших сообщений */
+}
+
+/* Хвостик для чужих сообщений (слева) */
+.has-tail.tail-left::after {
+  left: -8px;
+  border-width: 0 0 12px 12px;
+  border-color: transparent transparent #ffffff transparent; /* Цвет как у чужих сообщений */
+}
+
+/* Альтернативный вариант с использованием clip-path */
+.has-tail.tail-right {
+  clip-path: polygon(
+    0% 0%,
+    100% 0%,
+    100% calc(100% - 12px),
+    calc(100% - 12px) 100%,
+    0% 100%
+  );
+}
+
+.has-tail.tail-left {
+  clip-path: polygon(
+    0% 0%,
+    100% 0%,
+    100% 100%,
+    12px 100%,
+    0% calc(100% - 12px)
+  );
+}

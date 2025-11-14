@@ -124,85 +124,151 @@ const Admin: React.FC = () => {
   };
 
   const fetchTokenSettings = async () => {
-    try {
-      setTokenSettingsLoading(true);
-      setError('');
-      
-      if (!token) {
-        setError('Токен авторизации не найден. Пожалуйста, войдите заново.');
-        return;
-      }
+  try {
+    setTokenSettingsLoading(true);
+    setError('');
+    
+    if (!token) {
+      setError('Токен авторизации не найден. Пожалуйста, войдите заново.');
+      return;
+    }
 
-      const response = await axios.get(`${API_BASE_URL}/admin/token-settings`, {
+    // Проверяем кеш в localStorage
+    const cachedSettings = localStorage.getItem('tokenSettings');
+    if (cachedSettings) {
+      const parsedSettings = JSON.parse(cachedSettings);
+      setTokenSettings(parsedSettings);
+    }
+
+    const response = await axios.get(`${API_BASE_URL}/admin/token-settings`, {
+      headers: { 
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+    });
+    
+    if (response.data && response.data.settings) {
+      const newSettings = {
+        access_token_expire_minutes: response.data.settings.access_token_expire_minutes || 1440,
+        refresh_token_expire_days: response.data.settings.refresh_token_expire_days || 7,
+        algorithm: response.data.settings.algorithm || 'HS256'
+      };
+      
+      setTokenSettings(newSettings);
+      
+      // Сохраняем в localStorage для кеширования
+      localStorage.setItem('tokenSettings', JSON.stringify(newSettings));
+    }
+  } catch (err) {
+    console.error('Ошибка получения настроек токенов:', err);
+    // Используем кешированные настройки если есть
+    const cachedSettings = localStorage.getItem('tokenSettings');
+    if (cachedSettings) {
+      const parsedSettings = JSON.parse(cachedSettings);
+      setTokenSettings(parsedSettings);
+    }
+  } finally {
+    setTokenSettingsLoading(false);
+  }
+};
+
+  const updateTokenSettings = async () => {
+  try {
+    setTokenSettingsLoading(true);
+    setError('');
+    setSuccess('');
+    
+    if (!token) {
+      setError('Токен авторизации не найден. Пожалуйста, войдите заново.');
+      return;
+    }
+
+    // Валидация
+    if (tokenSettings.access_token_expire_minutes < 5) {
+      setError('Access Token должен быть не менее 5 минут');
+      return;
+    }
+    if (tokenSettings.refresh_token_expire_days < 1) {
+      setError('Refresh Token должен быть не менее 1 дня');
+      return;
+    }
+
+    const response = await axios.post(
+      `${API_BASE_URL}/admin/token-settings`,
+      tokenSettings,
+      {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
+      }
+    );
+    
+    if (response.data.settings) {
+      setTokenSettings({
+        access_token_expire_minutes: response.data.settings.access_token_expire_minutes || 1440,
+        refresh_token_expire_days: response.data.settings.refresh_token_expire_days || 7,
+        algorithm: response.data.settings.algorithm || 'HS256'
       });
-      
-      if (response.data) {
-        setTokenSettings({
-          access_token_expire_minutes: response.data.access_token_expire_minutes || 1440,
-          refresh_token_expire_days: response.data.refresh_token_expire_days || 7,
-          algorithm: response.data.algorithm || 'HS256'
-        });
-      }
-    } catch (err) {
-      console.error('Ошибка получения настроек токенов:', err);
-      // Не показываем ошибку, так как эндпоинт может быть не реализован
-    } finally {
-      setTokenSettingsLoading(false);
     }
-  };
+    
+    setSuccess('Настройки токенов успешно обновлены');
+    setTimeout(() => setSuccess(''), 5000);
+    
+    localStorage.setItem('tokenSettings', JSON.stringify(tokenSettings));
+    
+  } catch (err) {
+    handleApiError(err, 'Ошибка обновления настроек токенов');
+  } finally {
+    setTokenSettingsLoading(false);
+  }
+};
 
-  const updateTokenSettings = async () => {
-    try {
-      setTokenSettingsLoading(true);
-      setError('');
-      setSuccess('');
-      
-      if (!token) {
-        setError('Токен авторизации не найден. Пожалуйста, войдите заново.');
-        return;
-      }
-
-      // Валидация
-      if (tokenSettings.access_token_expire_minutes < 5) {
-        setError('Access Token должен быть не менее 5 минут');
-        return;
-      }
-      if (tokenSettings.refresh_token_expire_days < 1) {
-        setError('Refresh Token должен быть не менее 1 дня');
-        return;
-      }
-
-      const response = await axios.post(
-        `${API_BASE_URL}/admin/token-settings`,
-        tokenSettings,
-        {
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-        }
-      );
-      
-      setSuccess('Настройки токенов успешно обновлены');
-      setTimeout(() => setSuccess(''), 5000);
-    } catch (err) {
-      handleApiError(err, 'Ошибка обновления настроек токенов');
-    } finally {
-      setTokenSettingsLoading(false);
+  const resetTokenSettings = async () => {
+  try {
+    setTokenSettingsLoading(true);
+    setError('');
+    setSuccess('');
+    
+    if (!token) {
+      setError('Токен авторизации не найден. Пожалуйста, войдите заново.');
+      return;
     }
-  };
 
-  const resetTokenSettings = () => {
-    setTokenSettings({
-      access_token_expire_minutes: 1440,
-      refresh_token_expire_days: 7,
-      algorithm: 'HS256'
-    });
-  };
+    const response = await axios.post(
+      `${API_BASE_URL}/admin/token-settings/reset`,
+      {},
+      {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+      }
+    );
+    
+    // Обновляем состояние из ответа сервера
+    if (response.data.settings) {
+      const resetSettings = {
+        access_token_expire_minutes: response.data.settings.access_token_expire_minutes || 1440,
+        refresh_token_expire_days: response.data.settings.refresh_token_expire_days || 7,
+        algorithm: response.data.settings.algorithm || 'HS256'
+      };
+      
+      setTokenSettings(resetSettings);
+      
+      // Обновляем кеш
+      localStorage.setItem('tokenSettings', JSON.stringify(resetSettings));
+    }
+    
+    setSuccess('Настройки токенов сброшены к значениям по умолчанию');
+    setTimeout(() => setSuccess(''), 5000);
+    
+  } catch (err) {
+    handleApiError(err, 'Ошибка сброса настроек токенов');
+  } finally {
+    setTokenSettingsLoading(false);
+  }
+};
 
   const fetchADUsers = async (search: string = '') => {
     try {

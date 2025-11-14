@@ -13,316 +13,254 @@ import uuid
 import time
 import os
 import sys
+import subprocess
+import threading
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-
-class RemoteDesktopManager:
-    def __init__(self):
-        self.active_sessions: Dict[str, Any] = {}
-        self.user_sessions: Dict[str, str] = {}
-        self.relay_connections: Dict[str, Dict] = {}
-        self.pending_auth: Dict[str, Dict] = {}
-        self.create_cooldown: Dict[str, float] = {}
-        self.cleanup_task: Optional[asyncio.Task] = None
-        
-        self.active_remote_sessions: Dict[str, Dict] = {}
-        self.admin_connections: Dict[str, Any] = {}
-        self.rest_hosts: Dict[str, Dict] = {}
-        self.user_info_cache: Dict[str, Dict] = {}
-        
-        # НАСТРОЙКА: Включить/выключить видимость всех ПК для всех пользователей
-        self.ALL_USERS_SEE_ALL_PCS = True  # True - все видят все ПК, False - только свои
-        
-        self.init_database()
-        self.migrate_database()
+class UltraVNCIntegration:
+    """Интеграция с UltraVNC компонентами"""
     
-    def init_database(self):
-        """Инициализация базы данных"""
+    def __init__(self, vnc_directory: str = "./ultravnc"):
+        self.vnc_directory = Path(vnc_directory)
+        self.uvnc_processes: Dict[str, subprocess.Pprocess] = {}
+        self.uvnc_ports: Dict[str, int] = {}
+        self.next_port = 5900
+        
+    def setup_ultravnc(self):
+        """Настройка UltraVNC компонентов"""
         try:
-            conn = sqlite3.connect('remote_desktop.db')
-            c = conn.cursor()
+            # Создаем директорию для UltraVNC если не существует
+            self.vnc_directory.mkdir(exist_ok=True)
             
-            c.execute('''
-                CREATE TABLE IF NOT EXISTS remote_pcs (
-                    pc_id TEXT PRIMARY KEY,
-                    username TEXT NOT NULL,
-                    pc_name TEXT NOT NULL,
-                    status TEXT NOT NULL DEFAULT 'offline',
-                    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    system_info TEXT,
-                    ip_address TEXT,
-                    connection_type TEXT DEFAULT 'ws',
-                    capabilities TEXT
-                )
-            ''')
-            
-            c.execute('''
-                CREATE TABLE IF NOT EXISTS remote_sessions (
-                    session_id TEXT PRIMARY KEY,
-                    viewer_username TEXT NOT NULL,
-                    host_pc_id TEXT NOT NULL,
-                    session_type TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    end_time TIMESTAMP,
-                    duration INTEGER,
-                    capabilities TEXT
-                )
-            ''')
-            
-            c.execute('CREATE INDEX IF NOT EXISTS idx_username ON remote_pcs(username)')
-            c.execute('CREATE INDEX IF NOT EXISTS idx_status ON remote_pcs(status)')
-            c.execute('CREATE INDEX IF NOT EXISTS idx_pc_id ON remote_pcs(pc_id)')
-            
-            conn.commit()
-            conn.close()
-            logger.info("Remote desktop database initialized")
-        except Exception as e:
-            logger.error(f"Error initializing database: {e}")
-
-    def migrate_database(self):
-        """Миграция базы данных"""
-        try:
-            conn = sqlite3.connect('remote_desktop.db')
-            c = conn.cursor()
-            
-            c.execute("PRAGMA table_info(remote_pcs)")
-            columns = [column[1] for column in c.fetchall()]
-            
-            if 'connection_type' not in columns:
-                c.execute("ALTER TABLE remote_pcs ADD COLUMN connection_type TEXT DEFAULT 'ws'")
-            if 'capabilities' not in columns:
-                c.execute("ALTER TABLE remote_pcs ADD COLUMN capabilities TEXT")
-                
-            conn.commit()
-            conn.close()
-            logger.info("Database migration completed")
-            
-        except Exception as e:
-            logger.error(f"Error during database migration: {e}")
-
-    async def start_background_tasks(self):
-        """Запуск фоновых задач"""
-        if self.cleanup_task is None or self.cleanup_task.done():
-            self.cleanup_task = asyncio.create_task(self.background_cleanup())
-            logger.info("Background tasks started")
-
-    async def background_cleanup(self):
-        """Фоновая очистка"""
-        while True:
-            try:
-                await self.cleanup_old_sessions()
-                await self.cleanup_offline_pcs()
-                await self.cleanup_rest_hosts()
-                await self.cleanup_cooldowns()
-                await asyncio.sleep(60)
-            except Exception as e:
-                logger.error(f"Background cleanup error: {e}")
-                await asyncio.sleep(60)
-
-    async def register_host(self, pc_id: str, username: str, websocket: Any, system_info: Dict = None, capabilities: Dict = None):
-        """Регистрация хоста"""
-        try:
-            if pc_id in self.active_sessions:
-                try:
-                    old_ws = self.active_sessions[pc_id]
-                    await old_ws.close(code=1000, reason="Replaced by new connection")
-                except Exception:
-                    pass
-            
-            self.active_sessions[pc_id] = websocket
-            self.user_sessions[username] = pc_id
-            
-            await self.update_pc_status(pc_id, username, 'online', system_info, capabilities, 'ws')
-            
-            logger.info(f"Host registered: {pc_id} for user {username}")
-            
-            await self.broadcast_to_admins({
-                'type': 'host_online',
-                'pc_id': pc_id,
-                'username': username,
-                'system_info': system_info,
-                'timestamp': datetime.now().isoformat()
-            })
-            
-        except Exception as e:
-            logger.error(f"Error registering host: {e}")
-
-    async def update_pc_status(self, pc_id: str, username: Optional[str], status: str, 
-                             system_info: Dict = None, capabilities: Dict = None, connection_type: str = 'ws'):
-        """Обновление статуса ПК"""
-        try:
-            conn = sqlite3.connect('remote_desktop.db')
-            c = conn.cursor()
-            
-            system_info_json = json.dumps(system_info) if system_info else '{}'
-            capabilities_json = json.dumps(capabilities) if capabilities else '{}'
-            ip_address = system_info.get('ip_address') if system_info else None
-            
-            c.execute('''SELECT * FROM remote_pcs WHERE pc_id=?''', (pc_id,))
-            existing = c.fetchone()
-            
-            if existing:
-                c.execute('''UPDATE remote_pcs 
-                           SET status=?, last_seen=datetime('now'), system_info=?, ip_address=?, capabilities=?, connection_type=?
-                           WHERE pc_id=?''', 
-                         (status, system_info_json, ip_address, capabilities_json, connection_type, pc_id))
-            else:
-                pc_name = system_info.get('hostname', f"{username}_PC") if system_info else f"{username}_PC"
-                c.execute('''INSERT INTO remote_pcs 
-                           (pc_id, username, pc_name, status, system_info, ip_address, capabilities, connection_type) 
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-                         (pc_id, username, pc_name, status, system_info_json, ip_address, capabilities_json, connection_type))
-            
-            conn.commit()
-            conn.close()
-            
-        except Exception as e:
-            logger.error(f"Error updating PC status: {e}")
-
-    async def unregister_host(self, pc_id: str):
-        """Удаление хоста"""
-        try:
-            if pc_id in self.active_sessions:
-                del self.active_sessions[pc_id]
-                
-            username = None
-            for user, pid in list(self.user_sessions.items()):
-                if pid == pc_id:
-                    username = user
-                    del self.user_sessions[user]
-                    break
-                    
-            await self.update_pc_status(pc_id, username, 'offline')
-            logger.info(f"Host unregistered: {pc_id}")
-
-            await self.broadcast_to_admins({
-                'type': 'host_offline',
-                'pc_id': pc_id,
-                'timestamp': datetime.now().isoformat()
-            })
-
-        except Exception as e:
-            logger.error(f"Error unregistering host: {e}")
-
-    async def register_rest_host(self, pc_id: str, username: str, system_info: Dict, capabilities: Dict = None):
-        """Регистрация REST хоста"""
-        try:
-            self.rest_hosts[pc_id] = {
-                'username': username,
-                'system_info': system_info,
-                'capabilities': capabilities or {},
-                'last_heartbeat': time.time(),
-                'ip_address': system_info.get('ip_address')
+            # Проверяем наличие необходимых файлов
+            required_files = {
+                'winvnc.exe': 'UltraVNC Server',
+                'vncconfig.exe': 'UltraVNC Configuration',
+                'vncviewer.exe': 'UltraVNC Viewer'
             }
             
-            await self.update_pc_status(pc_id, username, 'online', system_info, capabilities, 'rest')
-            logger.info(f"REST host registered: {pc_id}")
+            missing_files = []
+            for file, description in required_files.items():
+                if not (self.vnc_directory / file).exists():
+                    missing_files.append(f"{file} ({description})")
+            
+            if missing_files:
+                logger.warning(f"Missing UltraVNC files: {', '.join(missing_files)}")
+                return False
+                
+            logger.info("UltraVNC components are available")
+            return True
             
         except Exception as e:
-            logger.error(f"Error registering REST host: {e}")
-
-    async def handle_rest_heartbeat(self, pc_id: str):
-        """Обработка heartbeat от REST хоста"""
-        try:
-            if pc_id in self.rest_hosts:
-                self.rest_hosts[pc_id]['last_heartbeat'] = time.time()
-                return True
+            logger.error(f"Error setting up UltraVNC: {e}")
             return False
+    
+    def get_available_port(self) -> int:
+        """Получение свободного порта"""
+        port = self.next_port
+        while True:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                try:
+                    s.bind(('localhost', port))
+                    self.next_port = port + 1
+                    return port
+                except OSError:
+                    port += 1
+    
+    async def start_uvnc_server(self, pc_id: str, password: str = None) -> Optional[int]:
+        """Запуск UltraVNC сервера (эмуляция для демонстрации)"""
+        try:
+            # В реальной реализации здесь будет запуск winvnc.exe
+            port = self.get_available_port()
+            
+            # Для демонстрации создаем mock процесс
+            # В продакшене здесь будет:
+            # process = subprocess.Popen([
+            #     self.vnc_directory / 'winvnc.exe',
+            #     '-run',
+            #     f'-port {port}',
+            #     f'-password {password}' if password else ''
+            # ])
+            
+            logger.info(f"Starting UltraVNC server for {pc_id} on port {port}")
+            self.uvnc_ports[pc_id] = port
+            # self.uvnc_processes[pc_id] = process
+            
+            # Ждем запуска сервиса
+            await asyncio.sleep(2)
+            return port
+            
         except Exception as e:
-            logger.error(f"Error handling heartbeat: {e}")
+            logger.error(f"Error starting UltraVNC server: {e}")
+            return None
+    
+    async def stop_uvnc_server(self, pc_id: str):
+        """Остановка UltraVNC сервера"""
+        try:
+            if pc_id in self.uvnc_processes:
+                process = self.uvnc_processes[pc_id]
+                process.terminate()
+                process.wait()
+                del self.uvnc_processes[pc_id]
+            
+            if pc_id in self.uvnc_ports:
+                del self.uvnc_ports[pc_id]
+                
+            logger.info(f"Stopped UltraVNC server for {pc_id}")
+            
+        except Exception as e:
+            logger.error(f"Error stopping UltraVNC server: {e}")
+    
+    def generate_vnc_connection_info(self, pc_id: str, host: str = "localhost") -> Dict[str, Any]:
+        """Генерация информации для VNC подключения"""
+        port = self.uvnc_ports.get(pc_id, 5900)
+        return {
+            'host': host,
+            'port': port,
+            'display': 0,
+            'password_required': True,
+            'encryption_supported': True
+        }
+    
+    def create_vnc_viewer_connection(self, target_host: str, port: int, password: str = None) -> bool:
+        """Создание VNC подключения через UltraVNC Viewer"""
+        try:
+            # В реальной реализации здесь будет запуск vncviewer.exe
+            # command = [self.vnc_directory / 'vncviewer.exe', f'{target_host}:{port}']
+            # if password:
+            #     command.extend(['-password', password])
+            # 
+            # process = subprocess.Popen(command)
+            # return process.poll() is None
+            
+            logger.info(f"Creating VNC connection to {target_host}:{port}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error creating VNC connection: {e}")
             return False
 
-    async def create_session(self, viewer_ws: Any, target_pc_id: str, session_type: str = "view", 
-                           viewer_username: str = "viewer", requested_capabilities: Dict = None):
-        """Создание сессии"""
+class VNCSessionManager:
+    """Менеджер VNC сессий"""
+    
+    def __init__(self):
+        self.vnc_sessions: Dict[str, Dict] = {}
+        self.session_passwords: Dict[str, str] = {}
+        self.uvnc_integration = UltraVNCIntegration()
+        
+    async def initialize(self):
+        """Инициализация менеджера VNC сессий"""
+        return self.uvnc_integration.setup_ultravnc()
+    
+    async def create_vnc_session(self, pc_id: str, username: str, capabilities: Dict = None) -> Optional[Dict]:
+        """Создание VNC сессии"""
         try:
-            now = time.time()
-            if viewer_username in self.create_cooldown and now - self.create_cooldown[viewer_username] < 3:
-                logger.warning(f"Rate limit exceeded for {viewer_username}")
-                return None
-            self.create_cooldown[viewer_username] = now
-
-            logger.info(f"Creating session: target={target_pc_id}, type={session_type}, viewer={viewer_username}")
+            # Генерируем одноразовый пароль
+            password = str(uuid.uuid4())[:8]
             
-            # Проверяем доступность ПК
-            pc_available = False
-            host_ws = None
-            
-            if target_pc_id in self.active_sessions:
-                pc_available = True
-                host_ws = self.active_sessions[target_pc_id]
-            elif target_pc_id in self.rest_hosts:
-                pc_available = True
-            
-            if not pc_available:
-                logger.warning(f"Target PC {target_pc_id} not available")
+            # Запускаем VNC сервер
+            port = await self.uvnc_integration.start_uvnc_server(pc_id, password)
+            if not port:
                 return None
             
-            session_id = f"session_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+            session_id = f"vnc_{int(time.time())}_{uuid.uuid4().hex[:8]}"
             
-            # Информация о сессии
             session_info = {
                 'session_id': session_id,
-                'viewer_username': viewer_username,
+                'pc_id': pc_id,
+                'username': username,
+                'port': port,
+                'status': 'active',
+                'created_at': datetime.now().isoformat(),
+                'capabilities': capabilities or {},
+                'security_level': 'standard'
+            }
+            
+            self.vnc_sessions[session_id] = session_info
+            self.session_passwords[session_id] = password
+            
+            logger.info(f"VNC session created: {session_id} for PC {pc_id}")
+            return session_info
+            
+        except Exception as e:
+            logger.error(f"Error creating VNC session: {e}")
+            return None
+    
+    async def get_vnc_connection_string(self, session_id: str, viewer_ip: str) -> Optional[Dict]:
+        """Получение строки подключения VNC"""
+        try:
+            if session_id not in self.vnc_sessions:
+                return None
+                
+            session = self.vnc_sessions[session_id]
+            password = self.session_passwords.get(session_id)
+            
+            connection_info = self.uvnc_integration.generate_vnc_connection_info(
+                session['pc_id'], 
+                viewer_ip
+            )
+            
+            return {
+                'type': 'vnc_connection',
+                'session_id': session_id,
+                'host': connection_info['host'],
+                'port': connection_info['port'],
+                'password': password,
+                'display': connection_info['display'],
+                'security_info': {
+                    'encryption_supported': connection_info['encryption_supported'],
+                    'password_required': connection_info['password_required']
+                },
+                'viewer_download_url': '/downloads/ultravnc-viewer.zip'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting VNC connection string: {e}")
+            return None
+    
+    async def close_vnc_session(self, session_id: str):
+        """Закрытие VNC сессии"""
+        try:
+            if session_id in self.vnc_sessions:
+                session = self.vnc_sessions[session_id]
+                await self.uvnc_integration.stop_uvnc_server(session['pc_id'])
+                
+                del self.vnc_sessions[session_id]
+                if session_id in self.session_passwords:
+                    del self.session_passwords[session_id]
+                
+                logger.info(f"VNC session closed: {session_id}")
+                
+        except Exception as e:
+            logger.error(f"Error closing VNC session: {e}")
+class RemoteDesktopManager:
+    """Базовый менеджер удаленного рабочего стола"""
+    
+    def __init__(self):
+        self.active_remote_sessions: Dict[str, Dict] = {}
+        self.connection_stats: Dict[str, Any] = {}
+        
+    async def start_background_tasks(self):
+        """Запуск фоновых задач"""
+        logger.info("Starting background tasks")
+        
+    async def create_session(self, viewer_ws: Any, target_pc_id: str, session_type: str = "view", 
+                           viewer_username: str = "viewer", requested_capabilities: Dict = None) -> Optional[str]:
+        """Создание сессии (базовая реализация)"""
+        try:
+            session_id = f"session_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+            
+            self.active_remote_sessions[session_id] = {
+                'viewer_ws': viewer_ws,
                 'target_pc_id': target_pc_id,
                 'session_type': session_type,
-                'status': 'pending',
-                'start_time': datetime.now().isoformat(),
-                'requested_capabilities': requested_capabilities or {}
-            }
-            
-            self.active_remote_sessions[session_id] = session_info
-            
-            session_request = {
-                'type': 'session_request',
-                'session_id': session_id,
-                'session_type': session_type,
                 'viewer_username': viewer_username,
-                'requested_capabilities': requested_capabilities
+                'capabilities': requested_capabilities or {},
+                'created_at': datetime.now().isoformat(),
+                'status': 'active'
             }
-            
-            if host_ws:
-                # WebSocket сессия
-                self.relay_connections[session_id] = {
-                    'viewer': viewer_ws,
-                    'host': host_ws,
-                    'target_pc_id': target_pc_id,
-                    'session_type': session_type,
-                    'created_at': time.time(),
-                    'status': 'pending',
-                    'is_rest_session': False
-                }
-                
-                # Отправляем запрос хосту
-                try:
-                    await host_ws.send_json(session_request)
-                except Exception as e:
-                    logger.error(f"Error sending session request: {e}")
-                    del self.active_remote_sessions[session_id]
-                    return None
-            else:
-                # REST сессия
-                self.relay_connections[session_id] = {
-                    'viewer': viewer_ws,
-                    'target_pc_id': target_pc_id,
-                    'session_type': session_type,
-                    'created_at': time.time(),
-                    'status': 'pending',
-                    'is_rest_session': True,
-                    'pending_requests': [session_request],
-                    'rest_messages': []
-                }
-            
-            await self.save_session_to_db(session_id, viewer_username, target_pc_id, session_type)
-            
-            # Уведомляем администраторов
-            await self.broadcast_to_admins({
-                'type': 'session_created',
-                'session': session_info
-            })
             
             logger.info(f"Session created: {session_id}")
             return session_id
@@ -330,441 +268,209 @@ class RemoteDesktopManager:
         except Exception as e:
             logger.error(f"Error creating session: {e}")
             return None
-
-    async def save_session_to_db(self, session_id: str, viewer_username: str, host_pc_id: str, session_type: str):
-        """Сохранение сессии в БД"""
+    
+    async def relay_message(self, session_id: str, message: Dict):
+        """Пересылка сообщений (базовая реализация)"""
         try:
-            conn = sqlite3.connect('remote_desktop.db')
-            c = conn.cursor()
-            c.execute('''INSERT INTO remote_sessions 
-                       (session_id, viewer_username, host_pc_id, session_type, status) 
-                       VALUES (?, ?, ?, ?, 'active')''',
-                     (session_id, viewer_username, host_pc_id, session_type))
-            conn.commit()
-            conn.close()
-        except Exception as e:
-            logger.error(f"Error saving session to DB: {e}")
-
-    async def handle_session_response(self, pc_id: str, message: dict):
-        """Обработка ответа на запрос сессии"""
-        try:
-            session_id = message.get("session_id")
-            accepted = message.get("accepted", False)
-            reason = message.get("reason", "")
-            allowed_capabilities = message.get("allowed_capabilities", {})
-            
-            if session_id not in self.relay_connections:
-                logger.warning(f"Session {session_id} not found for response")
-                return
-                
-            session = self.relay_connections[session_id]
-            
-            if accepted:
-                session["status"] = "connected"
-                
-                if session_id in self.active_remote_sessions:
-                    self.active_remote_sessions[session_id]['status'] = 'connected'
-                    self.active_remote_sessions[session_id]['allowed_capabilities'] = allowed_capabilities
-                
-                # Уведомляем viewer
-                if "viewer" in session and hasattr(session["viewer"], "send_json"):
-                    try:
-                        await session["viewer"].send_json({
-                            "type": "session_accepted",
-                            "session_id": session_id,
-                            "allowed_capabilities": allowed_capabilities
-                        })
-                    except Exception as e:
-                        logger.error(f"Error notifying viewer: {e}")
-                
-                logger.info(f"Session accepted: {session_id}")
-                
-                await self.broadcast_to_admins({
-                    'type': 'session_status_changed',
-                    'session_id': session_id,
-                    'status': 'connected',
-                    'target_pc_id': pc_id
-                })
-                
-            else:
-                # Сессия отклонена
-                if "viewer" in session and hasattr(session["viewer"], "send_json"):
-                    try:
-                        await session["viewer"].send_json({
-                            "type": "session_rejected", 
-                            "session_id": session_id,
-                            "message": reason
-                        })
-                    except Exception as e:
-                        logger.error(f"Error notifying viewer of rejection: {e}")
-                
-                await self.end_session(session_id)
-                logger.info(f"Session rejected: {session_id} - {reason}")
-                
-        except Exception as e:
-            logger.error(f"Error handling session response: {e}")
-
-    async def end_session(self, session_id: str):
-        """Завершение сессии"""
-        try:
-            if session_id not in self.relay_connections:
-                return
-
-            session_data = self.relay_connections.pop(session_id)
-            
             if session_id in self.active_remote_sessions:
-                session_info = self.active_remote_sessions.pop(session_id)
-                session_info['status'] = 'ended'
-                session_info['end_time'] = datetime.now().isoformat()
-                
-                await self.broadcast_to_admins({
-                    'type': 'session_ended',
-                    'session_id': session_id,
-                    'session_info': session_info
-                })
-
-            # Закрываем WebSocket соединения
-            for key in ['viewer', 'host']:
-                ws = session_data.get(key)
-                if ws and hasattr(ws, 'close'):
-                    try:
-                        await ws.close(code=1000, reason="Session ended")
-                    except Exception:
-                        pass
-
-            # Обновляем БД
-            conn = sqlite3.connect('remote_desktop.db')
-            c = conn.cursor()
-            c.execute('''UPDATE remote_sessions 
-                       SET status='ended', end_time=datetime('now'),
-                       duration = CAST((julianday('now') - julianday(start_time)) * 86400 AS INTEGER)
-                       WHERE session_id=?''', (session_id,))
-            conn.commit()
-            conn.close()
-            
-            logger.info(f"Session ended: {session_id}")
-            
+                session = self.active_remote_sessions[session_id]
+                # В реальной реализации здесь будет пересылка сообщений
+                logger.info(f"Relaying message for session {session_id}: {message.get('type', 'unknown')}")
+        except Exception as e:
+            logger.error(f"Error relaying message: {e}")
+    
+    async def end_session(self, session_id: str):
+        """Завершение сессии (базовая реализация)"""
+        try:
+            if session_id in self.active_remote_sessions:
+                del self.active_remote_sessions[session_id]
+                logger.info(f"Session ended: {session_id}")
         except Exception as e:
             logger.error(f"Error ending session: {e}")
+
+class EnhancedRemoteDesktopManager(RemoteDesktopManager):
+    """Расширенный менеджер удаленного рабочего стола с UltraVNC поддержкой"""
     
-    async def relay_message(self, session_id: str, message: dict, from_viewer: bool = True):
-        """Пересылка сообщения между viewer и host"""
-        try:
-            if session_id not in self.relay_connections:
-                logger.warning(f"Session {session_id} not found for relay")
-                return False
-
-            session = self.relay_connections[session_id]
-
-            if session.get('is_rest_session'):
-                if from_viewer:
-                    session['pending_requests'].append(message)
-                    return True
-                else:
-                    # От хоста к viewer
-                    if 'viewer' in session and hasattr(session['viewer'], 'send_json'):
-                        await session['viewer'].send_json(message)
-                    return True
-            else:
-                # WebSocket сессия: пересылаем напрямую
-                target_ws = session['host'] if from_viewer else session['viewer']
-                if hasattr(target_ws, 'send_json'):
-                    await target_ws.send_json(message)
-                    return True
-                else:
-                    logger.error("Target WebSocket missing send_json method")
-                    return False
-
-        except Exception as e:
-            logger.error(f"Error relaying message in session {session_id}: {e}")
-            return False
-
-    async def poll_messages_for_rest(self, pc_id: str) -> List[Dict]:
-        """Получение pending сообщений для REST хоста"""
-        try:
-            pending = []
-            for session_id, session in list(self.relay_connections.items()):
-                if session.get('is_rest_session') and session['target_pc_id'] == pc_id:
-                    pending.extend(session['pending_requests'])
-                    session['pending_requests'] = []
-            return pending
-        except Exception as e:
-            logger.error(f"Error polling messages for {pc_id}: {e}")
-            return []
-
-    async def post_messages_from_rest(self, pc_id: str, messages: List[Dict]):
-        """Обработка сообщений от REST хоста"""
-        try:
-            for msg in messages:
-                session_id = msg.get('session_id')
-                if session_id in self.relay_connections:
-                    session = self.relay_connections[session_id]
-                    if session.get('is_rest_session') and session['target_pc_id'] == pc_id:
-                        if msg.get('type') == 'session_response':
-                            await self.handle_session_response(pc_id, msg)
-                        else:
-                            await self.relay_message(session_id, msg, from_viewer=False)
-            return True
-        except Exception as e:
-            logger.error(f"Error posting messages from rest for {pc_id}: {e}")
-            return False
-
-    async def register_admin_connection(self, admin_id: str, websocket: Any):
-        """Регистрация подключения администратора"""
-        try:
-            self.admin_connections[admin_id] = websocket
-            logger.info(f"Admin connection registered: {admin_id}")
-            
-            # Отправляем текущее состояние
-            active_sessions = await self.get_active_sessions_info()
-            try:
-                await websocket.send_json({
-                    'type': 'initial_state',
-                    'active_sessions': active_sessions,
-                    'total_sessions': len(active_sessions),
-                    'timestamp': datetime.now().isoformat()
-                })
-            except Exception as e:
-                logger.error(f"Error sending initial state: {e}")
-                
-        except Exception as e:
-            logger.error(f"Error registering admin connection: {e}")
-
-    async def unregister_admin_connection(self, admin_id: str):
-        """Удаление подключения администратора"""
-        try:
-            if admin_id in self.admin_connections:
-                del self.admin_connections[admin_id]
-                logger.info(f"Admin connection unregistered: {admin_id}")
-        except Exception as e:
-            logger.error(f"Error unregistering admin connection: {e}")
-
-    async def broadcast_to_admins(self, message: dict):
-        """Рассылка сообщения администраторам"""
-        try:
-            disconnected_admins = []
-            
-            for admin_id, websocket in list(self.admin_connections.items()):
-                try:
-                    if hasattr(websocket, 'send_json'):
-                        await websocket.send_json(message)
-                except Exception as e:
-                    logger.error(f"Error sending to admin {admin_id}: {e}")
-                    disconnected_admins.append(admin_id)
-                    
-            for admin_id in disconnected_admins:
-                await self.unregister_admin_connection(admin_id)
-                
-        except Exception as e:
-            logger.error(f"Error broadcasting to admins: {e}")
-
-    async def get_user_pcs(self, username: str, user_role: str = "user") -> List[Dict]:
-        """Получение ПК пользователя с учетом настроек видимости"""
-        try:
-            conn = sqlite3.connect('remote_desktop.db')
-            c = conn.cursor()
-            
-            # Если включена настройка ALL_USERS_SEE_ALL_PCS или пользователь администратор
-            if self.ALL_USERS_SEE_ALL_PCS or user_role == "admin":
-                # Все пользователи видят все ПК или администратор
-                c.execute("SELECT * FROM remote_pcs ORDER BY status DESC, last_seen DESC")
-                logger.debug(f"Showing all PCs to user {username} (role: {user_role}, setting: {self.ALL_USERS_SEE_ALL_PCS})")
-            else:
-                # Обычные пользователи видят только свои ПК
-                c.execute("SELECT * FROM remote_pcs WHERE username=? ORDER BY status DESC, last_seen DESC", (username,))
-                logger.debug(f"Showing only own PCs to user {username}")
-            
-            pcs = c.fetchall()
-            conn.close()
-            
-            result = []
-            for pc in pcs:
-                system_info = self.parse_json_field(pc[6])
-                capabilities = self.parse_json_field(pc[9]) if len(pc) > 9 else {}
-                
-                pc_data = {
-                    'pc_id': pc[0],
-                    'username': pc[1],
-                    'pc_name': pc[2],
-                    'status': pc[3],
-                    'last_seen': pc[4],
-                    'system_info': system_info,
-                    'ip_address': pc[7] if len(pc) > 7 else None,
-                    'connection_type': pc[8] if len(pc) > 8 else 'ws',
-                    'capabilities': capabilities,
-                    'is_owner': pc[1] == username,  # Флаг владельца
-                    'can_view': True  # Все ПК в списке доступны для просмотра
-                }
-                result.append(pc_data)
-            
-            logger.info(f"Returned {len(result)} PCs for user {username} (role: {user_role})")
-            return result
-        except Exception as e:
-            logger.error(f"Error getting user PCs: {e}")
-            return []
-
-    async def get_all_pcs(self, username: str = None, user_role: str = "user") -> List[Dict]:
-        """Получение всех ПК с учетом прав доступа"""
-        return await self.get_user_pcs(username or "", user_role)
-
-    def parse_json_field(self, field_value):
-        """Парсинг JSON поля"""
-        try:
-            if field_value and field_value != '{}':
-                return json.loads(field_value)
-            return {}
-        except (json.JSONDecodeError, TypeError):
-            return {}
-
-    async def get_active_sessions_info(self) -> List[Dict]:
-        """Получение информации об активных сессиях"""
-        try:
-            active_sessions = []
-            
-            for session_id, session_info in self.active_remote_sessions.items():
-                if session_id in self.relay_connections:
-                    relay_info = self.relay_connections[session_id]
-                    session_info['connection_status'] = relay_info.get('status', 'unknown')
-                    session_info['duration'] = time.time() - relay_info.get('created_at', time.time())
-                    session_info['is_rest_session'] = relay_info.get('is_rest_session', False)
-                    
-                active_sessions.append(session_info)
-            
-            return active_sessions
-        except Exception as e:
-            logger.error(f"Error getting active sessions info: {e}")
-            return []
-
-    async def cleanup_old_sessions(self):
-        """Очистка старых сессий"""
-        try:
-            current_time = time.time()
-            sessions_to_remove = []
-            
-            for session_id, session_data in self.relay_connections.items():
-                if current_time - session_data.get('created_at', 0) > 7200:  # 2 часа
-                    sessions_to_remove.append(session_id)
-            
-            for session_id in sessions_to_remove:
-                await self.end_session(session_id)
-                
-        except Exception as e:
-            logger.error(f"Error cleaning up old sessions: {e}")
-
-    async def cleanup_offline_pcs(self, hours: int = 24):
-        """Очистка оффлайн ПК"""
-        try:
-            conn = sqlite3.connect('remote_desktop.db')
-            c = conn.cursor()
-            c.execute("DELETE FROM remote_pcs WHERE status='offline' AND last_seen < datetime('now', ?)", 
-                     (f'-{hours} hours',))
-            deleted_count = c.rowcount
-            conn.commit()
-            conn.close()
-            logger.info(f"Cleaned up {deleted_count} offline PCs")
-        except Exception as e:
-            logger.error(f"Error cleaning up offline PCs: {e}")
-
-    async def cleanup_rest_hosts(self):
-        """Очистка REST хостов"""
-        try:
-            current_time = time.time()
-            offline_hosts = []
-            
-            for pc_id, info in self.rest_hosts.items():
-                if current_time - info['last_heartbeat'] > 60:
-                    offline_hosts.append(pc_id)
-                    await self.update_pc_status(pc_id, info['username'], 'offline')
-            
-            for pc_id in offline_hosts:
-                del self.rest_hosts[pc_id]
-                
-            if offline_hosts:
-                logger.info(f"Cleaned up {len(offline_hosts)} offline REST hosts")
-        except Exception as e:
-            logger.error(f"Error cleaning up REST hosts: {e}")
-
-    async def cleanup_cooldowns(self):
-        """Очистка cooldown записей"""
-        try:
-            current_time = time.time()
-            cooldowns_to_remove = [user for user, ts in self.create_cooldown.items() if current_time - ts > 3600]
-            for user in cooldowns_to_remove:
-                del self.create_cooldown[user]
-        except Exception as e:
-            logger.error(f"Error cleaning up cooldowns: {e}")
-
-    async def get_session_stats(self) -> Dict[str, Any]:
-        """Получение статистики сессий"""
-        try:
-            conn = sqlite3.connect('remote_desktop.db')
-            c = conn.cursor()
-            
-            c.execute("SELECT COUNT(*) FROM remote_sessions WHERE status='active'")
-            active_sessions = c.fetchone()[0]
-            
-            c.execute("SELECT COUNT(*) FROM remote_sessions")
-            total_sessions = c.fetchone()[0]
-            
-            c.execute("SELECT COUNT(*) FROM remote_pcs WHERE status='online'")
-            online_pcs = c.fetchone()[0]
-            
-            conn.close()
-            
-            return {
-                'active_sessions': active_sessions,
-                'total_sessions': total_sessions,
-                'online_pcs': online_pcs,
-                'connected_hosts': len(self.active_sessions) + len(self.rest_hosts),
-                'all_users_see_all_pcs': self.ALL_USERS_SEE_ALL_PCS
-            }
-        except Exception as e:
-            logger.error(f"Error getting session stats: {e}")
-            return {}
-
-    async def refresh_pc_statuses(self):
-        """Обновление статусов ПК"""
-        try:
-            updated_count = 0
-            all_pcs = await self.get_all_pcs()
-            
-            for pc in all_pcs:
-                pc_id = pc['pc_id']
-                is_online = pc_id in self.active_sessions or pc_id in self.rest_hosts
-                
-                if is_online and pc['status'] != 'online':
-                    await self.update_pc_status(pc_id, pc['username'], 'online')
-                    updated_count += 1
-                elif not is_online and pc['status'] == 'online':
-                    await self.update_pc_status(pc_id, pc['username'], 'offline')
-                    updated_count += 1
-            
-            logger.info(f"PC statuses refreshed: {updated_count} updated")
-            return updated_count
-            
-        except Exception as e:
-            logger.error(f"Error refreshing PC statuses: {e}")
-            return 0
-
-    def toggle_all_users_see_all_pcs(self, enabled: bool = None) -> bool:
-        """Включить/выключить видимость всех ПК для всех пользователей"""
-        if enabled is not None:
-            self.ALL_USERS_SEE_ALL_PCS = enabled
-        else:
-            self.ALL_USERS_SEE_ALL_PCS = not self.ALL_USERS_SEE_ALL_PCS
+    def __init__(self):
+        super().__init__()
+        self.vnc_manager = VNCSessionManager()
+        self.file_transfer_sessions: Dict[str, Dict] = {}
+        self.chat_sessions: Dict[str, List] = {}
+class EnhancedRemoteDesktopManager(RemoteDesktopManager):
+    """Расширенный менеджер удаленного рабочего стола с UltraVNC поддержкой"""
+    
+    def __init__(self):
+        super().__init__()
+        self.vnc_manager = VNCSessionManager()
+        self.file_transfer_sessions: Dict[str, Dict] = {}
+        self.chat_sessions: Dict[str, List] = {}
         
-        logger.info(f"ALL_USERS_SEE_ALL_PCS setting changed to: {self.ALL_USERS_SEE_ALL_PCS}")
-        return self.ALL_USERS_SEE_ALL_PCS
+    async def start_background_tasks(self):
+        """Запуск фоновых задач"""
+        await super().start_background_tasks()
+        await self.vnc_manager.initialize()
+        
+    async def create_enhanced_session(self, viewer_ws: Any, target_pc_id: str, session_type: str = "view", 
+                                    viewer_username: str = "viewer", requested_capabilities: Dict = None):
+        """Создание расширенной сессии с поддержкой VNC"""
+        try:
+            # Стандартное создание сессии
+            session_id = await super().create_session(
+                viewer_ws, target_pc_id, session_type, viewer_username, requested_capabilities
+            )
+            
+            if not session_id:
+                return None
+            
+            # Добавляем VNC возможности если запрошено
+            if requested_capabilities and requested_capabilities.get('vnc_support', False):
+                vnc_session = await self.vnc_manager.create_vnc_session(
+                    target_pc_id, viewer_username, requested_capabilities
+                )
+                
+                if vnc_session:
+                    self.active_remote_sessions[session_id]['vnc_session'] = vnc_session
+                    logger.info(f"VNC session attached: {vnc_session['session_id']}")
+            
+            return session_id
+            
+        except Exception as e:
+            logger.error(f"Error creating enhanced session: {e}")
+            return None
+    
+    async def handle_vnc_connection_request(self, session_id: str, viewer_ip: str):
+        """Обработка запроса на VNC подключение"""
+        try:
+            if session_id not in self.active_remote_sessions:
+                return None
+            
+            session = self.active_remote_sessions[session_id]
+            if 'vnc_session' not in session:
+                return None
+            
+            vnc_connection = await self.vnc_manager.get_vnc_connection_string(
+                session['vnc_session']['session_id'], viewer_ip
+            )
+            
+            return vnc_connection
+            
+        except Exception as e:
+            logger.error(f"Error handling VNC connection request: {e}")
+            return None
+    
+    async def handle_file_transfer_request(self, session_id: str, file_info: Dict):
+        """Обработка запроса на передачу файлов"""
+        try:
+            if session_id not in self.active_remote_sessions:
+                return {'success': False, 'error': 'Session not found'}
+            
+            transfer_id = f"transfer_{int(time.time())}_{uuid.uuid4().hex[:8]}"
+            
+            self.file_transfer_sessions[transfer_id] = {
+                'session_id': session_id,
+                'file_info': file_info,
+                'status': 'pending',
+                'progress': 0,
+                'created_at': datetime.now().isoformat()
+            }
+            
+            # Уведомляем хоста о запросе передачи файла
+            await self.relay_message(session_id, {
+                'type': 'file_transfer_request',
+                'transfer_id': transfer_id,
+                'file_info': file_info
+            })
+            
+            return {'success': True, 'transfer_id': transfer_id}
+            
+        except Exception as e:
+            logger.error(f"Error handling file transfer request: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    async def handle_chat_message(self, session_id: str, message: str, sender: str):
+        """Обработка сообщений чата"""
+        try:
+            if session_id not in self.chat_sessions:
+                self.chat_sessions[session_id] = []
+            
+            chat_message = {
+                'id': str(uuid.uuid4()),
+                'session_id': session_id,
+                'sender': sender,
+                'message': message,
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            self.chat_sessions[session_id].append(chat_message)
+            
+            # Ограничиваем историю чата
+            if len(self.chat_sessions[session_id]) > 100:
+                self.chat_sessions[session_id] = self.chat_sessions[session_id][-50:]
+            
+            # Пересылаем сообщение другой стороне
+            await self.relay_message(session_id, {
+                'type': 'chat_message',
+                'chat_data': chat_message
+            })
+            
+            return chat_message
+            
+        except Exception as e:
+            logger.error(f"Error handling chat message: {e}")
+            return None
+    
+    async def get_session_capabilities(self, session_id: str) -> Dict[str, Any]:
+        """Получение возможностей сессии"""
+        try:
+            if session_id not in self.active_remote_sessions:
+                return {}
+            
+            session = self.active_remote_sessions[session_id]
+            capabilities = {
+                'vnc_available': 'vnc_session' in session,
+                'file_transfer': True,
+                'chat': True,
+                'remote_control': True,
+                'session_type': session.get('session_type', 'view')
+            }
+            
+            if 'vnc_session' in session:
+                capabilities['vnc_info'] = session['vnc_session']
+            
+            return capabilities
+            
+        except Exception as e:
+            logger.error(f"Error getting session capabilities: {e}")
+            return {}
+    
+    async def end_session(self, session_id: str):
+        """Завершение сессии с очисткой VNC"""
+        try:
+            # Закрываем VNC сессию если есть
+            if (session_id in self.active_remote_sessions and 
+                'vnc_session' in self.active_remote_sessions[session_id]):
+                
+                vnc_session_id = self.active_remote_sessions[session_id]['vnc_session']['session_id']
+                await self.vnc_manager.close_vnc_session(vnc_session_id)
+            
+            # Очищаем чат сессии
+            if session_id in self.chat_sessions:
+                del self.chat_sessions[session_id]
+            
+            # Очищаем файловые трансферы
+            transfers_to_remove = [
+                tid for tid, transfer in self.file_transfer_sessions.items() 
+                if transfer['session_id'] == session_id
+            ]
+            for transfer_id in transfers_to_remove:
+                del self.file_transfer_sessions[transfer_id]
+            
+            # Стандартное завершение сессии
+            await super().end_session(session_id)
+            
+        except Exception as e:
+            logger.error(f"Error ending enhanced session: {e}")
 
-    def get_settings(self) -> Dict[str, Any]:
-        """Получение текущих настроек"""
-        return {
-            'all_users_see_all_pcs': self.ALL_USERS_SEE_ALL_PCS,
-            'active_sessions_count': len(self.active_remote_sessions),
-            'connected_hosts_count': len(self.active_sessions) + len(self.rest_hosts),
-            'admin_connections_count': len(self.admin_connections)
-        }
-
-
-# Глобальный экземпляр менеджера
-remote_manager = RemoteDesktopManager()
+# Глобальные экземпляры
+remote_manager = EnhancedRemoteDesktopManager()
+vnc_manager = VNCSessionManager()

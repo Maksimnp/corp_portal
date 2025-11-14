@@ -1,20 +1,21 @@
-import React from "react";
+import React, { useState } from "react";
 import type { MessageContextMenuState } from '../../types/chat';
 import { CopyOutlined, DeleteOutlined, EditOutlined, SmileOutlined } from '@ant-design/icons';
 import { useTheme } from '../../hooks/ThemeContext';
-import { ArrowBendUpRight, ArrowBendUpLeft, Heart, Fingerprint, MaskSad, Fire } from 'phosphor-react'
+import { IoArrowUndoOutline, IoArrowRedoOutline  } from "react-icons/io5";
+
 interface RenderContextMenuProps {
-    messageContextMenu: MessageContextMenuState;
-    messageContextMenuRef: React.RefObject<HTMLDivElement | null>;
-    handleContextMenuEdit: () => void;
-    handleContextMenuDelete: () => void;
-    handleContextMenuCopy: () => void;
-    handleContextMenuQuote: () => void;
-    handleContextMenuForward: () => void;
-    username: string | null;
-    searchContacts: (query: string) => Promise<void>;
-    onReact: (reaction: string) => void;
-    currentReaction?: string | null;
+  messageContextMenu: MessageContextMenuState;
+  messageContextMenuRef: React.RefObject<HTMLDivElement | null>;
+  handleContextMenuEdit: () => void;
+  handleContextMenuDelete: () => void;
+  handleContextMenuCopy: () => void;
+  handleContextMenuQuote: () => void;
+  handleContextMenuForward: () => void;
+  username: string | null;
+  searchContacts: (query: string) => Promise<void>;
+  onReact: (reaction: string) => void;
+  currentReaction?: string | null;
 }
 
 const RenderContextMenu: React.FC<RenderContextMenuProps> = ({
@@ -32,8 +33,7 @@ const RenderContextMenu: React.FC<RenderContextMenuProps> = ({
 }) => {
     const { theme, toggleTheme } = useTheme();
     if (!messageContextMenu.visible || !messageContextMenu.message) return null;
-    
-    
+
     const menuWidth = messageContextMenuRef.current?.offsetWidth || 200;
     const menuHeight = messageContextMenuRef.current?.offsetHeight || 150;
     const windowWidth = window.innerWidth;
@@ -44,6 +44,7 @@ const RenderContextMenu: React.FC<RenderContextMenuProps> = ({
     if (top + menuHeight > windowHeight) top = top - menuHeight;
     if (left < 0) left = 0;
     if (top < 0) top = 0;
+
     return (
       <div
         ref={messageContextMenuRef}
@@ -55,33 +56,37 @@ const RenderContextMenu: React.FC<RenderContextMenuProps> = ({
       >
         {messageContextMenu.message.sender !== username && (
           <div className="flex gap-2 px-4">
-            <Heart
-              size={25}
-              className={`cursor-pointer ${currentReaction === '❤️' ? 'text-red-700' : 'text-red-500'}`}
+            <span
+              className={`cursor-pointer text-xl ${currentReaction === '🥰' ? 'text-red-700' : 'text-red-500'}`}
+              onClick={() => onReact('🥰')}
+            >
+              🥰
+            </span>
+            <span
+              className={`cursor-pointer text-xl ${currentReaction === '❤️' ? 'text-red-700' : 'text-red-500'}`}
               onClick={() => onReact('❤️')}
-            />
-            <Fingerprint
-              size={25}
-              className={`cursor-pointer ${currentReaction === '👍' ? 'text-yellow-700' : 'text-yellow-500'}`}
+            >
+              ❤️
+            </span>
+            <span
+              className={`cursor-pointer text-xl ${currentReaction === '👍' ? 'text-red-700' : 'text-red-500'}`}
               onClick={() => onReact('👍')}
-            />
-            <MaskSad
-              size={25}
-              className={`cursor-pointer ${currentReaction === '😢' ? 'text-blue-700' : 'text-yellow-500'}`}
-              onClick={() => onReact('😢')}
-            />
-            <Fire 
-              size={25}
-              className={`cursor-pointer ${currentReaction === '🔥' ? 'text-blue-700' : 'text-yellow-500'}`}
+            >
+              👍
+            </span>
+            <span
+              className={`cursor-pointer text-xl ${currentReaction === '🔥' ? 'text-red-700' : 'text-red-500'}`}
               onClick={() => onReact('🔥')}
-            />
+            >
+              🔥
+            </span>
           </div>
         )}
         <button
           onClick={handleContextMenuQuote}
           className={`w-full text-left font-semibold gap-4 px-4 py-2 text-sm ${theme === 'light' ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-200 hover:bg-gray-700'} flex items-center`}
         >
-          <ArrowBendUpLeft className="text-xl" />
+          <IoArrowUndoOutline className="text-xl" />
           Ответить
         </button>
         {messageContextMenu.message.sender === username && (
@@ -107,7 +112,7 @@ const RenderContextMenu: React.FC<RenderContextMenuProps> = ({
           onClick={() => {handleContextMenuForward(); searchContacts('a')}}
           className={`w-full text-left font-semibold gap-4 px-4 py-2 text-sm ${theme === 'light' ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-200 hover:bg-gray-700'} flex items-center`}
         >
-          <ArrowBendUpRight className="text-xl" />
+          <IoArrowRedoOutline className="text-xl" />
           Переслать
         </button>
         <button

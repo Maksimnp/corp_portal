@@ -1093,7 +1093,7 @@ export const RequestList: React.FC = () => {
                     className={`rounded-2xl shadow-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto ${glassClasses.modal}`}
                   >
                     <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                      <h2 className="text-2xl font-bold text-gray-900">
                         Создание запроса
                       </h2>
                       <button
@@ -1109,7 +1109,7 @@ export const RequestList: React.FC = () => {
                     </div>
                     <form onSubmit={handleSubmit} className="space-y-6">
                       <div>
-                        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Тип обращения</h3>
+                        <h3 className="text-lg font-semibold mb-4 text-gray-900">Тип обращения</h3>
                         <div className="flex gap-3 mb-4">
                           <button
                             type="button"
@@ -1134,16 +1134,16 @@ export const RequestList: React.FC = () => {
                             АСУ
                           </button>
                         </div>
-                        <p className="mb-3 text-sm text-gray-700 dark:text-gray-300">
+                        <p className="mb-3 text-sm text-gray-700">
                           Проконсультируем по услугам и тарифам, решим вопросы оплаты, переоформления, доступа в личный кабинет.
                         </p>
-                        <p className="text-sm text-gray-700 dark:text-gray-300">
+                        <p className="text-sm text-gray-700">
                           График работы – Пн-Пт: 8:00 - 20:00<br />
                           Сб: 10:00 - 16:00, Вс: выходной
                         </p>
                       </div>
                       <div>
-                        <label htmlFor="service-type" className="block font-medium mb-3 text-gray-900 dark:text-gray-100">
+                        <label htmlFor="service-type" className="block font-medium mb-3 text-gray-900">
                           С какой услугой связан ваш запрос*
                         </label>
                         <select
@@ -1170,7 +1170,7 @@ export const RequestList: React.FC = () => {
                         </select>
                       </div>
                       <div>
-                        <h3 className="text-lg font-semibold mb-3 text-gray-900 dark:text-gray-100">Оставьте комментарий для описания проблемы:</h3>
+                        <h3 className="text-lg font-semibold mb-3 text-gray-900">Оставьте комментарий для описания проблемы:</h3>
                         <textarea
                           value={comment}
                           onChange={(e) => setComment(e.target.value)}
@@ -1243,7 +1243,7 @@ export const RequestList: React.FC = () => {
                     className={`rounded-2xl shadow-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-hidden ${glassClasses.modal}`}
                   >
                     <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                      <h3 className="text-xl font-bold text-gray-900">
                         Просмотр фото
                       </h3>
                       <button
@@ -1289,8 +1289,8 @@ export const RequestList: React.FC = () => {
                         ►
                       </button>
                     </div>
-                    <p className="mt-4 text-center text-lg text-gray-900 dark:text-gray-100">{imageData.comment}</p>
-                    <div className="flex justify-center mt-3 text-sm text-gray-600 dark:text-gray-400">
+                    <p className="mt-4 text-center text-lg text-gray-900">{imageData.comment}</p>
+                    <div className="flex justify-center mt-3 text-sm text-gray-600">
                       {imageData.index + 1} из {imageData.images.length}
                     </div>
                   </div>

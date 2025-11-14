@@ -5302,3 +5302,75 @@ DETAIL:  Key (service_id)=(0) is not present in table "services".
 2025-10-21 10:44:44,460 - INFO - User statuses initialized successfully
 2025-10-21 10:44:44,553 - INFO - SQLAlchemy version: 2.0.41
 2025-10-21 10:44:44,591 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-23 16:56:34,102 - INFO - Loaded 0 reset tokens from storage
+2025-10-23 16:56:34,114 - INFO - 🔧 AdminManager using database: portaladmins_db at localhost:5432
+2025-10-23 16:56:34,130 - INFO - 📋 Admin table columns: ['id', 'username', 'service_id', 'is_active', 'permissions', 'created_at', 'updated_at', 'email']
+2025-10-23 16:56:34,133 - WARNING - Таблица 'reset_tokens' не найдена в базе данных
+2025-10-23 16:56:34,183 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-23 16:56:34,183 - INFO - Initializing user statuses for existing chats...
+2025-10-23 16:56:34,211 - INFO - User statuses initialized successfully
+2025-10-23 16:56:34,294 - INFO - SQLAlchemy version: 2.0.41
+2025-10-23 16:56:34,324 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-23 16:57:24,468 - INFO - Loaded 0 reset tokens from storage
+2025-10-23 16:57:24,477 - INFO - 🔧 AdminManager using database: portaladmins_db at localhost:5432
+2025-10-23 16:57:24,496 - INFO - 📋 Admin table columns: ['id', 'username', 'service_id', 'is_active', 'permissions', 'created_at', 'updated_at', 'email']
+2025-10-23 16:57:24,498 - WARNING - Таблица 'reset_tokens' не найдена в базе данных
+2025-10-23 16:57:24,553 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-23 16:57:24,553 - INFO - Initializing user statuses for existing chats...
+2025-10-23 16:57:24,578 - INFO - User statuses initialized successfully
+2025-10-23 16:57:24,659 - INFO - SQLAlchemy version: 2.0.41
+2025-10-23 16:57:24,690 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-23 16:58:14,468 - INFO - Loaded 0 reset tokens from storage
+2025-10-23 16:58:14,478 - INFO - 🔧 AdminManager using database: portaladmins_db at localhost:5432
+2025-10-23 16:58:14,503 - INFO - 📋 Admin table columns: ['id', 'username', 'service_id', 'is_active', 'permissions', 'created_at', 'updated_at', 'email']
+2025-10-23 16:58:14,506 - WARNING - Таблица 'reset_tokens' не найдена в базе данных
+2025-10-23 16:58:14,560 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-23 16:58:14,560 - INFO - Initializing user statuses for existing chats...
+2025-10-23 16:58:14,590 - INFO - User statuses initialized successfully
+2025-10-23 16:58:14,672 - INFO - SQLAlchemy version: 2.0.41
+2025-10-23 16:58:14,703 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-23 16:58:43,043 - INFO - Loaded 0 reset tokens from storage
+2025-10-23 16:58:43,053 - INFO - 🔧 AdminManager using database: portaladmins_db at localhost:5432
+2025-10-23 16:58:43,071 - INFO - 📋 Admin table columns: ['id', 'username', 'service_id', 'is_active', 'permissions', 'created_at', 'updated_at', 'email']
+2025-10-23 16:58:43,073 - WARNING - Таблица 'reset_tokens' не найдена в базе данных
+2025-10-23 16:58:43,129 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-23 16:58:43,129 - INFO - Initializing user statuses for existing chats...
+2025-10-23 16:58:43,157 - INFO - User statuses initialized successfully
+2025-10-23 16:58:43,254 - INFO - SQLAlchemy version: 2.0.41
+2025-10-23 16:58:43,284 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-23 17:02:10,608 - INFO - Loaded 0 reset tokens from storage
+2025-10-23 17:02:10,619 - INFO - 🔧 AdminManager using database: portaladmins_db at localhost:5432
+2025-10-23 17:02:10,636 - INFO - 📋 Admin table columns: ['id', 'username', 'service_id', 'is_active', 'permissions', 'created_at', 'updated_at', 'email']
+2025-10-23 17:02:10,639 - WARNING - Таблица 'reset_tokens' не найдена в базе данных
+2025-10-23 17:02:10,693 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-23 17:02:10,693 - INFO - Initializing user statuses for existing chats...
+2025-10-23 17:02:10,721 - INFO - User statuses initialized successfully
+2025-10-23 17:02:10,801 - INFO - SQLAlchemy version: 2.0.41
+2025-10-23 17:02:10,829 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-23 17:02:13,939 - INFO - Loaded 0 reset tokens from storage
+2025-10-23 17:02:13,951 - INFO - 🔧 AdminManager using database: portaladmins_db at localhost:5432
+2025-10-23 17:02:13,967 - INFO - 📋 Admin table columns: ['id', 'username', 'service_id', 'is_active', 'permissions', 'created_at', 'updated_at', 'email']
+2025-10-23 17:02:13,969 - WARNING - Таблица 'reset_tokens' не найдена в базе данных
+2025-10-23 17:02:14,020 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-23 17:02:14,020 - INFO - Initializing user statuses for existing chats...
+2025-10-23 17:02:14,045 - INFO - User statuses initialized successfully
+2025-10-23 17:02:14,127 - INFO - SQLAlchemy version: 2.0.41
+2025-10-23 17:02:14,157 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-23 17:02:16,872 - INFO - Loaded 0 reset tokens from storage
+2025-10-23 17:02:16,882 - INFO - 🔧 AdminManager using database: portaladmins_db at localhost:5432
+2025-10-23 17:02:16,900 - INFO - 📋 Admin table columns: ['id', 'username', 'service_id', 'is_active', 'permissions', 'created_at', 'updated_at', 'email']
+2025-10-23 17:02:16,902 - WARNING - Таблица 'reset_tokens' не найдена в базе данных
+2025-10-23 17:02:16,954 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-23 17:02:16,954 - INFO - Initializing user statuses for existing chats...
+2025-10-23 17:02:16,979 - INFO - User statuses initialized successfully
+2025-10-23 17:02:17,065 - INFO - SQLAlchemy version: 2.0.41
+2025-10-23 17:02:17,095 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-10-23 17:02:22,294 - INFO - Loaded 0 reset tokens from storage
+2025-10-23 17:02:22,304 - INFO - 🔧 AdminManager using database: portaladmins_db at localhost:5432
+2025-10-23 17:02:22,323 - INFO - 📋 Admin table columns: ['id', 'username', 'service_id', 'is_active', 'permissions', 'created_at', 'updated_at', 'email']
+2025-10-23 17:02:22,325 - WARNING - Таблица 'reset_tokens' не найдена в базе данных
+2025-10-23 17:02:22,385 - INFO - Таблицы успешно созданы или уже существуют.
+2025-10-23 17:02:22,385 - INFO - Initializing user statuses for existing chats...
+2025-10-23 17:02:22,411 - INFO - User statuses initialized successfully
+2025-10-23 17:02:22,494 - INFO - SQLAlchemy version: 2.0.41
+2025-10-23 17:02:22,522 - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']

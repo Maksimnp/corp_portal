@@ -1,0 +1,16 @@
+@keyframes reaction-bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-8px) scale(1.2); }
+}
+
+@keyframes reaction-ping {
+  75%, 100% { transform: scale(1.8); opacity: 0; }
+}
+
+.animate-reaction-bounce {
+  animation: reaction-bounce 0.6s ease-in-out;
+}
+
+.animate-reaction-ping {
+  animation: reaction-ping 0.6s ease-in-out;
+}

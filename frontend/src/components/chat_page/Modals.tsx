@@ -84,6 +84,7 @@ export interface RenderModalsProps {
   confirmDeleteMessage: () => Promise<void>;
   setQuotedMessage: React.Dispatch<React.SetStateAction<Message | null>>;
   handleSendMessage: () => Promise<void>;
+  handleForwardMessage: () => void;
 }
 
 const RenderModals: React.FC<RenderModalsProps> = ({
@@ -144,6 +145,7 @@ const RenderModals: React.FC<RenderModalsProps> = ({
   showForwardMessageModal,
   setShowForwardMessageModal,
   handleSendMessage,
+  handleForwardMessage
 }) => {
   return (
     <>
@@ -277,6 +279,7 @@ const RenderModals: React.FC<RenderModalsProps> = ({
         setSelectedContacts={setSelectedContacts}
         setContacts={setContacts}
         handleSendMessage={handleSendMessage}
+        handleForwardMessage={handleForwardMessage}
       />
     </>
   );

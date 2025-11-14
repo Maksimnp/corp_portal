@@ -123,7 +123,8 @@ class Reaction(Base):
     user_id = Column(String, nullable=False)
     reaction = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
+    is_read = Column(Boolean, nullable=False, default=False)
+    channel_id = Column(String, nullable=False)
     __table_args__ = (UniqueConstraint("message_id", "user_id", name="uq_user_message_reaction"),)
 
 def initialize_user_statuses(db: Session):
@@ -201,6 +202,11 @@ class ChatResponse(BaseModel):
     unread_count: int = 0 
     font_name: str = "chat_font_1"
 
+class ReactionInfo(BaseModel):
+    emoji: str
+    is_read: bool
+    timestamp: Optional[datetime] = None
+
 class MessageResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUIDType
@@ -215,7 +221,7 @@ class MessageResponse(BaseModel):
     quoted_message_id: Optional[UUIDType] = None
     forward_message_id: Optional[UUIDType] = None
     is_notification: Optional[bool] = None
-    reactions_by_user: Dict[str, str] = {}
+    reactions_by_user: Dict[str, ReactionInfo] = {}
 
 class MessageCreate(BaseModel):
     channel_id: UUIDType
@@ -547,9 +553,9 @@ class ConnectionManager:
         invalid_user = ""
         if payload["type"] == "chat_deleted":
             usernames = payload["data"]["members"]
-        elif payload["type"] == "forward_message":
-            usernames = payload["forward_members"] 
-            logger.info(f"forward_members - {usernames}")
+        # elif payload["type"] == "forward_message":
+        #     usernames = payload["forward_members"] 
+        #     logger.info(f"forward_members - {usernames}")
         elif payload["type"] == "channel_invite":
             usernames = payload["data"]["members"]
         else:
@@ -575,6 +581,14 @@ class ConnectionManager:
                     await ws.send_json(payload)
                 except Exception as e:
                     logger.error(f"WS send error to {uname}: {e}")
+    async def broadcast_to_user(self, payload: Dict[str, Any], username: str):
+        conns = self.active_connections.get(username, [])
+        for ws in conns:
+            if ws.client_state == WebSocketState.CONNECTED:
+                try:
+                    await ws.send_json(payload)
+                except Exception as e:
+                    logger.error(f"Failed to send to {username}: {e}")
 
 # Инициализация менеджера WebSocket
 manager = ConnectionManager()
@@ -961,7 +975,7 @@ def get_messages(
 
         message_ids = [m.id for m in messages]
 
-        reaction_data = db.query(Reaction.message_id, Reaction.user_id, Reaction.reaction).filter(
+        reaction_data = db.query(Reaction.message_id, Reaction.user_id, Reaction.reaction, Reaction.is_read, Reaction.channel_id).filter(
             Reaction.message_id.in_(message_ids)
         ).all()
 
@@ -969,7 +983,10 @@ def get_messages(
         for r in reaction_data:
             if r.message_id not in reactions_by_message:
                 reactions_by_message[r.message_id] = {}
-            reactions_by_message[r.message_id][r.user_id] = r.reaction
+            reactions_by_message[r.message_id][r.user_id] = {
+                "emoji": r.reaction,
+                "is_read": r.is_read,
+            }
 
         result = []
         for msg in messages:
@@ -1092,6 +1109,43 @@ async def mark_messages_read(
     except Exception as e:
         logger.error(f"Error marking messages as read: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Не удалось пометить сообщения как прочитанные: {str(e)}")
+    
+@router.post("/reactions/batch_read")
+def mark_reactions_read(
+    body: Dict[str, List[str]],
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    message_ids = [str(m) for m in body.get("message_ids", [])]
+    db.query(Reaction).filter(
+        Reaction.message_id.in_(message_ids),
+        Reaction.is_read == False,
+    ).update({"is_read": True}, synchronize_session=False)
+    db.commit()
+    return {"status": "ok"}
+
+@router.get("/reactions/unread")
+def get_unread_reactions(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    reactions = db.query(Reaction).join(Message).filter(
+        Reaction.is_read == False,
+        Message.sender == current_user["username"]
+    ).all()
+    return [
+        {
+            "reaction_id": r.id,
+            "message_id": str(r.message_id),
+            "reaction": r.reaction,
+            "channel_id": r.channel_id,
+            "reactor": r.user_id,
+            "timestamp": r.created_at.isoformat(),
+            "message_content": r.message.content,
+            "channel_id": str(r.message.channel_id),
+        }
+        for r in reactions
+    ]
     
 @router.post("/upload")
 async def upload_file(
@@ -1991,7 +2045,6 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
                 for msg in sent_messages:
                     payload_response = {
                         "type": type_message,
-                        "forward_members": forward_members,
                         "data": {
                             "id": str(msg.id),
                             "channel_id": str(msg.channel_id),
@@ -2008,7 +2061,7 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
                     }
                     await manager.broadcast_to_channel_members(payload_response, msg.channel_id, db)
 
-                await websocket.send_json({"type": "message_sent", "status": "ok"})
+                await websocket.send_json({"type": "send_message", "status": "ok"})
                 logger.debug(f"Forwarded message to {len(sent_messages)} channels for {username}")
 
             elif action == "typing_start" or action == "typing_stop":
@@ -2027,54 +2080,97 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
             elif action == "react":
                 message_id_str = payload.get("message_id")
                 reaction = payload.get("reaction")
-                logger.info(f"message_id_str - {message_id_str}, reaction- {reaction} ")
-                if not message_id_str or not isinstance(reaction, str) or len(reaction) > 10:
+                channel_id = payload.get("channel_id")
+                message_sender = payload.get("messageSender")
+
+                logger.info(f"message_id_str - {message_id_str}, reaction - {reaction}, reactor - {username}")
+
+                if not message_id_str or (reaction is not None and (not isinstance(reaction, str) or len(reaction) > 10)):
                     await websocket.send_json({"type": "error", "error": "Неверные данные реакции"})
                     continue
+
                 try:
                     message_id = UUIDType(message_id_str)
-                    message = db.query(Message).filter(Message.id == message_id).first()
+                    assert_membership(db, channel_id, username)
+
+                    message = db.query(Message).filter(
+                        Message.id == message_id,
+                        Message.channel_id == channel_id
+                    ).first()
                     if not message:
                         await websocket.send_json({"type": "error", "error": "Сообщение не найдено"})
                         continue
-                    assert_membership(db, message.channel_id, username)
+
+                    owner_username = message.sender
 
                     existing = db.query(Reaction).filter(
                         Reaction.message_id == message_id,
                         Reaction.user_id == username
                     ).first()
 
+                    reaction_to_broadcast = None
+
                     if existing:
-                        if existing.reaction == reaction:
+                        if reaction is None or reaction == "":
                             db.delete(existing)
                             reaction_to_broadcast = None
                         else:
                             existing.reaction = reaction
-                            reaction_to_broadcast = reaction
+                            existing.is_read = False
+                            existing.updated_at = datetime.utcnow()
+                            reaction_to_broadcast = {
+                                "emoji": existing.reaction,
+                                "is_read": existing.is_read,
+                                "timestamp": existing.updated_at.isoformat()
+                            }
                     else:
-                        new_reaction = Reaction(
-                            message_id=message_id,
-                            user_id=username,
-                            reaction=reaction
-                        )
-                        db.add(new_reaction)
-                        reaction_to_broadcast = reaction
+                        if reaction is None or reaction == "":
+                            pass
+                        else:
+                            new_reaction = Reaction(
+                                message_id=message_id,
+                                user_id=username,
+                                reaction=reaction,
+                                is_read=False,
+                                channel_id=channel_id,
+                                created_at=datetime.utcnow()
+                            )
+                            db.add(new_reaction)
+                            reaction_to_broadcast = {
+                                "emoji": new_reaction.reaction,
+                                "is_read": new_reaction.is_read,
+                                "timestamp": new_reaction.created_at.isoformat()
+                            }
+
+                            if owner_username != username:
+                                notification_payload = {
+                                    "type": "reaction_notification",
+                                    "data": {
+                                        "channel_id": channel_id,
+                                        "message_id": str(message_id),
+                                        "reaction": reaction,
+                                        "reactor": username,
+                                    }
+                                }
+                                await manager.broadcast_to_user(notification_payload, owner_username)
 
                     db.commit()
 
-                    payload_response = {
-                        "type": "reaction_update",
-                        "data": {
-                            "message_id": str(message_id),
-                            "user_id": username,
-                            "reaction": reaction_to_broadcast,
-                        }
+                    broadcast_data = {
+                        "message_id": str(message_id),
+                        "user_id": username,
+                        "reaction": reaction_to_broadcast,
+                        "channel_id": channel_id,
                     }
-                    await manager.broadcast_to_channel_members(payload_response, message.channel_id, db)
+
+                    await manager.broadcast_to_channel_members({
+                        "type": "reaction_update",
+                        "data": broadcast_data
+                    }, channel_id, db)
 
                 except Exception as e:
                     db.rollback()
-                    logger.error(f"Error handling reaction: {e}")
+                    logger.error(f"Error handling reaction: {e}", exc_info=True)
                     await websocket.send_json({"type": "error", "error": "Не удалось поставить реакцию"})
                     
             elif action == "edit_message":

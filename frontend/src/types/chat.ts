@@ -1,3 +1,9 @@
+type ReactionInfo = {
+  emoji: string;
+  is_read: boolean;
+  timestamp?: string;
+};
+
 interface Message {
   id: string;
   channel_id: string;
@@ -11,7 +17,10 @@ interface Message {
   quoted_message_id: string | null;
   forward_message_id: string | null;
   is_notification: boolean;
-  reactions_by_user: Record<string, string>;
+  reactions_by_user: Record<string, ReactionInfo>;
+  isGroupStart: boolean;
+  isGroupEnd: boolean;
+  isUnreadGroupStart: boolean;
 }
 
 interface LastMessage {

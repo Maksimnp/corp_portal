@@ -9,6 +9,7 @@ import { getChatDisplayIcon, getChatDisplayName, normalizeMessages } from '../..
 import RenderSidebar from '../../components/chat_page/Sidebar';
 import RenderModals from '../../components/chat_page/Modals';
 import { useTheme } from '../../hooks/ThemeContext';
+import {getAvatarData, setAvatarData} from '../../utils/avatarCache'
 
 const ChatComponent: React.FC = () => {
   // Авторизация и пользователь
@@ -20,6 +21,7 @@ const ChatComponent: React.FC = () => {
   const [activeChat, setActiveChat] = useState<string | null>(null);
   const [messagesByChat, setMessagesByChat] = useState<{ [key: string]: Message[] }>({});
   const [chats, setChats] = useState<Chat[]>([]);
+
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactMap, setContactMap] = useState<{ [key: string]: string }>({});
 
@@ -64,6 +66,7 @@ const ChatComponent: React.FC = () => {
   const [showChatInfoSidebar, setShowChatInfoSidebar] = useState(false);
 
   // Управление чатами (группы / каналы)
+  const [unreadReactionNotifications, setUnreadReactionNotifications] = useState<Record<string, string[]>>({});
   const [showCreateOptions, setShowCreateOptions] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showCreateChannel, setShowCreateChannel] = useState(false);
@@ -77,7 +80,9 @@ const ChatComponent: React.FC = () => {
   const [editChatName, setEditChatName] = useState('');
   const [editChatDescription, setEditChatDescription] = useState('');
   const [showForwardMessageModal, setShowForwardMessageModal] = useState(false);
-  
+  const [showFileDragModal, setShowFileDragModal] = useState(false);
+  const [sentReadIds, setSentReadIds] = useState<Set<string>>(new Set());
+  const [sentReactionReadIds, setSentReactionReadIds] = useState<Set<string>>(new Set());
   // Контекстные меню
   const [messageContextMenu, setMessageContextMenu] = useState<{
     visible: boolean;
@@ -124,7 +129,7 @@ const ChatComponent: React.FC = () => {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Рефы для DOM и UI
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const createOptionsRef = useRef<HTMLDivElement>(null);
   const chatOptionsRef = useRef<HTMLDivElement>(null);
   const stickerPickerRef = useRef<HTMLDivElement>(null);
@@ -158,6 +163,10 @@ const ChatComponent: React.FC = () => {
       m.file_name?.toLowerCase().includes(lowerQuery)
     );
   }, [currentMessages, searchQuery]);
+
+  useEffect(() => {
+    console.log(unreadReactionNotifications);
+  }, [unreadReactionNotifications])
 
   const unreadCounts = useMemo(() => {
     const counts: { [key: string]: number } = {};
@@ -199,6 +208,24 @@ const ChatComponent: React.FC = () => {
     });
   }, []);
 
+  const handleReactToMessage = (messageId: string, messageSender: string | undefined, reaction: string) => {
+    if (!websocket || websocket.readyState !== WebSocket.OPEN || !messageSender) {
+      toast.error('Нет соединения с сервером');
+      return;
+    }
+    const payload = {
+      type: 'react',
+      data: {
+        messageSender: messageSender,
+        message_id: messageId,
+        reaction,
+        channel_id: currentChat?.id,
+      },
+    };
+    websocket.send(JSON.stringify(payload));
+    setMessageContextMenu(prev => ({ ...prev, visible: false }));
+  };
+
   const refreshTokenAndRetry = useCallback(async <T extends unknown>(apiCall: () => Promise<T>): Promise<T> => {
     try {
       return await apiCall();
@@ -221,6 +248,7 @@ const ChatComponent: React.FC = () => {
     }
   }, [API_BASE]);
 
+  
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (createOptionsRef.current && !createOptionsRef.current.contains(event.target as Node)) {
@@ -249,7 +277,7 @@ const ChatComponent: React.FC = () => {
     if (activeChat) {
       setChats(prev => prev.map(chat =>
         chat.id === activeChat
-          ? { ...chat, unread_count: 0 }
+          ? { ...chat }
           : chat
       ));
     }
@@ -308,6 +336,12 @@ const ChatComponent: React.FC = () => {
       setMessageContextMenu(prev => ({ ...prev, visible: false }));
     }
   };
+  const handleForwardMessage = () => {
+    if (messageContextMenu.message) {
+      forwardMessageTo(messageContextMenu.message);
+      setShowForwardMessageModal(false);
+    }
+  };
 
   const handleContextMenuQuote = () => {
     if (messageContextMenu.message) {
@@ -324,6 +358,54 @@ const ChatComponent: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    if (!token || Object.keys(contactMap).length === 0) return;
+
+    const loadMissingAvatars = async () => {
+      const userIds = Object.values(contactMap);
+      const missingUserIds = userIds.filter(userId => !getAvatarData(userId));
+
+      if (missingUserIds.length === 0) return;
+
+      await Promise.all(
+        missingUserIds.map(async (userId) => {
+          const avatar = await fetchAvatar(userId);
+          if (avatar) {
+            setAvatarData(userId, avatar);
+          }
+        })
+      );
+    };
+
+    loadMissingAvatars();
+  }, [contactMap, token]);
+
+  const fetchAvatar = async (userId: string): Promise<string | null> => {
+    try {
+      const res = await fetch(`${API_BASE}/api/users/${encodeURIComponent(userId)}/avatar`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        if (res.status === 404) {
+          console.warn(`Аватар для ${userId} не найден`);
+        } else {
+          console.error(`Ошибка загрузки аватара для ${userId}:`, res.status);
+        }
+        return null;
+      }
+
+      const { avatar } = await res.json();
+      return avatar;
+    } catch (err) {
+      console.error(`Не удалось загрузить аватар для ${userId}:`, err);
+      return null;
+    }
+  };
+
   const fetchChats = useCallback(async () => {
     if (!token) return;
     setIsLoadingChats(true);
@@ -337,7 +419,7 @@ const ChatComponent: React.FC = () => {
         throw new Error(`Failed to load chats: ${res.status} ${res.statusText}`);
       }
       const data: Chat[] = await res.json();
-      console.log('Fetched chats:', data);
+      // console.log('Fetched chats:', data);
       setChats(data);
       
       const allMembers = new Set<string>();
@@ -470,6 +552,123 @@ const ChatComponent: React.FC = () => {
     }
   };
 
+  const markMessageAsReadWhenInView = useCallback(async (messageId: string, channelId: string) => {
+  const uniqueId = `${messageId}-${channelId}`;
+  if (sentReadIds.has(uniqueId) || !activeChat || activeChat !== channelId || !username) {
+    return;
+  }
+
+  setMessagesByChat(prev => {
+    const chatMessages = prev[channelId];
+    if (!chatMessages) return prev;
+
+    const messageIndex = chatMessages.findIndex(m => m.id === messageId);
+    if (messageIndex === -1 || chatMessages[messageIndex].sender === username) {
+        return prev;
+    }
+
+    const updatedMessages = [...chatMessages];
+    updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], is_read: true };
+
+    setSentReadIds(prevSet => new Set(prevSet).add(uniqueId));
+
+    return { ...prev, [channelId]: updatedMessages };
+  });
+
+  try {
+    const res = await refreshTokenAndRetry(() =>
+      fetch(`${API_BASE}/chat/messages/batch_read`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          message_ids: [messageId],
+          channel_id: channelId
+        }),
+      })
+    );
+    if (!res.ok) {
+      setSentReadIds(prevSet => {
+        const newSet = new Set(prevSet);
+        newSet.delete(uniqueId);
+        return newSet;
+      });
+      setMessagesByChat(prev => {
+        const chatMessages = prev[channelId];
+        if (!chatMessages) return prev;
+        const messageIndex = chatMessages.findIndex(m => m.id === messageId);
+        if (messageIndex === -1) return prev;
+        const updatedMessages = [...chatMessages];
+        updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], is_read: false };
+        return { ...prev, [channelId]: updatedMessages };
+      });
+    } else {
+      setChats(prevChats => prevChats.map(chat =>
+        chat.id === channelId ? { ...chat, unread_count: Math.max(0, chat.unread_count - 1) } : chat
+      ));
+    }
+  } catch (e) {
+    setSentReadIds(prevSet => {
+      const newSet = new Set(prevSet);
+      newSet.delete(uniqueId);
+      return newSet;
+    });
+    setMessagesByChat(prev => {
+      const chatMessages = prev[channelId];
+      if (!chatMessages) return prev;
+      const messageIndex = chatMessages.findIndex(m => m.id === messageId);
+      if (messageIndex === -1) return prev;
+      const updatedMessages = [...chatMessages];
+      updatedMessages[messageIndex] = { ...updatedMessages[messageIndex], is_read: false };
+      return { ...prev, [channelId]: updatedMessages };
+    });
+  }
+}, [activeChat, username, sentReadIds, refreshTokenAndRetry, authHeaders, API_BASE]);
+
+  const markReactionAsReadWhenInView = useCallback(async (messageId: string, channelId: string) => {
+    const uniqueId = `${messageId}-${channelId}`;
+    if (sentReactionReadIds.has(uniqueId) || !activeChat || activeChat !== channelId) {
+      return;
+    }
+
+    setUnreadReactionNotifications(prev => {
+      const current = prev[channelId] || [];
+      const filtered = current.filter(id => id !== messageId);
+      const newNotif = { ...prev };
+      if (filtered.length === 0) {
+        delete newNotif[channelId];
+      } else {
+        newNotif[channelId] = filtered;
+      }
+      return newNotif;
+    });
+
+    setSentReactionReadIds(prev => new Set(prev).add(uniqueId));
+
+    try {
+      const res = await refreshTokenAndRetry(() =>
+        fetch(`${API_BASE}/chat/reactions/batch_read`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ message_ids: [messageId] }),
+        })
+      );
+      if (!res.ok) {
+        throw new Error('Failed to mark reaction as read');
+      }
+    } catch (e) {
+      console.error('Error marking reaction as read:', e);
+      setUnreadReactionNotifications(prev => ({
+        ...prev,
+        [channelId]: [...(prev[channelId] || []), messageId]
+      }));
+      setSentReactionReadIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(uniqueId);
+        return newSet;
+      });
+    }
+  }, [activeChat, unreadReactionNotifications, sentReactionReadIds, refreshTokenAndRetry, authHeaders, API_BASE]);
+
   const loadLatestMessages = async () => {
     if (!activeChat || !token) return;
     setIsLoadingMessages(true);
@@ -521,43 +720,47 @@ const ChatComponent: React.FC = () => {
 
   useEffect(() => {
     if (activeChat) {
-      if (!messagesByChat[activeChat]) {
+      if (!messagesByChat[activeChat] ) {
         loadLatestMessages();
+      }
+      if (messagesByChat[activeChat] && messagesByChat[activeChat].length < 50) {
+        const oldest = messagesByChat[activeChat][0]?.id;
+        loadOlderMessages(oldest);
       }
     }
   }, [activeChat, token]);
 
-  useEffect(() => {
-    if (!activeChat || !token || !username) return;
+  // useEffect(() => {
+  //   if (!activeChat || !token || !username) return;
     
-    const unread = currentMessages.filter((m) => !m.is_read && m.sender !== username);
-    if (unread.length === 0) return;
+  //   const unread = currentMessages.filter((m) => !m.is_read && m.sender !== username);
+  //   if (unread.length === 0) return;
     
-    (async () => {
-      try {
-        const res = await refreshTokenAndRetry(() =>
-          fetch(`${API_BASE}/chat/messages/batch_read`, {
-            method: 'POST',
-            headers: authHeaders(),
-            body: JSON.stringify({ 
-              message_ids: unread.map((m) => m.id),
-              channel_id: activeChat
-             }),
-          })
-        );
-        if (res.ok) {
-          setMessagesByChat((prev) => ({
-            ...prev,
-            [activeChat]: prev[activeChat].map((m) =>
-              unread.some((u) => u.id === m.id) ? { ...m, is_read: true } : m
-            ),
-          }));
-        }
-      } catch (e) {
-        console.error('Failed to mark messages as read:', e);
-      }
-    })();
-  }, [currentMessages, activeChat, token, username, refreshTokenAndRetry, authHeaders, API_BASE]);
+  //   (async () => {
+  //     try {
+  //       const res = await refreshTokenAndRetry(() =>
+  //         fetch(`${API_BASE}/chat/messages/batch_read`, {
+  //           method: 'POST',
+  //           headers: authHeaders(),
+  //           body: JSON.stringify({ 
+  //             message_ids: unread.map((m) => m.id),
+  //             channel_id: activeChat
+  //            }),
+  //         })
+  //       );
+  //       if (res.ok) {
+  //         setMessagesByChat((prev) => ({
+  //           ...prev,
+  //           [activeChat]: prev[activeChat].map((m) =>
+  //             unread.some((u) => u.id === m.id) ? { ...m, is_read: true } : m
+  //           ),
+  //         }));
+  //       }
+  //     } catch (e) {
+  //       console.error('Failed to mark messages as read:', e);
+  //     }
+  //   })();
+  // }, [currentMessages, activeChat, token, username, refreshTokenAndRetry, authHeaders, API_BASE]);
 
   useEffect(() => {
     if ("Notification" in window && Notification.permission === "default") {
@@ -580,21 +783,7 @@ const ChatComponent: React.FC = () => {
 
         if (data.type === 'new_message' || data.type === 'forward_message') {
             const channelId = data.data.channel_id;
-            
-            // Уведомления
-            if (data.data.sender !== username && Notification.permission === "granted") {
-                const isHidden = document.visibilityState === 'hidden';
-                const isNotCurrent = activeChat !== data.data.channel_id;
-                if (isHidden || isNotCurrent) {
-                    const senderName = contactMap[data.data.sender] || data.data.sender;
-                    const chatName = chats.find(c => c.id === data.data.channel_id)?.name || 'чате';
-                    const bodyText = data.data.content || (data.data.file_name ? `Отправлен файл: ${data.data.file_name}` : 'Новое сообщение');
-                    new Notification(`Новое сообщение в ${chatName}`, {
-                        body: `${senderName}: ${bodyText}`,
-                    });
-                }
-            }
-
+            console.log("Пришло сообщение", data.type)
             // Обновление последнего сообщения в списке чатов
             setChats(prevChats =>
                 prevChats.map(chat => {
@@ -606,6 +795,7 @@ const ChatComponent: React.FC = () => {
                             timestamp: data.data.timestamp,
                             file_name: data.data.file_name,
                             is_read: data.data.is_read,
+                            forward_message_id: data.data.forward_message_id ?? null,
                         };
                         return {
                             ...chat,
@@ -615,7 +805,7 @@ const ChatComponent: React.FC = () => {
                     return chat;
                 })
             );
-
+            // setChatWindows()
             // Добавление сообщения в историю
             setMessagesByChat(prev => {
                 const channelId = data.data.channel_id;
@@ -643,6 +833,7 @@ const ChatComponent: React.FC = () => {
                     ...data.data,
                     id: String(data.data.id),
                     is_read: Boolean(data.data.is_read),
+                    reactions_by_user: data.data.reactions_by_user || {},
                     timestamp: typeof data.data.timestamp === 'string' ? data.data.timestamp : new Date(data.data.timestamp).toISOString(),
                     file_url: data.data.file_url,
                     file_name: data.data.file_name,
@@ -662,7 +853,6 @@ const ChatComponent: React.FC = () => {
                     [channelId]: updatedMessages
                 };
             });
-
             // Прокрутка к низу если это активный чат
             if (activeChat === data.data.channel_id) {
                 setShouldScrollToBottom(true);
@@ -691,6 +881,49 @@ const ChatComponent: React.FC = () => {
         }
         else if (data.type === "user_status") {
             setUserStatuses(data.data);
+        }
+        else if (data.type === "reaction_notification") {
+          const { message_id, user_id, reaction, channel_id } = data.data;
+          setUnreadReactionNotifications(prev => {
+            const current = prev[channel_id] || [];
+            if (!current.includes(message_id)) {
+              return {
+                ...prev,
+                [channel_id]: [...current, message_id]
+              };
+            }
+            return prev;
+          });
+        }
+        else if (data.type === 'reaction_update') {
+          const { message_id, user_id, reaction } = data.data;
+
+          setMessagesByChat(prev => {
+            const updated = { ...prev };
+            for (const chatId in updated) {
+              const msgs = updated[chatId];
+              const msgIndex = msgs.findIndex(m => m.id === message_id);
+              if (msgIndex !== -1) {
+                const msg = { ...msgs[msgIndex] };
+                const reactions = { ...msg.reactions_by_user };
+
+                if (reaction === null) {
+                  // Удаляем реакцию
+                  delete reactions[user_id];
+                } else {
+                  // reaction — это ReactionInfo
+                  reactions[user_id] = reaction;
+                }
+
+                updated[chatId][msgIndex] = {
+                  ...msg,
+                  reactions_by_user: reactions,
+                };
+                break;
+              }
+            }
+            return updated;
+          });
         }
         else if (data.type === "user_left") {
             const left_user = data.data.username;
@@ -765,6 +998,39 @@ const ChatComponent: React.FC = () => {
         console.error('Ошибка обработки сообщения WebSocket:', e);
     }
 }, [username, activeChat, contactMap, chats, quotedMessageData, addTypingUser, removeTypingUser]);
+
+const markReactionAsRead = async (messageId: string, channelId: string) => {
+  if (!unreadReactionNotifications[messageId]) return;
+
+  try {
+    const res = await refreshTokenAndRetry(() =>
+      fetch(`${API_BASE}/chat/reactions/batch_read`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ message_ids: [messageId] }),
+      })
+    );
+    if (res.ok) {
+      setUnreadReactionNotifications(prev => {
+        const current = prev[channelId] || [];
+        const filtered = current.filter(id => id !== messageId);
+
+        if (filtered.length === 0) {
+          const newNotif = { ...prev };
+          delete newNotif[channelId];
+          return newNotif;
+        }
+
+        return {
+          ...prev,
+          [channelId]: filtered
+        };
+      });
+    }
+  } catch (e) {
+    console.error('Failed to mark reaction as read:', e);
+  }
+};
 
   useEffect(() => {
     if (!token || !username) return;
@@ -845,14 +1111,14 @@ const ChatComponent: React.FC = () => {
   }, []);
 
   
-  useEffect(() => {
-      setTimeout(() => {
-        if (messagesEndRef.current && shouldScrollToBottom) {
-          messagesEndRef.current.scrollIntoView({ block: 'end', behavior: 'auto' });
-          setShouldScrollToBottom(false);
-        }
-      }, 100);
-  }, [shouldScrollToBottom]);
+  // useEffect(() => {
+  //     setTimeout(() => {
+  //       if (messagesEndRef.current && shouldScrollToBottom) {
+  //         messagesEndRef.current.scrollIntoView({ block: 'end', behavior: 'auto' });
+  //         setShouldScrollToBottom(false);
+  //       }
+  //     }, 100);
+  // }, [shouldScrollToBottom]);
   
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement;
@@ -929,15 +1195,15 @@ const ChatComponent: React.FC = () => {
     }
   };
 
-  const loadOlderMessages = async () => {
+  const loadOlderMessages = async (oldestMessageId?: string) => {
     if (!activeChat || isLoadingMessages) return;
     const window = chatWindows[activeChat];
-    if (!window?.hasOlder || !window.oldestMessageId) return;
-
+    // if (oldestMessageId || !window?.hasOlder || !window.oldestMessageId) return;
+    const oldestMessage = (oldestMessageId) ? oldestMessageId : window.oldestMessageId;
     setIsLoadingMessages(true);
     try {
       const res = await refreshTokenAndRetry(() =>
-        fetch(`${API_BASE}/chat/${activeChat}/messages/before/${window.oldestMessageId}?limit=50`, {
+        fetch(`${API_BASE}/chat/${activeChat}/messages/before/${oldestMessage}?limit=50`, {
           headers: authHeaders(),
         })
       );
@@ -1044,8 +1310,40 @@ const ChatComponent: React.FC = () => {
   };
 
   const quoteMessage = (msg: Message) => {
+    filteredChats
     setQuotedMessage(msg);
     inputRef.current?.focus();
+  };
+
+  const forwardMessageTo = async (msg: Message) => {
+    if (!username) return;
+    
+    const user = selectedContacts[0].id;
+    const existingChat = filteredChats.find(chat => 
+      !chat.is_group && 
+      !chat.is_channel && 
+      chat.members.includes(user) && 
+      chat.members.includes(username)
+    );
+
+    let targetChatId = existingChat?.id;
+
+    if (targetChatId === undefined) {
+      await createPrivateChat(user);
+      const newChat = filteredChats.find(chat => 
+        !chat.is_group && 
+        !chat.is_channel && 
+        chat.members.includes(user) && 
+        chat.members.includes(username)
+      );
+      targetChatId = newChat?.id;
+    }
+
+    if (targetChatId) {
+      setActiveChat(targetChatId);
+      setForwardMessage(msg);
+      inputRef.current?.focus();
+    }
   };
 
   const cancelQuote = () => {
@@ -1064,6 +1362,11 @@ const ChatComponent: React.FC = () => {
     setEditingMessage(null);
     setMessage('');
   };
+
+  const cancelForward = () => {
+    setForwardMessage(null);
+    setMessage('');
+  }
 
   const confirmDeleteMessage = async () => {
     if (!messageToDelete) return;
@@ -1563,6 +1866,7 @@ const ChatComponent: React.FC = () => {
     <div className={`flex justify-center ${theme === 'light' ? 'bg-gray-200': 'bg-slate-800'}`}>
       <div className={`flex h-screen w-[1700px] overflow-hidden border ${theme === 'light' ? 'border-gray-200': 'border-slate-900'}`}>
         <RenderSidebar
+          unreadReactionNotifications={unreadReactionNotifications}
           searchQuery={chatsSearchQuery}
           setSearchQuery={setChatsSearchQuery}
           setShowCreateOptions={setShowCreateOptions}
@@ -1583,8 +1887,18 @@ const ChatComponent: React.FC = () => {
           typingUsers={typingUsers}
           currentChat={currentChat}
           setShouldScrollToBottom={setShouldScrollToBottom}
+          quotedMessageData={quotedMessageData}
+          fetchQuotedMessageData={fetchQuotedMessageData}
         />
-        <RenderChatWindow 
+        <RenderChatWindow
+          cancelForward={cancelForward}
+          forwardMessage={forwardMessage}
+          onReactionInView={markReactionAsReadWhenInView}
+          unreadReactionNotifications={unreadReactionNotifications}
+          handleReactToMessage={handleReactToMessage}
+          showFileDragModal={showFileDragModal}
+          setShowFileDragModal={setShowFileDragModal}
+          unreadCounts={unreadCounts}
           activeChat={activeChat}
           searchContacts={searchContacts}
           currentChat={currentChat}
@@ -1664,6 +1978,7 @@ const ChatComponent: React.FC = () => {
           loadMessagesAround={loadMessagesAround}
           setIsAutoScrolling={setIsAutoScrolling}
           setImageUrl={setImageUrl}
+          onMessageInView={markMessageAsReadWhenInView}
         />
         <RenderModals
           handleContextMenuQuote={handleContextMenuQuote}
@@ -1724,6 +2039,7 @@ const ChatComponent: React.FC = () => {
           showForwardMessageModal={showForwardMessageModal}
           setShowForwardMessageModal={setShowForwardMessageModal}
           handleSendMessage={handleSendMessage}
+          handleForwardMessage={handleForwardMessage}
         />
       </div>
     </div>

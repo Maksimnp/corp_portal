@@ -3,13 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import HTTPException
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.staticfiles import StaticFiles
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket, WebSocketDisconnect, Form
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from services.remote_desktop import remote_manager
 from services.admin_manager import admin_manager
 import uvicorn
+import base64
 import logging
 import logging.config
 from dotenv import load_dotenv
@@ -35,7 +36,13 @@ import asyncio
 import json
 from datetime import datetime, timedelta
 import time
-
+from pydantic import BaseModel
+from typing import Optional, Dict, Any
+from datetime import datetime, timedelta
+from services.jwt_utils import jwt_service, verify_token
+from services.remote_desktop import remote_manager, vnc_manager
+from services.vnc_api import router as vnc_router
+from pathlib import Path
 load_dotenv()
 URL_FONTS = os.getenv("URL_FONTS")
 rest_hosts: Dict[str, Dict[str, Any]] = {}
@@ -86,7 +93,21 @@ class EndpointFilter(logging.Filter):
         return True
 
 logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
+class TokenSettings(BaseModel):
+    access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 7
+    secret_key: str
+    algorithm: str = "HS256"
+    issuer: Optional[str] = None
+    audience: Optional[str] = None
 
+class TokenSettingsUpdate(BaseModel):
+    access_token_expire_minutes: Optional[int] = None
+    refresh_token_expire_days: Optional[int] = None
+    secret_key: Optional[str] = None
+    algorithm: Optional[str] = None
+    issuer: Optional[str] = None
+    audience: Optional[str] = None
 # Проверка переменных окружения
 def check_env_vars():
     required_vars = [
@@ -231,6 +252,7 @@ async def list_groups():
 
 app.mount("/static", StaticFiles(directory="templates/static"), name="static")
 app.mount("/static_chat", StaticFiles(directory="templates/static/chat_file"), name="static_chat")
+app.mount("/chat-fonts", StaticFiles(directory="templates/static/chat-fonts"), name="/chat-fonts")
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -289,6 +311,38 @@ async def create_notification(notification: Notification, authorization: str = H
     logger.info(f"Notification created: {notification.title}")
     return {"status": "Notification sent"}
 
+AVATARS_DIR = Path("templates/static/avatars")
+AVATARS_DIR.mkdir(parents=True, exist_ok=True)
+
+@app.post("/api/users/avatar")
+async def upload_avatar(
+    userId: str = Form(...),
+    avatar: UploadFile = File(...),
+):
+    if avatar.content_type not in ["image/jpeg", "image/png", "image/gif"]:
+        raise HTTPException(status_code=400, detail="Только JPG/PNG/GIF разрешены")
+
+    ext = avatar.filename.split('.')[-1] if '.' in avatar.filename else 'jpg'
+    safe_filename = f"{userId}.{ext}"
+    file_path = AVATARS_DIR / safe_filename
+
+    with open(file_path, "wb") as f:
+        f.write(await avatar.read())
+
+    avatar_url = f"/static/avatars/{safe_filename}"
+    return {"avatarUrl": avatar_url}
+
+@app.get("/api/users/{user_id}/avatar")
+async def get_avatar(user_id: str):
+    file_path = Path("templates/static/avatars") / f"{user_id}.jpg"
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Аватар не найден")
+    
+    with open(file_path, "rb") as f:
+        encoded = base64.b64encode(f.read()).decode('utf-8')
+        mime = "image/jpeg"
+        return {"avatar": f"data:{mime};base64,{encoded}"}
+    
 # WebSocket для software
 @app.websocket("/software/ws")
 async def websocket_software(websocket: WebSocket, token: str):
@@ -410,7 +464,275 @@ async def get_current_user(authorization: str = Header(None), token: str = Query
             user_data["role"] = "user"
     
     return user_data
+# Эндпоинты для управления настройками токенов
+@app.get("/admin/token-settings")
+async def get_token_settings(authorization: str = Header(None)):
+    """Получение текущих настроек токенов"""
+    try:
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Authorization header required")
+        
+        token = authorization[7:]
+        user_data = verify_token(token)
+        if not user_data:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        # Проверяем права администратора
+        username = user_data.get("username")
+        admin = admin_manager.get_admin_by_username(username)
+        if not admin or not admin.get('is_active'):
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # Получаем настройки из JWTService
+        token_settings = jwt_service.get_token_settings()
+        token_settings["last_updated"] = datetime.now().isoformat()
+        
+        logger.info(f"Token settings retrieved by admin: {username}")
+        
+        return {
+            "status": "success",
+            "settings": token_settings,
+            "requested_by": username
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting token settings: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
+@app.post("/admin/token-settings")
+async def update_token_settings(
+    settings_update: TokenSettingsUpdate,
+    authorization: str = Header(None)
+):
+    """Обновление настроек токенов"""
+    try:
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Authorization header required")
+        
+        token = authorization[7:]
+        user_data = verify_token(token)
+        if not user_data:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        # Проверяем права администратора
+        username = user_data.get("username")
+        admin = admin_manager.get_admin_by_username(username)
+        if not admin or not admin.get('is_active'):
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # Логируем попытку обновления
+        logger.info(f"Token settings update attempted by admin: {username}")
+        logger.info(f"Update data: {settings_update.dict(exclude_unset=True)}")
+        
+        # Валидация настроек через JWTService
+        validation_errors = jwt_service.validate_token_settings(settings_update.dict(exclude_unset=True))
+        if validation_errors:
+            logger.warning(f"Token settings validation failed: {validation_errors}")
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid token settings: {validation_errors}"
+            )
+        
+        # Получаем текущие настройки
+        current_settings = jwt_service.get_token_settings()
+        
+        # Применяем обновления
+        update_data = settings_update.dict(exclude_unset=True)
+        new_settings = {**current_settings, **update_data}
+        
+        # Сохраняем новые настройки через JWTService
+        if jwt_service.update_settings(new_settings):
+            # Получаем обновленные настройки
+            updated_settings = jwt_service.get_token_settings()
+            updated_settings["last_updated"] = datetime.now().isoformat()
+            updated_settings["updated_by"] = username
+            
+            logger.info(f"Token settings updated by admin: {username}")
+            
+            return {
+                "status": "success",
+                "message": "Token settings updated successfully",
+                "settings": updated_settings,
+                "updated_by": username,
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            raise HTTPException(
+                status_code=500, 
+                detail="Failed to save token settings"
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating token settings: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.get("/admin/token-stats")
+async def get_token_stats(authorization: str = Header(None)):
+    """Получение статистики использования токенов"""
+    try:
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Authorization header required")
+        
+        token = authorization[7:]
+        user_data = verify_token(token)
+        if not user_data:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        # Проверяем права администратора
+        username = user_data.get("username")
+        admin = admin_manager.get_admin_by_username(username)
+        if not admin or not admin.get('is_active'):
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # Получаем текущие настройки
+        current_settings = jwt_service.get_token_settings()
+        
+        # Статистика (можно расширить реальной статистикой)
+        token_stats = {
+            "total_tokens_issued": 0,
+            "active_sessions": 0,
+            "avg_token_lifetime": f"{current_settings['access_token_expire_minutes']} minutes",
+            "token_issuance_rate": "0/hour",
+            "last_24h_issued": 0,
+            "last_week_issued": 0,
+            "most_active_user": "N/A",
+            "token_revocation_count": 0,
+            "current_settings": current_settings
+        }
+        
+        logger.info(f"Token stats retrieved by admin: {username}")
+        
+        return {
+            "status": "success",
+            "stats": token_stats,
+            "generated_at": datetime.now().isoformat(),
+            "requested_by": username
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting token stats: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.post("/admin/token-settings/reset")
+async def reset_token_settings(authorization: str = Header(None)):
+    """Сброс настроек токенов к значениям по умолчанию"""
+    try:
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Authorization header required")
+        
+        token = authorization[7:]
+        user_data = verify_token(token)
+        if not user_data:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        # Проверяем права администратора
+        username = user_data.get("username")
+        admin = admin_manager.get_admin_by_username(username)
+        if not admin or not admin.get('is_active'):
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # Значения по умолчанию
+        default_settings = {
+            "access_token_expire_minutes": int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440")),
+            "refresh_token_expire_days": int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7")),
+            "algorithm": os.getenv("ALGORITHM", "HS256")
+        }
+        
+        # Сбрасываем настройки
+        if jwt_service.update_settings(default_settings):
+            # Получаем обновленные настройки
+            reset_settings = jwt_service.get_token_settings()
+            reset_settings["reset_to_default"] = True
+            reset_settings["last_updated"] = datetime.now().isoformat()
+            reset_settings["reset_by"] = username
+            
+            logger.info(f"Token settings reset to default by admin: {username}")
+            
+            return {
+                "status": "success",
+                "message": "Token settings reset to default values",
+                "settings": reset_settings,
+                "reset_by": username,
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            raise HTTPException(
+                status_code=500, 
+                detail="Failed to reset token settings"
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error resetting token settings: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.post("/admin/token-settings/test")
+async def test_token_settings(
+    test_data: dict,
+    authorization: str = Header(None)
+):
+    """Тестирование настроек токенов"""
+    try:
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Authorization header required")
+        
+        token = authorization[7:]
+        user_data = verify_token(token)
+        if not user_data:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        # Проверяем права администратора
+        username = user_data.get("username")
+        admin = admin_manager.get_admin_by_username(username)
+        if not admin or not admin.get('is_active'):
+            raise HTTPException(status_code=403, detail="Admin access required")
+        
+        # Создаем тестовый токен с текущими настройками
+        test_payload = {
+            "sub": username,
+            "full_name": user_data.get("full_name", username),
+            "role": user_data.get("role", "user"),
+            "isAdmin": True,
+            "department": user_data.get("department", ""),
+            "user_id": user_data.get("user_id", username),
+            "email": user_data.get("email", ""),
+            "test_token": True
+        }
+        
+        # Создаем токен
+        test_token = jwt_service.create_access_token(test_payload)
+        
+        # Верифицируем токен
+        verification_result = jwt_service.verify_token(test_token)
+        
+        # Отладочная информация
+        debug_info = jwt_service.debug_token(test_token)
+        
+        logger.info(f"Token settings tested by admin: {username}")
+        
+        return {
+            "status": "success",
+            "message": "Token settings test completed",
+            "test_token_created": bool(test_token),
+            "token_verification_success": bool(verification_result),
+            "debug_info": debug_info,
+            "current_settings": jwt_service.get_token_settings(),
+            "tested_by": username,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error testing token settings: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 async def get_current_admin_user(authorization: str = Header(None)):
     """Проверка прав администратора"""
     if not authorization or not authorization.startswith("Bearer "):
@@ -2011,7 +2333,7 @@ app.include_router(notification_router)
 app.include_router(software_router)
 app.include_router(remote_desktop_router)
 app.include_router(user_router)  
-
+app.include_router(vnc_router)
 # Добавьте статическую папку для аватаров
 app.mount("/static/avatars", StaticFiles(directory="templates/static/avatars"), name="avatars")
 

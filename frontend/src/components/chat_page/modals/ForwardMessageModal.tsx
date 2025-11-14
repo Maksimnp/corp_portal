@@ -18,6 +18,7 @@ interface ForwardMessageModalProps {
   setSelectedContacts: React.Dispatch<React.SetStateAction<Contact[]>>;
   setContacts: React.Dispatch<React.SetStateAction<Contact[]>>;
   handleSendMessage: () => Promise<void>;
+  handleForwardMessage: () => void;
 }
 
 const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({
@@ -32,7 +33,8 @@ const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({
   setShowForwardMessageModal,
   setSelectedContacts,
   setContacts,
-  handleSendMessage
+  handleSendMessage,
+  handleForwardMessage
 }) => {
   const { theme } = useTheme();
 
@@ -121,7 +123,9 @@ const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({
                 Отмена
               </button>
               <button
-                onClick={handleSendMessage}
+                onClick={() => {
+                  selectedContacts.length === 1 ? handleForwardMessage() :handleSendMessage(); 
+                }}
                 className="px-6 py-3 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl disabled:from-slate-400 disabled:to-slate-500 disabled:cursor-not-allowed"
                 disabled={selectedContacts.length === 0}
               >
