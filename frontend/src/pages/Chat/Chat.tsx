@@ -10,6 +10,7 @@ import RenderSidebar from '../../components/chat_page/Sidebar';
 import RenderModals from '../../components/chat_page/Modals';
 import { useTheme } from '../../hooks/ThemeContext';
 import {getAvatarData, setAvatarData} from '../../utils/avatarCache'
+import { fetchBackgroundChatData } from '../../utils/backgroundChatCache';
 
 const ChatComponent: React.FC = () => {
   // Авторизация и пользователь
@@ -310,6 +311,15 @@ const ChatComponent: React.FC = () => {
     });
   };
 
+  const handleMessageContextMenuReaction = (msg: Message) => {
+    setMessageContextMenu({
+      visible: false,
+      x: 0,
+      y: 0,
+      message: msg,
+    });
+  };
+
   const handleContextMenuEdit = () => {
     if (messageContextMenu.message) {
       startEditMessage(messageContextMenu.message);
@@ -359,6 +369,16 @@ const ChatComponent: React.FC = () => {
   };
 
   useEffect(() => {
+    const loadBackgrounds = async () => {
+      if (!chats) return;
+      
+      const backgroundPromises = chats.filter(chat => chat.font_name).map(chat => fetchBackgroundChatData(chat.font_name));
+      await Promise.allSettled(backgroundPromises);
+    };
+    loadBackgrounds();
+  }, [token, chats]);
+
+  useEffect(() => {
     if (!token || Object.keys(contactMap).length === 0) return;
 
     const loadMissingAvatars = async () => {
@@ -393,7 +413,7 @@ const ChatComponent: React.FC = () => {
         if (res.status === 404) {
           console.warn(`Аватар для ${userId} не найден`);
         } else {
-          console.error(`Ошибка загрузки аватара для ${userId}:`, res.status);
+          // console.error(`Ошибка загрузки аватара для ${userId}:`, res.status);
         }
         return null;
       }
@@ -869,7 +889,9 @@ const ChatComponent: React.FC = () => {
             removeTypingUser(channel_id, user);
         }
         else if (data.type === "group_created" || data.type === "private_chat_created") {
+          if (data.data.creator_username !== username) {
             setChats((prev) => [...prev, data.data]);
+          }
         }
         else if (data.type === 'message_edited') {
             setMessagesByChat(prev => ({
@@ -1944,6 +1966,7 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
           filteredMessages={filteredMessages}
           quotedMessageData={quotedMessageData}
           handleMessageContextMenu={handleMessageContextMenu}
+          handleMessageContextMenuReaction={handleMessageContextMenuReaction}
           fetchQuotedMessageData={fetchQuotedMessageData}
           messageContextMenu={messageContextMenu}
           messageContextMenuRef={messageContextMenuRef}

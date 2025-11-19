@@ -342,7 +342,17 @@ async def get_avatar(user_id: str):
         encoded = base64.b64encode(f.read()).decode('utf-8')
         mime = "image/jpeg"
         return {"avatar": f"data:{mime};base64,{encoded}"}
+
+@app.get("/api/users/backgrounds/{bcg_id}")
+async def get_background_chat_data(bcg_id: str):
+    file_path = Path("templates/static/chat-fonts") / f"{bcg_id}.png"
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Фон не найден")
     
+    with open(file_path, "rb") as f:
+        encoded = base64.b64encode(f.read()).decode('utf-8')
+        mime = "image/png"
+        return {"background": f"data:{mime};base64,{encoded}"}
 # WebSocket для software
 @app.websocket("/software/ws")
 async def websocket_software(websocket: WebSocket, token: str):
@@ -2196,7 +2206,6 @@ async def get_user_profile(current_user: dict = Depends(get_current_user)):
         logger.error(f"❌ Error fetching user profile for {username}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching user profile: {str(e)}")
 
-# Добавьте этот эндпоинт для обновления аватара
 @user_router.post("/avatar")
 async def update_user_avatar(
     file: UploadFile = File(...),
@@ -2207,20 +2216,18 @@ async def update_user_avatar(
     """
     try:
         username = current_user.get("username")
-        logger.info(f"🖼️ Avatar upload requested by: {username}")
+        logger.info(f"Avatar upload requested by: {username}")
         
-        # Проверяем тип файла
         if not file.content_type.startswith('image/'):
             raise HTTPException(
                 status_code=400, 
                 detail="File must be an image"
             )
         
-        # Проверяем размер файла (максимум 5MB)
-        max_size = 5 * 1024 * 1024  # 5MB
-        file.file.seek(0, 2)  # Перемещаемся в конец файла
+        max_size = 5 * 1024 * 1024
+        file.file.seek(0, 2)
         file_size = file.file.tell()
-        file.file.seek(0)  # Возвращаемся в начало
+        file.file.seek(0)
         
         if file_size > max_size:
             raise HTTPException(
@@ -2228,24 +2235,20 @@ async def update_user_avatar(
                 detail="File size must be less than 5MB"
             )
         
-        # Создаем папку для аватаров если не существует
         avatars_dir = "templates/static/avatars"
         os.makedirs(avatars_dir, exist_ok=True)
         
-        # Генерируем уникальное имя файла
         file_extension = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
         filename = f"{username}_{int(datetime.now().timestamp())}.{file_extension}"
         file_path = os.path.join(avatars_dir, filename)
         
-        # Сохраняем файл
         with open(file_path, "wb") as buffer:
             content = await file.read()
             buffer.write(content)
         
-        # Генерируем URL для доступа к файлу
         avatar_url = f"/static/avatars/{filename}"
         
-        logger.info(f"✅ Avatar uploaded successfully for {username}: {filename}")
+        logger.info(f"Avatar uploaded successfully for {username}: {filename}")
         
         return {
             "status": "success",
@@ -2257,8 +2260,9 @@ async def update_user_avatar(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Avatar upload error for {username}: {str(e)}")
+        logger.error(f"Avatar upload error for {username}: {str(e)}")
         raise HTTPException(status_code=500, detail="Avatar upload failed")
+
 # Добавьте этот эндпоинт для поиска пользователей
 @user_router.get("/search")
 async def search_users(

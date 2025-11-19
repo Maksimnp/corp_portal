@@ -1739,3 +1739,123 @@ CREATE TABLE admin_services (
 2025-11-13 17:22:25,335 - chat - INFO - User statuses initialized successfully
 2025-11-13 17:22:25,413 - api.faqs - INFO - SQLAlchemy version: 2.0.41
 2025-11-13 17:22:25,439 - api.faqs - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-11-18 10:58:20,053 - services.admin_manager - INFO - 🔧 AdminManager using database: portaladmins_db at localhost:5432
+2025-11-18 10:58:20,104 - services.admin_manager - INFO - 📋 Admin table columns: ['id', 'username', 'service_id', 'is_active', 'permissions', 'created_at', 'updated_at', 'email']
+2025-11-18 10:58:20,106 - services.admin_manager - WARNING - Таблица 'reset_tokens' не найдена в базе данных
+2025-11-18 10:58:20,189 - services.jwt_utils - INFO - JWT Configuration: ALGORITHM=HS256, ACCESS_TOKEN_EXPIRE_MINUTES=1440
+2025-11-18 10:58:20,189 - services.jwt_utils - INFO - SECRET_KEY установлена: Да
+2025-11-18 10:58:20,189 - services.jwt_utils - INFO - JWTService инициализирован с настройками: {'access_token_expire_minutes': 600, 'refresh_token_expire_days': 1, 'algorithm': 'HS512'}
+2025-11-18 10:58:20,263 - api.auth - INFO - Loaded 0 reset tokens from storage
+2025-11-18 10:58:20,353 - chat - INFO - Таблицы успешно созданы или уже существуют.
+2025-11-18 10:58:20,353 - chat - INFO - Initializing user statuses for existing chats...
+2025-11-18 10:58:20,380 - chat - INFO - User statuses initialized successfully
+2025-11-18 10:58:20,467 - api.faqs - INFO - SQLAlchemy version: 2.0.41
+2025-11-18 10:58:20,499 - api.faqs - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-11-18 10:58:36,399 - services.admin_manager - INFO - 🔧 AdminManager using database: portaladmins_db at localhost:5432
+2025-11-18 10:58:36,455 - services.admin_manager - INFO - 📋 Admin table columns: ['id', 'username', 'service_id', 'is_active', 'permissions', 'created_at', 'updated_at', 'email']
+2025-11-18 10:58:36,458 - services.admin_manager - WARNING - Таблица 'reset_tokens' не найдена в базе данных
+2025-11-18 10:58:36,543 - services.jwt_utils - INFO - JWT Configuration: ALGORITHM=HS256, ACCESS_TOKEN_EXPIRE_MINUTES=1440
+2025-11-18 10:58:36,543 - services.jwt_utils - INFO - SECRET_KEY установлена: Да
+2025-11-18 10:58:36,543 - services.jwt_utils - INFO - JWTService инициализирован с настройками: {'access_token_expire_minutes': 600, 'refresh_token_expire_days': 1, 'algorithm': 'HS512'}
+2025-11-18 10:58:36,616 - api.auth - INFO - Loaded 0 reset tokens from storage
+2025-11-18 10:58:36,699 - chat - INFO - Таблицы успешно созданы или уже существуют.
+2025-11-18 10:58:36,699 - chat - INFO - Initializing user statuses for existing chats...
+2025-11-18 10:58:36,719 - chat - INFO - User statuses initialized successfully
+2025-11-18 10:58:36,807 - api.faqs - INFO - SQLAlchemy version: 2.0.41
+2025-11-18 10:58:36,840 - api.faqs - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-11-18 11:00:08,027 - services.admin_manager - INFO - 🔧 AdminManager using database: portaladmins_db at localhost:5432
+2025-11-18 11:00:08,084 - services.admin_manager - INFO - 📋 Admin table columns: ['id', 'username', 'service_id', 'is_active', 'permissions', 'created_at', 'updated_at', 'email']
+2025-11-18 11:00:08,087 - services.admin_manager - WARNING - Таблица 'reset_tokens' не найдена в базе данных
+2025-11-18 11:00:08,169 - services.jwt_utils - INFO - JWT Configuration: ALGORITHM=HS256, ACCESS_TOKEN_EXPIRE_MINUTES=1440
+2025-11-18 11:00:08,169 - services.jwt_utils - INFO - SECRET_KEY установлена: Да
+2025-11-18 11:00:08,169 - services.jwt_utils - INFO - JWTService инициализирован с настройками: {'access_token_expire_minutes': 600, 'refresh_token_expire_days': 1, 'algorithm': 'HS512'}
+2025-11-18 11:00:08,242 - api.auth - INFO - Loaded 0 reset tokens from storage
+2025-11-18 11:00:08,318 - chat - INFO - Таблицы успешно созданы или уже существуют.
+2025-11-18 11:00:08,319 - chat - INFO - Initializing user statuses for existing chats...
+2025-11-18 11:00:08,336 - chat - INFO - User statuses initialized successfully
+2025-11-18 11:00:08,423 - api.faqs - INFO - SQLAlchemy version: 2.0.41
+2025-11-18 11:00:08,460 - api.faqs - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-11-18 11:00:34,050 - services.admin_manager - INFO - 🔧 AdminManager using database: portaladmins_db at localhost:5432
+2025-11-18 11:00:34,103 - services.admin_manager - INFO - 📋 Admin table columns: ['id', 'username', 'service_id', 'is_active', 'permissions', 'created_at', 'updated_at', 'email']
+2025-11-18 11:00:34,105 - services.admin_manager - WARNING - Таблица 'reset_tokens' не найдена в базе данных
+2025-11-18 11:00:34,193 - services.jwt_utils - INFO - JWT Configuration: ALGORITHM=HS256, ACCESS_TOKEN_EXPIRE_MINUTES=1440
+2025-11-18 11:00:34,193 - services.jwt_utils - INFO - SECRET_KEY установлена: Да
+2025-11-18 11:00:34,194 - services.jwt_utils - INFO - JWTService инициализирован с настройками: {'access_token_expire_minutes': 600, 'refresh_token_expire_days': 1, 'algorithm': 'HS512'}
+2025-11-18 11:00:34,267 - api.auth - INFO - Loaded 0 reset tokens from storage
+2025-11-18 11:00:34,329 - chat - INFO - Таблицы успешно созданы или уже существуют.
+2025-11-18 11:00:34,329 - chat - INFO - Initializing user statuses for existing chats...
+2025-11-18 11:00:34,349 - chat - INFO - User statuses initialized successfully
+2025-11-18 11:00:34,441 - api.faqs - INFO - SQLAlchemy version: 2.0.41
+2025-11-18 11:00:34,472 - api.faqs - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-11-18 11:00:45,142 - services.admin_manager - INFO - 🔧 AdminManager using database: portaladmins_db at localhost:5432
+2025-11-18 11:00:45,199 - services.admin_manager - INFO - 📋 Admin table columns: ['id', 'username', 'service_id', 'is_active', 'permissions', 'created_at', 'updated_at', 'email']
+2025-11-18 11:00:45,201 - services.admin_manager - WARNING - Таблица 'reset_tokens' не найдена в базе данных
+2025-11-18 11:00:45,294 - services.jwt_utils - INFO - JWT Configuration: ALGORITHM=HS256, ACCESS_TOKEN_EXPIRE_MINUTES=1440
+2025-11-18 11:00:45,294 - services.jwt_utils - INFO - SECRET_KEY установлена: Да
+2025-11-18 11:00:45,294 - services.jwt_utils - INFO - JWTService инициализирован с настройками: {'access_token_expire_minutes': 600, 'refresh_token_expire_days': 1, 'algorithm': 'HS512'}
+2025-11-18 11:00:45,378 - api.auth - INFO - Loaded 0 reset tokens from storage
+2025-11-18 11:00:45,440 - chat - INFO - Таблицы успешно созданы или уже существуют.
+2025-11-18 11:00:45,441 - chat - INFO - Initializing user statuses for existing chats...
+2025-11-18 11:00:45,466 - chat - INFO - User statuses initialized successfully
+2025-11-18 11:00:45,552 - api.faqs - INFO - SQLAlchemy version: 2.0.41
+2025-11-18 11:00:45,584 - api.faqs - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-11-18 11:11:05,426 - services.admin_manager - INFO - 🔧 AdminManager using database: portaladmins_db at localhost:5432
+2025-11-18 11:11:05,484 - services.admin_manager - INFO - 📋 Admin table columns: ['id', 'username', 'service_id', 'is_active', 'permissions', 'created_at', 'updated_at', 'email']
+2025-11-18 11:11:05,486 - services.admin_manager - WARNING - Таблица 'reset_tokens' не найдена в базе данных
+2025-11-18 11:11:05,571 - services.jwt_utils - INFO - JWT Configuration: ALGORITHM=HS256, ACCESS_TOKEN_EXPIRE_MINUTES=1440
+2025-11-18 11:11:05,571 - services.jwt_utils - INFO - SECRET_KEY установлена: Да
+2025-11-18 11:11:05,572 - services.jwt_utils - INFO - JWTService инициализирован с настройками: {'access_token_expire_minutes': 600, 'refresh_token_expire_days': 1, 'algorithm': 'HS512'}
+2025-11-18 11:11:05,641 - api.auth - INFO - Loaded 0 reset tokens from storage
+2025-11-18 11:11:05,701 - chat - INFO - Таблицы успешно созданы или уже существуют.
+2025-11-18 11:11:05,702 - chat - INFO - Initializing user statuses for existing chats...
+2025-11-18 11:11:05,720 - chat - INFO - User statuses initialized successfully
+2025-11-18 11:11:05,802 - api.faqs - INFO - SQLAlchemy version: 2.0.41
+2025-11-18 11:11:05,834 - api.faqs - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-11-18 11:17:44,249 - services.admin_manager - INFO - 🔧 AdminManager using database: portaladmins_db at localhost:5432
+2025-11-18 11:17:44,309 - services.admin_manager - INFO - 📋 Admin table columns: ['id', 'username', 'service_id', 'is_active', 'permissions', 'created_at', 'updated_at', 'email']
+2025-11-18 11:17:44,314 - services.admin_manager - WARNING - Таблица 'reset_tokens' не найдена в базе данных
+2025-11-18 11:17:44,397 - services.jwt_utils - INFO - JWT Configuration: ALGORITHM=HS256, ACCESS_TOKEN_EXPIRE_MINUTES=1440
+2025-11-18 11:17:44,397 - services.jwt_utils - INFO - SECRET_KEY установлена: Да
+2025-11-18 11:17:44,398 - services.jwt_utils - INFO - JWTService инициализирован с настройками: {'access_token_expire_minutes': 600, 'refresh_token_expire_days': 1, 'algorithm': 'HS512'}
+2025-11-18 11:17:44,474 - api.auth - INFO - Loaded 0 reset tokens from storage
+2025-11-18 11:17:44,541 - chat - INFO - Таблицы успешно созданы или уже существуют.
+2025-11-18 11:17:44,541 - chat - INFO - Initializing user statuses for existing chats...
+2025-11-18 11:17:44,565 - chat - INFO - User statuses initialized successfully
+2025-11-18 11:17:44,656 - api.faqs - INFO - SQLAlchemy version: 2.0.41
+2025-11-18 11:17:44,684 - api.faqs - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-11-18 11:19:41,024 - services.admin_manager - INFO - 🔧 AdminManager using database: portaladmins_db at localhost:5432
+2025-11-18 11:19:41,075 - services.admin_manager - INFO - 📋 Admin table columns: ['id', 'username', 'service_id', 'is_active', 'permissions', 'created_at', 'updated_at', 'email']
+2025-11-18 11:19:41,077 - services.admin_manager - WARNING - Таблица 'reset_tokens' не найдена в базе данных
+2025-11-18 11:19:41,160 - services.jwt_utils - INFO - JWT Configuration: ALGORITHM=HS256, ACCESS_TOKEN_EXPIRE_MINUTES=1440
+2025-11-18 11:19:41,160 - services.jwt_utils - INFO - SECRET_KEY установлена: Да
+2025-11-18 11:19:41,160 - services.jwt_utils - INFO - JWTService инициализирован с настройками: {'access_token_expire_minutes': 600, 'refresh_token_expire_days': 1, 'algorithm': 'HS512'}
+2025-11-18 11:19:41,236 - api.auth - INFO - Loaded 0 reset tokens from storage
+2025-11-18 11:19:41,298 - chat - INFO - Таблицы успешно созданы или уже существуют.
+2025-11-18 11:19:41,299 - chat - INFO - Initializing user statuses for existing chats...
+2025-11-18 11:19:41,318 - chat - INFO - User statuses initialized successfully
+2025-11-18 11:19:41,408 - api.faqs - INFO - SQLAlchemy version: 2.0.41
+2025-11-18 11:19:41,438 - api.faqs - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-11-18 11:26:15,240 - services.admin_manager - INFO - 🔧 AdminManager using database: portaladmins_db at localhost:5432
+2025-11-18 11:26:15,295 - services.admin_manager - INFO - 📋 Admin table columns: ['id', 'username', 'service_id', 'is_active', 'permissions', 'created_at', 'updated_at', 'email']
+2025-11-18 11:26:15,298 - services.admin_manager - WARNING - Таблица 'reset_tokens' не найдена в базе данных
+2025-11-18 11:26:15,380 - services.jwt_utils - INFO - JWT Configuration: ALGORITHM=HS256, ACCESS_TOKEN_EXPIRE_MINUTES=1440
+2025-11-18 11:26:15,381 - services.jwt_utils - INFO - SECRET_KEY установлена: Да
+2025-11-18 11:26:15,381 - services.jwt_utils - INFO - JWTService инициализирован с настройками: {'access_token_expire_minutes': 600, 'refresh_token_expire_days': 1, 'algorithm': 'HS512'}
+2025-11-18 11:26:15,456 - api.auth - INFO - Loaded 0 reset tokens from storage
+2025-11-18 11:26:15,517 - chat - INFO - Таблицы успешно созданы или уже существуют.
+2025-11-18 11:26:15,518 - chat - INFO - Initializing user statuses for existing chats...
+2025-11-18 11:26:15,537 - chat - INFO - User statuses initialized successfully
+2025-11-18 11:26:15,620 - api.faqs - INFO - SQLAlchemy version: 2.0.41
+2025-11-18 11:26:15,651 - api.faqs - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']
+2025-11-19 10:25:34,979 - services.admin_manager - INFO - 🔧 AdminManager using database: portaladmins_db at localhost:5432
+2025-11-19 10:25:35,030 - services.admin_manager - INFO - 📋 Admin table columns: ['id', 'username', 'service_id', 'is_active', 'permissions', 'created_at', 'updated_at', 'email']
+2025-11-19 10:25:35,033 - services.admin_manager - WARNING - Таблица 'reset_tokens' не найдена в базе данных
+2025-11-19 10:25:35,109 - services.jwt_utils - INFO - JWT Configuration: ALGORITHM=HS256, ACCESS_TOKEN_EXPIRE_MINUTES=1440
+2025-11-19 10:25:35,109 - services.jwt_utils - INFO - SECRET_KEY установлена: Да
+2025-11-19 10:25:35,109 - services.jwt_utils - INFO - JWTService инициализирован с настройками: {'access_token_expire_minutes': 600, 'refresh_token_expire_days': 1, 'algorithm': 'HS512'}
+2025-11-19 10:25:35,181 - api.auth - INFO - Loaded 0 reset tokens from storage
+2025-11-19 10:25:35,257 - chat - INFO - Таблицы успешно созданы или уже существуют.
+2025-11-19 10:25:35,257 - chat - INFO - Initializing user statuses for existing chats...
+2025-11-19 10:25:35,277 - chat - INFO - User statuses initialized successfully
+2025-11-19 10:25:35,361 - api.faqs - INFO - SQLAlchemy version: 2.0.41
+2025-11-19 10:25:35,398 - api.faqs - INFO - Текущие столбцы таблицы faqs: ['id', 'question', 'answer', 'category', 'created_at', 'updated_at', 'views_count', 'helpful_count', 'not_helpful_count', 'content_html', 'department', 'is_general']

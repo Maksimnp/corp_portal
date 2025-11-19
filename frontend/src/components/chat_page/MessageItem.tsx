@@ -18,13 +18,14 @@ interface RenderMessageItemProps {
   quotedMessageData: Record<string, Message | null>;
   contactMap: Record<string, string>;
   handleMessageContextMenu: (e: React.MouseEvent, msg: Message) => void;
+  handleMessageContextMenuReaction: (msg: Message) => void;
   fetchQuotedMessageData: (id: string) => Promise<Message | null>;
   username: string | null;
   setShowImageModal: React.Dispatch<React.SetStateAction<boolean>>;
   loadMessagesAround: (messageId: string) => Promise<void>;
   setImageUrl: React.Dispatch<React.SetStateAction<Message | null>>;
   handleContextMenuQuote: () => void;
-  onReact: (reaction: string) => void;
+  onReact: (messageId: string, messageSender: string, reaction: string) => void;
   onMessageInView?: (messageId: string, channelId: string) => void;
   unreadReactionNotifications: Record<string, string[]>;
   onReactionInView?: (messageId: string, channelId: string) => void;
@@ -105,6 +106,7 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
   quotedMessageData = {},
   contactMap = {},
   handleMessageContextMenu,
+  handleMessageContextMenuReaction,
   fetchQuotedMessageData,
   username,
   setShowImageModal,
@@ -332,11 +334,11 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
               onClick={() => {setShowImageModal(true); setImageUrl(msg)}}
             />
             {msg.file_url?.endsWith('.gif') && (
-              <div className="flex absolute top-2 left-2 bg-black/60 text-black text-[1rem] px-2 py-1 rounded-full backdrop-blur-sm font-medium">
+              <div className="flex absolute top-2 left-2 bg-black/60 text-white text-[1rem] px-2 py-1 rounded-full backdrop-blur-sm font-medium">
                 GIF
               </div>
             )}
-            {!msg.content && (<div className="flex absolute bottom-2 gap-1 right-2 bg-black/60 text-black text-[0.7rem] px-2 py-1 rounded-full backdrop-blur-sm font-medium">
+            {!msg.content && (<div className="flex absolute bottom-2 gap-1 right-2 bg-black/30 text-white text-[0.7rem] px-2 py-1 rounded-full backdrop-blur-sm font-medium">
               {formatTimestamp(msg.timestamp)}
               {isMyMessage && (
                 <span>{msg.is_read ? <Checks className="text-lg"/> : <Check className="text-lg"/>}</span>
@@ -369,7 +371,7 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
                   {Object.entries(reactionsByUser).map(([userId, emoji]) => (
                     <div 
                       key={`${msg.id}-${userId}-${emoji}`}
-                      className="rounded-full  pl-1 bg-blue-300 flex items-center cursor-pointer justify-center gap-1"
+                      className={`rounded-full  pl-1 ${isMyMessage ? 'bg-green-300': 'bg-blue-300'} flex items-center cursor-pointer justify-center gap-1`}
                       title={contactMap[userId] || userId}
                     >
                       <span className="text-lg">{emoji.emoji}</span>
@@ -422,7 +424,7 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
   const isMyMessage = msg.sender === username;
   const messageClass = isMyMessage
     ? `${messageIsPhoto(msg) && !msg.content ? '': 'bg-[#e3fee0]'} text-black self-end`
-    : `${theme === 'light' ? `${messageIsPhoto(msg) && !msg.content ? '': 'bg-gray-200'} text-gray-900`: 'bg-gray-700 text-gray-200'} self-start`;
+    : `${theme === 'light' ? `${messageIsPhoto(msg) && !msg.content ? '': 'bg-gray-200'} text-gray-900`: 'bg-slate-800 text-gray-200'} self-start`;
 
   const messageRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -450,7 +452,7 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
       {
         root: null,
         rootMargin: '0px',
-        threshold: 0.1,
+        threshold: 0.5,
       }
     );
     observer.observe(messageRef.current);
@@ -464,7 +466,7 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
   }, [msg.id, msg.sender, activeChat, username, onMessageInView]);
 
   useEffect(() => {
-    console.log('unreadReactionNotifications', unreadReactionNotifications)
+    // console.log('unreadReactionNotifications', unreadReactionNotifications)
     if (!onReactionInView || !activeChat || !messageRef.current) return;
     if (msg.sender !== username) return;
     // console.log('123')
@@ -495,107 +497,117 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
       ref={messageRef}
       key={msg.id}
       id={`message-${msg.id}`}
-      className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'} ${msg.isGroupStart ? 'mt-2':''} group mb-[2px] transition-all duration-1000 transform`}
+      className={`flex ${msg.is_notification ? 'justify-center' : isMyMessage ? 'justify-end' : 'justify-start'} ${msg.isGroupStart ? 'mt-2':''} group mb-[2px] transition-all duration-1000 transform`}
       onDoubleClick={handleContextMenuQuote}
     >
-      <div 
-        className={`relative md:max-w-md lg:max-w-lg xl:max-w-xl ${messageIsPhoto(msg) ? '' : 'px-3 py-1'} 
-          ${isMyMessage ? 
-            `${msg.isGroupStart && !msg.isGroupEnd ? 'rounded-br-md rounded-tr-2xl':`${msg.isGroupEnd ? 'rounded-tr-md':'rounded-r-md'}`} rounded-l-2xl` 
-            : 
-            `${msg.isGroupStart ? 'rounded-bl-md rounded-tl-2xl':'rounded-l-md'} rounded-r-2xl`} ${messageClass}`}
-        onContextMenu={(e) => handleMessageContextMenu(e, msg)}
-        {...handleHover}
-      >
-        {/* {!isMyMessage && (!prev_msg || msg.sender !== prev_msg.sender) && (
-          <div className="font-semibold text-base mb-1">
-            {contactMap[msg.sender] || msg.sender}
-          </div>
-        )} */}
-        {showReaction && (
-          <div className="absolute -bottom-[6px] -right-[6px] z-100 shadow-lg w-8 h-8 rounded-full bg-white cursor-pointer flex items-center justify-center ">
-            <span 
-              className="text-xl hover:scale-125"
-              onClick={() => onReact('🥰')}
-            >
-              ❤️
-            </span>
-          </div>
-        )}
-        {msg.quoted_message_id && RenderQuotedMsg(msg)}
-        
-        {messageIsPhoto(msg) ? (
-          renderPhotoMsg(msg)
-        ) : messageIsVideo(msg) ? (
-          <VideoMessage fileUrl={msg.file_url} />
-        ) : (
-          <div className="relative flex max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl break-words word-break">
-            <div className="flex flex-col text-base wrap-break-word break-all w-full">
-              {msg.forward_message_id && RenderForwardMsg(msg)}
-              
-              <div className="flex items-end justify-between w-full">
-                <div className="flex-1">
-                  {renderContent(msg.content)}
-                  {msg.file_url && renderFileMsg(msg)}
-                  <div className=" flex clear-both mt-[8px] ml-[5px] float-right items-end justify-end gap-1 flex-shrink-0 self-end">
-                    <div className={`text-[0.7rem] ${isMyMessage ? 'text-[#5ca853]' : 'text-gray-500'}`}>
-                      {formatTimestamp(msg.timestamp)}
-                    </div>
-                    {isMyMessage && (
-                      <div className="mb-[-1px]">
-                        {msg.is_read ? 
-                          <Checks size={14} className="text-[#5ca853]"/> : 
-                          <Check size={14} className="text-[#5ca853]"/>
-                        }
+      {msg.is_notification ? 
+        <div className="text-center my-2">
+          <span className="inline-block bg-gray-300 text-gray-700 dark:text-gray-400 text-xs px-2 py-1 rounded-full">
+            {msg.content}
+          </span>
+        </div>
+        :
+        <div 
+          className={`relative md:max-w-md lg:max-w-lg xl:max-w-xl ${messageIsPhoto(msg) ? '' : 'px-3 py-1'} 
+            ${isMyMessage ? 
+              `${msg.isGroupStart && !msg.isGroupEnd ? 'rounded-br-md rounded-tr-2xl':`${msg.isGroupEnd ? 'rounded-tr-md':'rounded-r-md'}`} rounded-l-2xl` 
+              : 
+              `${msg.isGroupStart ? 'rounded-bl-md rounded-tl-2xl':'rounded-l-md'} rounded-r-2xl`} ${messageClass}`}
+          onContextMenu={(e) => handleMessageContextMenu(e, msg)}
+          {...handleHover}
+        >
+          {/* {!isMyMessage && (!prev_msg || msg.sender !== prev_msg.sender) && (
+            <div className="font-semibold text-base mb-1">
+              {contactMap[msg.sender] || msg.sender}
+            </div>
+          )} */}
+          {showReaction && msg.sender !== username && (
+            <div className="absolute -bottom-[6px] -right-[6px] z-100 shadow-lg w-8 h-8 rounded-full bg-white cursor-pointer flex items-center justify-center ">
+              <span 
+                className="text-xl hover:scale-125"
+                onClick={() => {
+                  onReact(msg.id, msg.sender, '❤️');
+                }}
+              >
+                ❤️
+              </span>
+            </div>
+          )}
+          {msg.quoted_message_id && RenderQuotedMsg(msg)}
+          
+          {messageIsPhoto(msg) ? (
+            renderPhotoMsg(msg)
+          ) : messageIsVideo(msg) ? (
+            <VideoMessage fileUrl={msg.file_url} />
+          ) : (
+            <div className="relative flex max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl break-words word-break">
+              <div className="flex flex-col text-base wrap-break-word break-all w-full">
+                {msg.forward_message_id && RenderForwardMsg(msg)}
+                
+                <div className="flex items-end justify-between w-full">
+                  <div className="flex-1">
+                    {renderContent(msg.content)}
+                    {msg.file_url && renderFileMsg(msg)}
+                    <div className=" flex clear-both mt-[8px] ml-[5px] float-right items-end justify-end gap-1 flex-shrink-0 self-end">
+                      <div className={`text-[0.7rem] ${isMyMessage ? 'text-[#5ca853]' : 'text-gray-500'}`}>
+                        {formatTimestamp(msg.timestamp)}
                       </div>
-                    )}
-                    {msg.edited && <span className="text-xs text-[#5ca853] opacity-70">(ред.)</span>}
+                      {isMyMessage && (
+                        <div className="mb-[-1px]">
+                          {msg.is_read ? 
+                            <Checks size={14} className="text-[#5ca853]"/> : 
+                            <Check size={14} className="text-[#5ca853]"/>
+                          }
+                        </div>
+                      )}
+                      {msg.edited && <span className="text-xs text-[#5ca853] opacity-70">(ред.)</span>}
+                    </div>
                   </div>
                 </div>
+                
+                {Object.keys(reactionsByUser).length > 0 && (
+                  <div className="flex items-center justify-start mt-1 gap-1">
+                    {Object.entries(reactionsByUser).map(([userId, emoji]) => (
+                      <div 
+                        key={`${msg.id}-${userId}-${emoji}`}
+                        className={`rounded-full  pl-1 ${isMyMessage ? 'bg-green-300':'bg-blue-300'}  flex items-center cursor-pointer justify-center gap-1`}
+                        title={contactMap[userId] || userId}
+                      >
+                        <span className="text-lg">{emoji.emoji}</span>
+                        
+                        {getAvatarData(contactMap[userId]) ? (
+                          <img 
+                            src={getAvatarData(contactMap[userId]) || undefined} 
+                            alt="avatar" 
+                            className="w-6 h-6 rounded-full object-cover border border-white/50"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <User size={20} className="text-gray-400" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-              
-              {Object.keys(reactionsByUser).length > 0 && (
-                <div className="flex items-center justify-start mt-1 gap-1">
-                  {Object.entries(reactionsByUser).map(([userId, emoji]) => (
-                    <div 
-                      key={`${msg.id}-${userId}-${emoji}`}
-                      className="rounded-full  pl-1 bg-blue-300 flex items-center cursor-pointer justify-center gap-1"
-                      title={contactMap[userId] || userId}
-                    >
-                      <span className="text-lg">{emoji.emoji}</span>
-                      
-                      {getAvatarData(contactMap[userId]) ? (
-                        <img 
-                          src={getAvatarData(contactMap[userId]) || undefined} 
-                          alt="avatar" 
-                          className="w-6 h-6 rounded-full object-cover border border-white/50"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <User size={20} className="text-gray-400" />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
-          </div>
-        )}
-        {msg.isGroupEnd && !messageIsPhoto(msg) && (
-          <div 
-            className={`absolute bottom-0 ${isMyMessage ? '-right-[6px]' : '-left-[7px]'}`}
-            style={{
-              width: 0,
-              height: 0,
-              borderStyle: 'solid',
-              borderWidth: isMyMessage ? '0 8px 12px 0' : '0 0 12px 12px',
-              borderColor: isMyMessage 
-                ? 'transparent transparent #e3fee0 transparent' 
-                : 'transparent transparent #ebe6e7 transparent'
-            }}
-          ></div>
-        )}
-      </div>
+          )}
+          {msg.isGroupEnd && !messageIsPhoto(msg) && (
+            <div 
+              className={`absolute bottom-0 ${isMyMessage ? '-right-[6px]' : '-left-[7px]'}`}
+              style={{
+                width: 0,
+                height: 0,
+                borderStyle: 'solid',
+                borderWidth: isMyMessage ? '0 8px 12px 0' : '0 0 12px 12px',
+                borderColor: isMyMessage 
+                  ? 'transparent transparent #e3fee0 transparent' 
+                  : 'transparent transparent #ebe6e7 transparent'
+              }}
+            ></div>
+          )}
+        </div>
+      }
     </div>
   );
 };

@@ -86,7 +86,7 @@ const RenderEditChatModal: React.FC<RenderEditChatModalProps> = ({
         onClick={closeEditModal}
       >
         <div
-          className={`h-full w-[420px] ${theme === 'light' ? 'bg-white' : 'bg-gray-800'} shadow-xl transform transition-transform duration-300 ease-in-out flex flex-col ${
+          className={`h-full w-[390px] ${theme === 'light' ? 'bg-white' : 'bg-gray-800'} shadow-xl transform transition-transform duration-300 ease-in-out flex flex-col ${
             showEditChatModal ? 'translate-x-0' : 'translate-x-full'
           }`}
           onClick={(e) => e.stopPropagation()}

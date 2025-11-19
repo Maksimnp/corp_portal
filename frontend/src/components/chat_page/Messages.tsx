@@ -10,13 +10,14 @@ interface RenderMessagesProps {
     quotedMessageData: Record<string, Message | null>;
     contactMap: Record<string, string>;
     handleMessageContextMenu: (e: React.MouseEvent, msg: Message) => void;
+    handleMessageContextMenuReaction: (msg: Message) => void;
     fetchQuotedMessageData: (id: string) => Promise<Message | null>;
     username: string | null;
     setShowImageModal: React.Dispatch<React.SetStateAction<boolean>>;
     loadMessagesAround: (messageId: string) => Promise<void>;
     setImageUrl: React.Dispatch<React.SetStateAction<Message | null>>;
     handleContextMenuQuote: () => void;
-    onReact: (reaction: string) => void;
+    onReact: (messageId:string, messageSender: string, reaction: string) => void;
     onMessageInView: (messageId: string, channelId: string) => void;
     unreadReactionNotifications: Record<string, string[]>;
     onReactionInView: (messageId: string, channelId: string) => void;
@@ -29,6 +30,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
     quotedMessageData,
     contactMap,
     handleMessageContextMenu,
+    handleMessageContextMenuReaction,
     fetchQuotedMessageData,
     username,
     setShowImageModal,
@@ -72,37 +74,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
       }
     }
 
-    // const currentUnreadCount = unreadCounts[activeChat || ''] || 0;
-    // const hasUnreadNow = currentUnreadCount > 0;
-
-    // useEffect(() => {
-    //     if (hasUnreadNow) {
-    //         setHasUnreadMessages(true);
-    //         setShowUnreadMarker(true);
-
-    //         if (timerRef.current) {
-    //             clearTimeout(timerRef.current);
-    //         }
-    //         timerRef.current = setTimeout(() => {
-    //             setShowUnreadMarker(false);
-    //         }, 30000);
-    //     } else {
-    //       setShowUnreadMarker(false);
-    //         // if (hasUnreadMessages) {
-    //             // setShowUnreadMarker(false);
-    //         // }
-    //     }
-
-    //     return () => {
-    //         if (timerRef.current) {
-    //             clearTimeout(timerRef.current);
-    //             timerRef.current = null;
-    //         }
-    //     };
-    // }, [hasUnreadNow, activeChat]);
-    
-    // console.log(messagesToRender);
-    return messagesWithGroupInfo.map((msg, index) => {
+    return filteredMessages.map((msg, index) => {
       const messageDate = formatDate(msg.timestamp);
       const showDateHeader = messageDate !== lastDate;
       lastDate = messageDate;
@@ -127,33 +99,26 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
               </span>
             </div>
           )}
-          {msg.is_notification ?
-            <div className="text-center my-2">
-              <span className="inline-block bg-gray-300 text-gray-700 dark:text-gray-400 text-xs px-2 py-1 rounded-full">
-                {msg.content}
-              </span>
-            </div>
-            :
             <RenderMessageItem 
-                unreadReactionNotifications={unreadReactionNotifications}
-                onReact={onReact}
-                msg={msg}
-                currentChat={currentChat}
-                activeChat={activeChat}
-                prev_msg={index > 0 ? messagesWithGroupInfo[index - 1] : null}
-                quotedMessageData={quotedMessageData}
-                contactMap={contactMap}
-                handleMessageContextMenu={handleMessageContextMenu}
-                fetchQuotedMessageData={fetchQuotedMessageData}
-                username={username}
-                setShowImageModal={setShowImageModal}
-                loadMessagesAround={loadMessagesAround}
-                setImageUrl={setImageUrl}
-                handleContextMenuQuote={handleContextMenuQuote}
-                onMessageInView={onMessageInView}
-                onReactionInView={onReactionInView}
+              handleMessageContextMenuReaction={handleMessageContextMenuReaction}
+              unreadReactionNotifications={unreadReactionNotifications}
+              onReact={onReact}
+              msg={msg}
+              currentChat={currentChat}
+              activeChat={activeChat}
+              prev_msg={filteredMessages[index - 1]}
+              quotedMessageData={quotedMessageData}
+              contactMap={contactMap}
+              handleMessageContextMenu={handleMessageContextMenu}
+              fetchQuotedMessageData={fetchQuotedMessageData}
+              username={username}
+              setShowImageModal={setShowImageModal}
+              loadMessagesAround={loadMessagesAround}
+              setImageUrl={setImageUrl}
+              handleContextMenuQuote={handleContextMenuQuote}
+              onMessageInView={onMessageInView}
+              onReactionInView={onReactionInView}
             />
-          }
         </React.Fragment>
       );
     });

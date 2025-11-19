@@ -16,6 +16,8 @@ import { stickerPacks } from '../../data/StickerPacks'
 import FileDragModal from './modals/FileDragModal';
 import { getAvatarData } from "../../utils/avatarCache";
 import RenderForwardMessage from "./ForwardMessage";
+import { TbPhotoCog } from "react-icons/tb";
+import { fetchBackgroundChatData, getBackgroundChatData } from "../../utils/backgroundChatCache";
 
 interface RenderChatWindowProps {
     forwardMessage: Message | null;
@@ -65,6 +67,7 @@ interface RenderChatWindowProps {
     filteredMessages: Message[];
     quotedMessageData: Record<string, Message | null>;
     handleMessageContextMenu: (e: React.MouseEvent, msg: Message) => void;
+    handleMessageContextMenuReaction: (msg: Message) => void;
     fetchQuotedMessageData: (id: string) => Promise<Message | null>;
     messageContextMenu: MessageContextMenuState;
     messageContextMenuRef: React.RefObject<HTMLDivElement | null>;
@@ -159,6 +162,7 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
     filteredMessages = [],
     quotedMessageData = {},
     handleMessageContextMenu,
+    handleMessageContextMenuReaction,
     fetchQuotedMessageData,
     messageContextMenu,
     messageContextMenuRef,
@@ -210,7 +214,9 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
   const [loadingGifs, setLoadingGifs] = useState(false);
   const VITE_API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const TENOR_API_KEY = import.meta.env.VITE_TENOR_API_KEY;
+  const backgroundChat = getBackgroundChatData(currentChat?.font_name || 'chat_font_1');
 
+  console.log(currentChat);
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     if (!showFileDragModal) {
@@ -391,9 +397,9 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
     const element = document.getElementById(`message-${messageId}`);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      element.classList.add('bg-gray-300', 'dark:bg-yellow-400/30');
+      element.classList.add('bg-gray-200/50', 'dark:bg-yellow-300/30');
       setTimeout(() => {
-        element.classList.remove('bg-gray-300', 'dark:bg-yellow-400/30');
+        element.classList.remove('bg-gray-200/50', 'dark:bg-yellow-400/30');
       }, 1000);
     } else {
       loadMessagesAround(messageId);
@@ -536,6 +542,19 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
                       </>
                     )}
                     <button 
+                      // onClick={}
+                      disabled
+                      className={`w-full flex items-center px-3 py-2 text-sm font-sans ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'} ${theme === 'light' ? 'hover:bg-orange-50' : 'hover:bg-orange-500/10'} rounded-xl transition-all duration-200 group mt-1`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg ${theme === 'light' ? 'bg-orange-100' : 'bg-orange-500/20'} flex items-center justify-center mr-3 group-hover:bg-orange-200 group-hover:bg-orange-500/30 transition-colors`}>
+                        <TbPhotoCog size={16} className={`${theme === 'light' ? 'text-orange-600' : 'text-orange-400'}`} />
+                      </div>
+                      <div className="text-left">
+                        <div className="font-semibold font-sans">Изменить фон</div>
+                        <div className={`text-xs font-sans ${theme === 'light' ? 'text-slate-500' : 'text-slate-400'}`}>Изменить фон чата</div>
+                      </div>
+                    </button>
+                    <button 
                       onClick={handleLeaveChat}
                       className={`w-full flex items-center px-3 py-2 text-sm font-sans ${theme === 'light' ? 'text-slate-700' : 'text-slate-200'} ${theme === 'light' ? 'hover:bg-orange-50' : 'hover:bg-orange-500/10'} rounded-xl transition-all duration-200 group mt-1`}
                     >
@@ -572,11 +591,13 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
         <div
           className={`flex flex-col flex-1 overflow-y-auto text-base messages-container`}
           style={{
-            background: currentChat?.font_name
-              ? `url(${VITE_API_BASE_URL}/chat-fonts/${currentChat.font_name}.png), linear-gradient(90deg, rgba(42, 123, 155, 1) 0%, rgba(87, 199, 133, 1) 50%, rgba(237, 221, 83, 1) 100%)`
+            backgroundImage: currentChat?.font_name && backgroundChat
+              ? `url(${backgroundChat}), linear-gradient(90deg, rgba(42, 123, 155, 1) 0%, rgba(87, 199, 133, 1) 50%, rgba(237, 221, 83, 1) 100%)`
               : 'linear-gradient(90deg, rgba(42, 123, 155, 1) 0%, rgba(87, 199, 133, 1) 50%, rgba(237, 221, 83, 1) 100%)',
             backgroundColor: '#ffbb78',
             backgroundRepeat: 'repeat',
+            backgroundSize: 'auto',
+            backgroundPosition: 'center'
           }}
         >
           <div 
@@ -593,7 +614,29 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
                 <div className={`w-6 h-6 border-2 ${theme === 'light' ? 'border-slate-300' : 'border-slate-600'} border-t-blue-500 rounded-full animate-spin`}></div>
               </div>
             )}
-            
+            {/* Change background chat */}
+            {false && (<div className="fixed inset-0 flex items-center justify-center p-4 z-[200] animate-in fade-in-0">
+              <div className={`p-3 ${theme === 'light' ? 'bg-white border-slate-200/80' : 'bg-slate-800 border-slate-700/80'} rounded-3xl shadow-2xl w-full max-w-lg border animate-in zoom-in-95`}>
+                <span className="block text-xl text-center">Выбрать тему</span>
+                <div className="flex gap-2 overflow-x-auto">
+                  <div 
+                    className="flex flex-col gap-1 w-[100px] h-[150px] rounded-xl p-3 bg-blue-200/50"
+                    style={{
+                      backgroundImage: `url(${VITE_API_BASE_URL}/chat-fonts/chat_font_1.png), linear-gradient(90deg, rgba(42, 123, 155, 1) 0%, rgba(87, 199, 133, 1) 50%, rgba(237, 221, 83, 1) 100%)`,              
+                      backgroundColor: '#ffbb78',
+                      backgroundRepeat: 'repeat',
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center'
+                    }}  
+                  >
+                    <div className="rounded-2xl bg-[#e3fee0] h-[15px] w-1/2"></div>
+                    <div className="rounded-2xl bg-[#e3fee0] h-[15px] w-1/2 self-end"></div>
+                    <div className="rounded-2xl bg-[#e3fee0] h-[15px] w-1/2"></div>
+                    <span className="text-xl mt-auto text-center block">💀</span>
+                  </div>                                     
+                </div>
+              </div>
+            </div>)}
             <RenderMessages
               unreadCounts={unreadCounts}
               onReactionInView={onReactionInView}
@@ -603,6 +646,7 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
               quotedMessageData={safeQuotedMessageData}
               contactMap={safeContactMap}
               handleMessageContextMenu={handleMessageContextMenu}
+              handleMessageContextMenuReaction={handleMessageContextMenuReaction}
               fetchQuotedMessageData={fetchQuotedMessageData}
               username={username}
               setShowImageModal={setShowImageModal}
@@ -611,7 +655,7 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
               activeChat={activeChat}
               handleContextMenuQuote={handleContextMenuQuote}
               onMessageInView={onMessageInView}
-              onReact={(reaction) => handleReactToMessage(messageContextMenu.message!.id, messageContextMenu.message?.sender, reaction)}
+              onReact={(messageId: string, messageSender: string, reaction: string) => handleReactToMessage(messageId, messageSender, reaction)}
             />
             
             <div ref={messagesEndRef} />
@@ -822,7 +866,7 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
                 ) : (
                   <div className="flex flex-col items-center gap-2">
                     <button 
-                      className={`relative w-12 h-12 flex items-center justify-center z-100 cursor-pointer rounded-full bg-slate-100 transform-opacite duration-300 ${unreadReactionNotifications[currentChat.id] ? 'opacity-full' : 'opacity-0'}`}
+                      className={`${theme === 'light' ? 'bg-slate-100':'text-white bg-slate-800'} relative w-12 h-12 flex items-center justify-center z-100 cursor-pointer rounded-full transform-opacite duration-300 ${unreadReactionNotifications[currentChat.id] ? 'opacity-full' : 'opacity-0'}`}
                       onClick={() => {
                         scrollToMessage(unreadReactionNotifications[currentChat.id][0]);
                       }}
@@ -835,7 +879,7 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
                       <Heart size={22}/>
                     </button>
                     <button 
-                      className={`relative w-12 h-12 flex items-center justify-center z-100 cursor-pointer rounded-full bg-slate-100 transform-opacite duration-300 ${isAtBottom ? 'opacity-0' : 'opacity-full'}`}
+                      className={`${theme === 'light' ? 'bg-slate-100':'text-white bg-slate-800'} relative w-12 h-12 flex items-center justify-center z-100 cursor-pointer rounded-full transform-opacite duration-300 ${isAtBottom ? 'opacity-0' : 'opacity-full'}`}
                       onClick={() => {
                         setIsAutoScrolling(true);
                         if (messagesContainerRef.current) {
@@ -869,7 +913,7 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
 
             {/* Selected File */}
             {selectedFile && (
-              <div className={`mt-3 flex items-center justify-between p-3 ${theme === 'light' ? 'bg-blue-50' : 'bg-blue-500/10'} rounded-xl border ${theme === 'light' ? 'border-blue-200/60' : 'border-blue-500/20'} font-sans`}>
+              <div className={`mt-3 flex items-center justify-between p-3 ${theme === 'light' ? 'bg-blue-50' : 'bg-slate-800'} rounded-xl border ${theme === 'light' ? 'border-blue-200/60' : 'border-blue-500/20'} font-sans`}>
                 <div className="flex items-center space-x-3">
                   <div className={`w-10 h-10 ${theme === 'light' ? 'bg-blue-100' : 'bg-blue-500/20'} rounded-lg flex items-center justify-center`}>
                     <Paperclip size={16} className={`${theme === 'light' ? 'text-blue-600' : 'text-blue-400'}`} />

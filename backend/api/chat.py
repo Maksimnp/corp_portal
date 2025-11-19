@@ -553,9 +553,6 @@ class ConnectionManager:
         invalid_user = ""
         if payload["type"] == "chat_deleted":
             usernames = payload["data"]["members"]
-        # elif payload["type"] == "forward_message":
-        #     usernames = payload["forward_members"] 
-        #     logger.info(f"forward_members - {usernames}")
         elif payload["type"] == "channel_invite":
             usernames = payload["data"]["members"]
         else:

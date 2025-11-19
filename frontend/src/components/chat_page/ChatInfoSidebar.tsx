@@ -5,6 +5,7 @@ import { EditOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import type { Chat } from '../../types/chat';
 import RenderEditChatModal from "./EditChatModal";
 import { useTheme } from '../../hooks/ThemeContext';
+import { getAvatarData } from "../../utils/avatarCache";
 
 interface RenderChatInfoSidebarProps {
     currentChat: Chat | undefined;
@@ -82,7 +83,7 @@ const RenderChatInfoSidebar: React.FC<RenderChatInfoSidebarProps> = ({
         <div className={`flex items-center justify-between p-4 border-b ${theme === 'light' ? 'border-gray-200' : 'border-gray-700'}`}>
           <h3 className={`text-lg font-semibold ${theme === 'light' ? 'text-gray-900' : 'text-gray-100'}`}>Информация о чате</h3>
           <div className=''>
-            {username === currentChat.creator_username && (<button
+            {!currentChat.is_group && username === currentChat.creator_username && (<button
               className={`${theme === 'light' ? 'text-gray-500 hover:text-gray-700' : 'text-gray-400 hover:text-gray-200'} cursor-pointer`}
               onClick={openEditChatModal}
             >
@@ -101,7 +102,11 @@ const RenderChatInfoSidebar: React.FC<RenderChatInfoSidebarProps> = ({
           <div className="mb-6">
             <div className="flex flex-col items-center mb-4">
               <div className={`${theme === 'light' ? 'text-gray-500' : 'text-gray-400'} text-9xl mb-2`}>
-                {getChatDisplayIcon(currentChat, 180, theme)}
+                {getAvatarData(getChatDisplayName(currentChat, 'full', contactMap, username)) ? 
+                  <img src={getAvatarData(getChatDisplayName(currentChat, 'full', contactMap, username)) || undefined} alt="avatar" className="mr-2 w-50 h-50 rounded-full object-cover" />
+                  :
+                  getChatDisplayIcon(currentChat, 180, theme)
+                }
               </div>
               <h4 className={`text-xl font-bold ${theme === 'light' ? 'text-gray-900' : 'text-gray-100'}`}>
                 {getChatDisplayName(currentChat, 'full', contactMap, username)}
@@ -133,7 +138,11 @@ const RenderChatInfoSidebar: React.FC<RenderChatInfoSidebarProps> = ({
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className='relative'>
-                      <UserCircle size={26} className={`mr-2 ${theme === 'light' ? 'text-gray-500' : 'text-gray-400'} flex-shrink-0`} />
+                      {getAvatarData(contactMap[member]) ? 
+                        <img src={getAvatarData(contactMap[member]) || undefined} alt="avatar" className="mr-2 w-9 h-9 rounded-full object-cover" />
+                        :
+                        <UserCircle className={`${theme === 'light' ? 'text-black': 'text-white'}`} size={32} />
+                      }
                       {userStatuses[member] === "online" && (
                         <div
                           className="absolute bottom-[3px] right-[5px] block h-2 w-2 rounded-full ring-2 ring-white bg-blue-500"
