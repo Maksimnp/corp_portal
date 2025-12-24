@@ -1,0 +1,2 @@
+[console_scripts]
+authenticode = signify.authenticode.cli:main

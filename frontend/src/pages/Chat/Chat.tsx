@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAuth } from '../AuthContext';
 import { DotsThreeVertical, MagnifyingGlass, UserCircle, Users, Plus } from 'phosphor-react';
-import { toast } from 'react-toastify';
 import copy from 'copy-to-clipboard';
 import type { Chat, Message, Contact } from '../../types/chat';
 import RenderChatWindow  from '../../components/chat_page/ChatWindow';
+import RenderChatBotWindow from '../../components/chat_page/ChatBotWindow';
 import { getChatDisplayIcon, getChatDisplayName, normalizeMessages } from '../../utils/chat';
 import RenderSidebar from '../../components/chat_page/Sidebar';
 import RenderModals from '../../components/chat_page/Modals';
@@ -68,7 +68,6 @@ const ChatComponent: React.FC = () => {
 
   // Управление чатами (группы / каналы)
   const [unreadReactionNotifications, setUnreadReactionNotifications] = useState<Record<string, string[]>>({});
-  const [showCreateOptions, setShowCreateOptions] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [groupName, setGroupName] = useState('');
@@ -76,7 +75,6 @@ const ChatComponent: React.FC = () => {
   const [channelDescription, setChannelDescription] = useState('');
   const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [showChatOptions, setShowChatOptions] = useState(false);
   const [showEditChatModal, setShowEditChatModal] = useState(false);
   const [editChatName, setEditChatName] = useState('');
   const [editChatDescription, setEditChatDescription] = useState('');
@@ -84,6 +82,8 @@ const ChatComponent: React.FC = () => {
   const [showFileDragModal, setShowFileDragModal] = useState(false);
   const [sentReadIds, setSentReadIds] = useState<Set<string>>(new Set());
   const [sentReactionReadIds, setSentReactionReadIds] = useState<Set<string>>(new Set());
+  const [highlightMenu, setHighlightMenu] = useState<boolean>(false);
+  const [highlightMessages, setHighlightMessages] = useState<Record<string,Message>>({});
   // Контекстные меню
   const [messageContextMenu, setMessageContextMenu] = useState<{
     visible: boolean;
@@ -127,12 +127,11 @@ const ChatComponent: React.FC = () => {
   // Статусы и активность
   const [userStatuses, setUserStatuses] = useState<{ [username: string]: string }>({});
   const [typingUsers, setTypingUsers] = useState<Map<string, Set<string>>>(new Map());
+  const [statusChatBot, setStatusChatBot] = useState<boolean>(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Рефы для DOM и UI
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const createOptionsRef = useRef<HTMLDivElement>(null);
-  const chatOptionsRef = useRef<HTMLDivElement>(null);
   const stickerPickerRef = useRef<HTMLDivElement>(null);
   const messageContextMenuRef = useRef<HTMLDivElement>(null);
   const userContextMenuRef = useRef<HTMLDivElement>(null);
@@ -155,6 +154,10 @@ const ChatComponent: React.FC = () => {
   const currentMessages = useMemo(() => {
     return activeChat ? (messagesByChat[activeChat] || []).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) : [];
   }, [activeChat, messagesByChat]);
+
+  useEffect(() => {
+    setHighlightMenu(false);
+  }, [activeChat])
 
   const filteredMessages = useMemo(() => {
     if (!searchQuery) return currentMessages;
@@ -211,7 +214,6 @@ const ChatComponent: React.FC = () => {
 
   const handleReactToMessage = (messageId: string, messageSender: string | undefined, reaction: string) => {
     if (!websocket || websocket.readyState !== WebSocket.OPEN || !messageSender) {
-      toast.error('Нет соединения с сервером');
       return;
     }
     const payload = {
@@ -252,12 +254,6 @@ const ChatComponent: React.FC = () => {
   
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (createOptionsRef.current && !createOptionsRef.current.contains(event.target as Node)) {
-        setShowCreateOptions(false);
-      }
-      if (chatOptionsRef.current && !chatOptionsRef.current.contains(event.target as Node)) {
-        setShowChatOptions(false);
-      }
       if (stickerPickerRef.current && !stickerPickerRef.current.contains(event.target as Node)) {
         setShowStickerPicker(false);
       }
@@ -339,9 +335,7 @@ const ChatComponent: React.FC = () => {
     if (messageContextMenu.message?.content) {
       try {
         copy(messageContextMenu.message.content);
-        toast.success('Текст скопирован');
       } catch (err) {
-        toast.error('Не удалось скопировать текст');
       }
       setMessageContextMenu(prev => ({ ...prev, visible: false }));
     }
@@ -366,6 +360,23 @@ const ChatComponent: React.FC = () => {
       setForwardMessage(messageContextMenu.message);
       setMessageContextMenu(prev => ({ ...prev, visible: false }));
     }
+  };
+
+  const handleContextMenuHighlight = () => {
+    const msg = messageContextMenu.message;
+    if (!msg || !msg.id) {
+      setMessageContextMenu(prev => ({ ...prev, visible: false }));
+      return;
+    }
+
+    const { id } = msg;
+
+    setHighlightMenu(true);
+    setHighlightMessages(prev => ({
+      ...prev,
+      [id]: msg,
+    }));
+    setMessageContextMenu(prev => ({ ...prev, visible: false }));
   };
 
   useEffect(() => {
@@ -425,7 +436,16 @@ const ChatComponent: React.FC = () => {
       return null;
     }
   };
-
+  const checkChatBot = async (data: Chat[]) => {
+    const hasChatBot = data.filter(chat => !chat.is_channel && !chat.is_group && chat.members.includes('hlebik.bot'));
+      
+    if (hasChatBot.length !== 0) {
+      return;  
+    }
+    
+    createPrivateChat('hlebik.bot');
+    // handleSendFirstMessageFromBot();
+  }
   const fetchChats = useCallback(async () => {
     if (!token) return;
     setIsLoadingChats(true);
@@ -439,8 +459,10 @@ const ChatComponent: React.FC = () => {
         throw new Error(`Failed to load chats: ${res.status} ${res.statusText}`);
       }
       const data: Chat[] = await res.json();
-      // console.log('Fetched chats:', data);
+      console.log('Fetched chats:', data);
+      
       setChats(data);
+      checkChatBot(data);
       
       const allMembers = new Set<string>();
       data.forEach((chat) => {
@@ -467,13 +489,14 @@ const ChatComponent: React.FC = () => {
           }
         }
       });
+
       await Promise.all(contactFetchPromises);
       if (Object.keys(newContactEntries).length > 0) {
         setContactMap((prev) => ({ ...prev, ...newContactEntries }));
       }
+
     } catch (e: any) {
       console.error('Error fetching chats:', e);
-      toast.error('Не удалось загрузить чаты. Попробуйте позже.');
     } finally {
       setIsLoadingChats(false);
     }
@@ -481,7 +504,7 @@ const ChatComponent: React.FC = () => {
 
   useEffect(() => {
     fetchChats();
-  }, [fetchChats]);
+  }, []);
 
   const fetchQuotedMessageData = async (quotedMessageId: string): Promise<Message | null> => {
     if (quotedMessageData[quotedMessageId] !== undefined) {
@@ -523,7 +546,6 @@ const ChatComponent: React.FC = () => {
 
       if (!res.ok) {
         if (res.status === 404) {
-          toast.error('Сообщение не найдено или недоступно');
         } else {
           throw new Error(`HTTP ${res.status}`);
         }
@@ -568,7 +590,6 @@ const ChatComponent: React.FC = () => {
       }, 100);
     } catch (e) {
       console.error('Ошибка загрузки сообщений вокруг:', e);
-      toast.error('Не удалось загрузить сообщение и его контекст');
     }
   };
 
@@ -732,7 +753,6 @@ const ChatComponent: React.FC = () => {
       }));
     } catch (e) {
       console.error('Error loading messages:', e);
-      toast.error('Не удалось загрузить сообщения. Попробуйте позже.');
     } finally {
       setIsLoadingMessages(false);
     }
@@ -800,7 +820,72 @@ const ChatComponent: React.FC = () => {
             console.error('WebSocket error:', data.error);
             return;
         }
+        if (data.type === 'new_bot_message') {
+          setStatusChatBot(false);
+          console.log(`bot message - ${data.data}`);
+          const channelId = data.data.channel_id;
+          // Обновление последнего сообщения в списке чатов
+          setChats(prevChats =>
+              prevChats.map(chat => {
+                  if (chat.id === channelId) {
+                      const newLastMessage = {
+                          id: data.data.id,
+                          sender: data.data.sender,
+                          content: data.data.content,
+                          timestamp: data.data.timestamp,
+                          file_name: data.data.file_name,
+                          is_read: data.data.is_read,
+                          forward_message_id: data.data.forward_message_id ?? null,
+                      };
+                      return {
+                          ...chat,
+                          last_message: newLastMessage,
+                      };
+                  }
+                  return chat;
+              })
+          );
+          // Добавление сообщения в историю
+          setMessagesByChat(prev => {
+              const channelId = data.data.channel_id;
+              const currentMsgsInUpdater = prev[channelId] || [];
+              const newMsgId = data.data.id;
+              
+              // Проверяем, нет ли уже такого сообщения
+              const existingMsgIndex = currentMsgsInUpdater.findIndex(m => m.id === newMsgId);
+              if (existingMsgIndex !== -1) {
+                  return prev;
+              }
+              // Нормализуем и добавляем сообщение
+              const normalizedMessage = {
+                  ...data.data,
+                  id: String(data.data.id),
+                  is_read: Boolean(data.data.is_read),
+                  reactions_by_user: data.data.reactions_by_user || {},
+                  timestamp: typeof data.data.timestamp === 'string' ? data.data.timestamp : new Date(data.data.timestamp).toISOString(),
+                  file_url: data.data.file_url,
+                  file_name: data.data.file_name,
+                  edited: Boolean(data.data.edited),
+              };
 
+             const updatedMessages = [...currentMsgsInUpdater, normalizedMessage]
+                 .sort((a, b) => {
+                     const timeA = new Date(a.timestamp).getTime();
+                     const timeB = new Date(b.timestamp).getTime();
+                     if (timeA !== timeB) return timeA - timeB;
+                     return a.id.localeCompare(b.id);
+                 });
+
+              return {
+                  ...prev,
+                  [channelId]: updatedMessages
+              };
+          });
+          if (activeChat === data.data.channel_id && data.data.sender === username) {
+            scrollToMessage(data.data.id);
+          }
+          setShouldScrollToBottom(true);
+        }
         if (data.type === 'new_message' || data.type === 'forward_message') {
             const channelId = data.data.channel_id;
             console.log("Пришло сообщение", data.type)
@@ -874,8 +959,8 @@ const ChatComponent: React.FC = () => {
                 };
             });
             // Прокрутка к низу если это активный чат
-            if (activeChat === data.data.channel_id) {
-                setShouldScrollToBottom(true);
+            if (activeChat === data.data.channel_id && data.data.sender === username) {
+              scrollToMessage(data.data.id);
             }
         }
         
@@ -890,6 +975,7 @@ const ChatComponent: React.FC = () => {
         }
         else if (data.type === "group_created" || data.type === "private_chat_created") {
           if (data.data.creator_username !== username) {
+            console.log('Добавляю первый раз')
             setChats((prev) => [...prev, data.data]);
           }
         }
@@ -948,28 +1034,28 @@ const ChatComponent: React.FC = () => {
           });
         }
         else if (data.type === "user_left") {
-            const left_user = data.data.username;
-            const chat_id = data.data.channel_id;
-            setChats(prevChats =>
-                prevChats.map(chat =>
-                    chat.id === chat_id
-                        ? {
-                            ...chat,
-                            members: chat.members.filter(member => member !== left_user)
-                        }
-                        : chat
-                )
-            );
+          const left_user = data.data.username;
+          const chat_id = data.data.channel_id;
+          setChats(prevChats =>
+            prevChats.map(chat =>
+              chat.id === chat_id
+                ? {
+                  ...chat,
+                  members: chat.members.filter(member => member !== left_user)
+                }
+                : chat
+            )
+          );
         }
         else if (data.type === "batch_read") {
-            const msg_ids = data.data.message_ids;
-            const chat_id = data.data.channel_id;
-            setMessagesByChat(prev => ({
-                ...prev,
-                [chat_id]: (prev[chat_id] || []).map(msg => 
-                    msg_ids.includes(msg.id) ? { ...msg, is_read: true } : msg
-                )
-            }));
+          const msg_ids = data.data.message_ids;
+          const chat_id = data.data.channel_id;
+          setMessagesByChat(prev => ({
+              ...prev,
+              [chat_id]: (prev[chat_id] || []).map(msg => 
+                  msg_ids.includes(msg.id) ? { ...msg, is_read: true } : msg
+              )
+          }));
         }
         else if (data.type === "chat_deleted") {
             const chatId = data.data.channel_id;
@@ -1132,15 +1218,42 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
     };
   }, []);
 
-  
-  // useEffect(() => {
-  //     setTimeout(() => {
-  //       if (messagesEndRef.current && shouldScrollToBottom) {
-  //         messagesEndRef.current.scrollIntoView({ block: 'end', behavior: 'auto' });
-  //         setShouldScrollToBottom(false);
-  //       }
-  //     }, 100);
-  // }, [shouldScrollToBottom]);
+  const scrollToMessage = (messageId: string | null) => {
+    if (!messageId) {
+      return;
+    }
+    const element = document.getElementById(`message-${messageId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      element.classList.add('bg-gray-200/50', 'dark:bg-yellow-300/30');
+      setTimeout(() => {
+        element.classList.remove('bg-gray-200/50', 'dark:bg-yellow-300/30');
+      }, 2000);
+    } else {
+      loadMessagesAround(messageId);
+      console.info('Цитируемое сообщение не найдено в текущем списке.');
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!messagesEndRef.current || !shouldScrollToBottom || !currentChat) return;
+
+      const unreadMessage = messagesByChat[currentChat.id]?.find(
+        m => !m.is_read && m.sender !== username
+      );
+
+      if (unreadMessage) {
+        scrollToMessage(unreadMessage.id);
+      } else {
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 0);
+      }
+
+      setShouldScrollToBottom(false);
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [shouldScrollToBottom]);
   
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement;
@@ -1211,7 +1324,6 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
 
     } catch (e) {
       console.error('Load newer failed', e);
-      toast.error('Не удалось загрузить новые сообщения');
     } finally {
       setIsLoadingMessages(false);
     }
@@ -1265,7 +1377,6 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
 
     } catch (e) {
       console.error('Load older failed', e);
-      toast.error('Не удалось загрузить старые сообщения');
     } finally {
       setIsLoadingMessages(false);
     }
@@ -1287,7 +1398,6 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
       setIsRecording(true);
     } catch (e) {
       console.error('Error starting recording:', e);
-      toast.error('Не удалось начать запись');
     }
   };
 
@@ -1298,9 +1408,15 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
     }
   };
 
+  const isChatBot = () => {
+    if (!currentChat?.is_channel && !currentChat?.is_group && currentChat?.members.includes('hlebik.bot')) {
+      return true;
+    } 
+    return false;
+  }
+
   const sendVoiceMessage = async (audioBlob: Blob) => {
     if (!websocket || websocket.readyState !== WebSocket.OPEN || !activeChat) {
-      toast.error('Нет соединения с сервером');
       return;
     }
     const formData = new FormData();
@@ -1327,7 +1443,6 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
       websocket.send(JSON.stringify(payload));
     } catch (e) {
       console.error('Error sending voice message:', e);
-      toast.error('Не удалось отправить голосовое сообщение');
     }
   };
 
@@ -1393,11 +1508,9 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
   const confirmDeleteMessage = async () => {
     if (!messageToDelete) return;
     if (messageToDelete.sender !== username) {
-      toast.error('Вы можете удалять только свои сообщения');
       return;
     }
     if (!token || !websocket || websocket.readyState !== WebSocket.OPEN) {
-      toast.error('Нет соединения с сервером');
       return;
     }
     
@@ -1430,113 +1543,286 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
           return newState;
         });
         
-        toast.success('Сообщение удалено');
       } else {
         throw new Error('Delete failed');
       }
     } catch (e: any) {
       console.error('Error deleting message:', e);
-      toast.error('Не удалось удалить сообщение');
     } finally {
       setShowDeleteMessageModal(false);
       setMessageToDelete(null);
     }
   };
 
+  const confirmDeleteHighlightedMessages = async () => {
+    const messages = Object.values(highlightMessages);
+    if (messages.length === 0) {
+      setShowDeleteMessageModal(false);
+      return;
+    }
+
+    if (messages.some(msg => msg.sender !== username)) {
+      console.warn('Попытка удалить чужие сообщения');
+      setShowDeleteMessageModal(false);
+      return;
+    }
+
+    if (!token || !websocket || websocket.readyState !== WebSocket.OPEN) {
+      setShowDeleteMessageModal(false);
+      return;
+    }
+
+    const messageIds = messages.map(m => m.id);
+    const channelIds = [...new Set(messages.map(m => m.channel_id))];
+
+    try {
+      const res = await refreshTokenAndRetry(() =>
+        fetch(`${API_BASE}/chat/messages`, {
+          method: 'DELETE',
+          headers: {
+            ...authHeaders(),
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ message_ids: messageIds }),
+        })
+      );
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Неизвестная ошибка при удалении');
+      }
+
+      setMessagesByChat(prev => {
+        const newState = { ...prev };
+        channelIds.forEach(channelId => {
+          const current = newState[channelId] || [];
+          newState[channelId] = current.filter(m => !messageIds.includes(m.id));
+        });
+        return newState;
+      });
+
+      setQuotedMessageData(prev => {
+        const newState = { ...prev };
+        messageIds.forEach(id => delete newState[id]);
+        return newState;
+      });
+
+      setHighlightMessages({});
+      setHighlightMenu(false);
+    } catch (e: any) {
+      console.error('Ошибка при удалении сообщений:', e);
+    } finally {
+      setShowDeleteMessageModal(false);
+    }
+  };
+
   const deleteMessage = async (msg: Message) => {
     if (msg.sender !== username) {
-      toast.error('Вы можете удалять только свои сообщения');
       return;
     }
     setMessageToDelete(msg);
     setShowDeleteMessageModal(true);
   };
 
-  const handleSendMessage = async () => {
+  const handleSendMessageToBot = async () => {
     console.log('Send message check:', { 
-        hasMessage: !!message.trim(), 
-        hasFile: !!selectedFile, 
-        isRecording, 
-        hasForward: !!forwardMessage 
+      hasMessage: !!message.trim(), 
+      hasFile: !!selectedFile, 
+      isRecording, 
+      hasForward: !!forwardMessage 
     });
     
     if (!websocket || websocket.readyState !== WebSocket.OPEN || !activeChat) {
-        console.error('WebSocket not ready or no active chat');
-        toast.error('Нет соединения с сервером');
-        return;
+      console.error('WebSocket not ready or no active chat');
+      return;
     }
     
     if (!forwardMessage && !message.trim() && !selectedFile && !isRecording) {
-        console.log('No content to send');
-        toast.error('Сообщение не может быть пустым');
-        return;
+      console.log('No content to send');
+      return;
     }
     
     if (isRecording) {
-        stopRecording();
-        return;
+      stopRecording();
+      return;
     }
     
     try {
-        let fileUrl = '';
-        let fileName = '';
+      setStatusChatBot(true);
+      const payload = {
+        type: 'send_message_bot',
+        data: {
+          channel_id: activeChat,
+          content: message.trim() || undefined,
+        },
+      };
         
-        if (selectedFile) {
-            const formData = new FormData();
-            formData.append('file', selectedFile);
-            const uploadRes = await refreshTokenAndRetry(() =>
-                fetch(`${API_BASE}/chat/upload`, {
-                    method: 'POST',
-                    headers: { Authorization: `Bearer ${token}` },
-                    body: formData,
-                })
-            );
-            if (!uploadRes.ok) throw new Error('Upload failed');
-            const uploadData = await uploadRes.json();
-            fileUrl = uploadData.url;
-            fileName = selectedFile.name;
-        }
+      console.log('Sending WebSocket message:', payload);
+      websocket.send(JSON.stringify(payload));
         
-        const payload = {
-            type: editingMessage ? 'edit_message' : 'send_message',
-            data: {
-                channel_id: activeChat,
-                content: message.trim() || undefined,
-                ...(selectedContacts.length > 0 && { members: selectedContacts.map(c => ({ id: c.id })) }),
-                ...(forwardMessage && { forward_message_id: forwardMessage.id }),
-                ...(quotedMessage && { quoted_message_id: quotedMessage.id }),
-                ...(editingMessage && { message_id: editingMessage.id }),
-                ...(fileUrl && { file_url: fileUrl, file_name: fileName }),
-            },
-        };
+      // Сброс состояния
+      setMessage('');
+      setSelectedFile(null);
+      setForwardMessage(null);
+      setShowForwardMessageModal(false);
+      setSelectedContacts([]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
         
-        console.log('Sending WebSocket message:', payload);
-        websocket.send(JSON.stringify(payload));
-        
-        // Сброс состояния
-        setMessage('');
-        setSelectedFile(null);
-        setForwardMessage(null);
-        setShowForwardMessageModal(false);
-        setSelectedContacts([]);
-        if (fileInputRef.current) fileInputRef.current.value = '';
-        
-        if (!editingMessage) {
-            setQuotedMessage(null);
-        }
-        if (editingMessage) {
-            setEditingMessage(null);
-        }
-        
-        toast.success('Сообщение отправлено');
+      if (!editingMessage) {
+          setQuotedMessage(null);
+      }
+      if (editingMessage) {
+          setEditingMessage(null);
+      }
         
     } catch (e) {
-        console.error('Не удалось отправить сообщение:', e);
-        toast.error('Не удалось отправить сообщение');
+      console.error('Не удалось отправить сообщение:', e);
     } finally {
-        stopTyping();
+      stopTyping();
     }
-};
+  };
+
+  const handleSendFirstMessageFromBot = async () => {
+    if (!websocket) {
+      console.error('WebSocket not ready or no active chat');
+      return;
+    }
+    console.log('Создаем первое сообщение')
+    try {
+      let fileUrl = '';
+      let fileName = '';
+      
+      const welcomeMessage = `👋 Привет! Я — ваш интеллектуальный ассистент на базе **DeepSeek**, продвинутой языковой модели, созданной для глубокого анализа, точных расчётов и ясных объяснений.
+
+      Независимо от вашей профессии, я помогу сэкономить время и усилить вашу экспертизу:
+
+      💼 **Бухгалтерам и финансистам**  
+      — Проверю корректность проводок и расчётов  
+      — Объясню нормы НК РФ или МСФО простым языком  
+      — Помогу составить пояснения к отчётности или автоматизировать рутинные расчёты в Excel/Google Sheets  
+      — Напомню дедлайны по сдаче отчётности  
+
+      📊 **Аналитикам и Data Scientist’ам**  
+      — Напишу или оптимизирую SQL- и Python-запросы (Pandas, NumPy, scikit-learn)  
+      — Объясню статистические методы и метрики (NPS, LTV, ROC-AUC и др.)  
+      — Помогу интерпретировать данные и подготовить выводы для презентации  
+      — Сгенерирую шаблоны дашбордов или визуализаций  
+
+      💻 **Программистам и инженерам**  
+      — Найду ошибку в коде и предложу исправление  
+      — Объясню, как работает алгоритм или библиотека  
+      — Помогу с рефакторингом, документацией или переводом legacy-кода  
+      — Подскажу best practices по безопасности, тестированию или архитектуре  
+
+      📝 **Менеджерам, маркетологам, HR и другим специалистам**  
+      — Составлю структурированный бриф, email-рассылку или пост для соцсетей  
+      — Проанализирую конкурентов или рынок на основе открытых данных  
+      — Помогу подготовить речь, презентацию или план собеседования  
+      — Сформулирую KPI, OKR или регламенты процессов  
+
+      Я не просто генерирую текст — я **понимаю контекст, считаю цифры, читаю код и даю обоснованные рекомендации**.
+
+      Напишите, над чем работаете — и я стану вашим надёжным союзником в решении задач! 💡`;
+      const payload = {
+        type: 'send_first_bot_message',
+        data: {
+          channel_id: activeChat,
+          content: welcomeMessage || undefined,
+          ...(selectedContacts.length > 0 && { members: selectedContacts.map(c => ({ id: c.id })) }),
+          ...(forwardMessage && { forward_message_id: forwardMessage.id }),
+          ...(quotedMessage && { quoted_message_id: quotedMessage.id }),
+          ...(editingMessage && { message_id: editingMessage.id }),
+          ...(fileUrl && { file_url: fileUrl, file_name: fileName }),
+        },
+      };
+        
+      console.log('Sending WebSocket message:', payload);
+      websocket.send(JSON.stringify(payload));
+    } catch (e) {
+      console.error('Не удалось отправить сообщение:', e);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    console.log('Send message check:', { 
+      hasMessage: !!message.trim(), 
+      hasFile: !!selectedFile, 
+      isRecording, 
+      hasForward: !!forwardMessage 
+    });
+    
+    if (!websocket || websocket.readyState !== WebSocket.OPEN || !activeChat) {
+      console.error('WebSocket not ready or no active chat');
+      return;
+    }
+    
+    if (!forwardMessage && !message.trim() && !selectedFile && !isRecording) {
+      console.log('No content to send');
+      return;
+    }
+    
+    if (isRecording) {
+      stopRecording();
+      return;
+    }
+    
+    try {
+      let fileUrl = '';
+      let fileName = '';
+        
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        const uploadRes = await refreshTokenAndRetry(() =>
+          fetch(`${API_BASE}/chat/upload`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: formData,
+          })
+        );
+        if (!uploadRes.ok) throw new Error('Upload failed');
+          const uploadData = await uploadRes.json();
+          fileUrl = uploadData.url;
+          fileName = selectedFile.name;
+      }
+        
+      const payload = {
+        type: editingMessage ? 'edit_message' : 'send_message',
+        data: {
+          channel_id: activeChat,
+          content: message.trim() || undefined,
+          ...(selectedContacts.length > 0 && { members: selectedContacts.map(c => ({ id: c.id })) }),
+          ...(forwardMessage && { forward_message_id: forwardMessage.id }),
+          ...(quotedMessage && { quoted_message_id: quotedMessage.id }),
+          ...(editingMessage && { message_id: editingMessage.id }),
+          ...(fileUrl && { file_url: fileUrl, file_name: fileName }),
+        },
+      };
+        
+      console.log('Sending WebSocket message:', payload);
+      websocket.send(JSON.stringify(payload));
+      
+      // Сброс состояния
+      setMessage('');
+      setSelectedFile(null);
+      setForwardMessage(null);
+      setShowForwardMessageModal(false);
+      setSelectedContacts([]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      
+      if (!editingMessage) {
+        setQuotedMessage(null);
+      }
+      if (editingMessage) {
+        setEditingMessage(null);
+      }
+        
+    } catch (e) {
+      console.error('Не удалось отправить сообщение:', e);
+    } finally {
+      stopTyping();
+    }
+  };
 
   const startTyping = () => {
     if (!websocket || !activeChat) {
@@ -1583,12 +1869,12 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
       setContacts(data);
     } catch (e: any) {
       console.error('Error searching contacts:', e);
-      toast.error('Не удалось найти контакты. Попробуйте позже.');
     } finally {
       setIsLoadingContacts(false);
     }
   };
 
+  
   const createPrivateChat = async (contactId: string) => {
     if (!token) return;
     try {
@@ -1602,25 +1888,45 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
         throw new Error(`Failed to create private chat: ${res.status} ${res.statusText}`);
       }
       const newChat: Chat = await res.json();
-      setChats(prev => [...prev, newChat]);
+      newChat.members.forEach(async (member) => {
+        if (!contactMap[member]) {
+        try {
+          const res = await refreshTokenAndRetry(() =>
+            fetch(`${API_BASE}/chat/contacts?query=${encodeURIComponent(member)}`, {
+              headers: authHeaders(),
+            })
+          );
+          if (res.ok) {
+            const contactsData = await res.json();
+            if (contactsData.length > 0) {
+              setContactMap((prev) => ({ ...prev, ...contactsData[0].displayName }));
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to fetch contact for ${member}:`, err);
+        }
+      }
+      })
+      setChats(prev => {
+        const exists = prev.some(chat => chat.id === newChat.id);
+        if (exists) return prev;
+        return [...prev, newChat];
+      });
+      console.log('Добавляю второй раз')
       setActiveChat(newChat.id);
       setShowContactSearch(false);
       setContactSearchQuery('');
       setContacts([]);
-      toast.success('Чат создан');
     } catch (e) {
       console.error('Не удалось создать личный чат');
-      toast.error('Не удалось создать личный чат.');
     }
   };
 
   const createGroupChat = async () => {
     if (!token) {
-      toast.error('Необходима авторизация');
       return;
     }
     if (selectedContacts.length < 1) {
-      toast.error('Выберите хотя бы одного участника');
       return;
     }
     
@@ -1647,20 +1953,16 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
       setGroupName('');
       setSelectedContacts([]);
       setShowContactSearch(false);
-      toast.success('Групповой чат создан');
     } catch (e: any) {
       console.error(`Не удалось создать групповой чат: ${e.message}`);
-      toast.error('Не удалось создать групповой чат.');
     }
   };
 
   const createChannel = async () => {
     if (!token) {
-      toast.error('Необходима авторизация');
       return;
     }
     if (!channelName.trim()) {
-      toast.error('Введите название канала');
       return;
     }
     
@@ -1684,10 +1986,8 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
       setShowCreateChannel(false);
       setChannelName('');
       setChannelDescription('');
-      toast.success('Канал создан');
     } catch (e: any) {
       console.error(`Не удалось создать канал: ${e.message}`);
-      toast.error('Не удалось создать канал.');
     }
   };
 
@@ -1718,10 +2018,8 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
       setContactSearchQuery('');
       setContacts([]);
       setShowInviteModal(false);
-      toast.success('Пользователи приглашены');
     } catch (e) {
       console.error('Не удалось пригласить пользователей');
-      toast.error('Не удалось пригласить пользователей.');
     }
   };
 
@@ -1740,10 +2038,8 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
       }
       setSelectedToKick([]);
       setShowKickModal(false);
-      toast.success('Пользователи исключены');
     } catch (e) {
       console.error('Не удалось исключить пользователей');
-      toast.error('Не удалось исключить пользователей.');
     }
   };
 
@@ -1762,10 +2058,8 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
       setChats(prev => prev.filter(c => c.id !== chatId));
       if (activeChat === chatId) setActiveChat(null);
       setShowLeaveModal(false);
-      toast.success('Вы покинули чат');
     } catch (e) {
       console.error('Не удалось покинуть чат');
-      toast.error('Не удалось покинуть чат.');
     }
   };
 
@@ -1784,10 +2078,8 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
       setChats(prev => prev.filter(c => c.id !== chatId));
       if (activeChat === chatId) setActiveChat(null);
       setShowDeleteModal(false);
-      toast.success('Чат удален');
     } catch (e) {
       console.error('Не удалось удалить чат');
-      toast.error('Не удалось удалить чат.');
     }
   };
 
@@ -1851,7 +2143,6 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
   const handleStickerClick = (stickerUrl: string) => {
     if (!websocket || websocket.readyState !== WebSocket.OPEN || !activeChat) {
       console.error('Нет соединения с сервером');
-      toast.error('Нет соединения с сервером');
       return;
     }
     const stickerName = stickerUrl.split('/').pop() || 'sticker.png';
@@ -1866,7 +2157,6 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
     };
     websocket.send(JSON.stringify(payload));
     setShowStickerPicker(false);
-    toast.success('Стикер отправлен');
   };
 
   const openEditChatModal = () => {
@@ -1891,9 +2181,6 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
           unreadReactionNotifications={unreadReactionNotifications}
           searchQuery={chatsSearchQuery}
           setSearchQuery={setChatsSearchQuery}
-          setShowCreateOptions={setShowCreateOptions}
-          showCreateOptions={showCreateOptions}
-          createOptionsRef={createOptionsRef}
           setShowContactSearch={setShowContactSearch}
           setShowCreateGroup={setShowCreateGroup}
           setShowCreateChannel={setShowCreateChannel}
@@ -1912,7 +2199,14 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
           quotedMessageData={quotedMessageData}
           fetchQuotedMessageData={fetchQuotedMessageData}
         />
-        <RenderChatWindow
+        {isChatBot() ? (
+          <RenderChatBotWindow
+          setHighlightMenu={setHighlightMenu}
+          highlightMenu={highlightMenu}
+          highlightMessages={highlightMessages}
+          setHighlightMessages={setHighlightMessages}
+          handleContextMenuHighlight={handleContextMenuHighlight}
+          statusChatBot={statusChatBot}
           cancelForward={cancelForward}
           forwardMessage={forwardMessage}
           onReactionInView={markReactionAsReadWhenInView}
@@ -1928,8 +2222,6 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
           typingUsers={typingUsers}
           username={username}
           userStatuses={userStatuses}
-          showChatOptions={showChatOptions}
-          setShowChatOptions={setShowChatOptions}
           setShowInviteModal={setShowInviteModal}
           setShowKickModal={setShowKickModal}
           setShowLeaveModal={setShowLeaveModal}
@@ -1937,7 +2229,102 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
           showStickerPicker={showStickerPicker}
           isLoadingMessages={isLoadingMessages}
           setShowStickerPicker={setShowStickerPicker}
-          chatOptionsRef={chatOptionsRef}
+          messagesEndRef={messagesEndRef}
+          stickerPickerRef={stickerPickerRef}
+          fileInputRef={fileInputRef}
+          message={message}
+          setMessage={setMessage}
+          selectedFile={selectedFile}
+          setSelectedFile={setSelectedFile}
+          setShowDeleteMessageModal={setShowDeleteMessageModal}
+          setMessageToDelete={setMessageToDelete}
+          messageToDelete={messageToDelete}
+          showDeleteMessageModal={showDeleteMessageModal}
+          isRecording={isRecording}
+          inputRef={inputRef}
+          editingMessage={editingMessage}
+          cancelEdit={cancelEdit}
+          handleSendMessage={handleSendMessageToBot}
+          handleTyping={handleTyping}
+          handleStickerClick={handleStickerClick}
+          handleScroll={handleScroll}
+          isSidebarVisible={isSidebarVisible}
+          setIsSidebarVisible={setIsSidebarVisible}
+          setShowChatInfoSidebar={setShowChatInfoSidebar}
+          contactMap={contactMap}
+          cancelQuote={cancelQuote}
+          quotedMessage={quotedMessage}
+          filteredMessages={filteredMessages}
+          quotedMessageData={quotedMessageData}
+          handleMessageContextMenu={handleMessageContextMenu}
+          handleMessageContextMenuReaction={handleMessageContextMenuReaction}
+          fetchQuotedMessageData={fetchQuotedMessageData}
+          messageContextMenu={messageContextMenu}
+          messageContextMenuRef={messageContextMenuRef}
+          handleContextMenuEdit={handleContextMenuEdit}
+          handleContextMenuDelete={handleContextMenuDelete}
+          handleContextMenuCopy={handleContextMenuCopy}
+          handleContextMenuForward={handleContextMenuForward}
+          handleContextMenuQuote={handleContextMenuQuote}
+          openEditChatModal={openEditChatModal}
+          handleUserContextMenu={handleUserContextMenu}
+          leaveChat={leaveChat}
+          userContextMenu={userContextMenu}
+          userContextMenuRef={userContextMenuRef}
+          handleContextMenuSendMessage={handleContextMenuSendMessage}
+          stopRecording={stopRecording}
+          startRecording={startRecording}
+          confirmDeleteMessage={confirmDeleteMessage}
+          isEditModalVisible={isEditModalVisible}
+          closeEditModal={closeEditModal}
+          showEditChatModal={showEditChatModal}
+          editChatName={editChatName}
+          setEditChatName={setEditChatName}
+          editChatDescription={editChatDescription}
+          setEditChatDescription={setEditChatDescription}
+          setChats={setChats}
+          setShowEditChatModal={setShowEditChatModal}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          setShowImageModal={setShowImageModal}
+          messagesContainerRef={messagesContainerRef}
+          isAtBottom={isAtBottom}
+          loadMessagesAround={loadMessagesAround}
+          setIsAutoScrolling={setIsAutoScrolling}
+          setImageUrl={setImageUrl}
+          onMessageInView={markMessageAsReadWhenInView}
+        />
+        ) : (
+          <RenderChatWindow
+          confirmDeleteHighlightedMessages={confirmDeleteHighlightedMessages}
+          highlightMessages={highlightMessages}
+          setHighlightMessages={setHighlightMessages}
+          handleContextMenuHighlight={handleContextMenuHighlight}
+          highlightMenu={highlightMenu}
+          setHighlightMenu={setHighlightMenu}
+          statusChatBot={statusChatBot}
+          cancelForward={cancelForward}
+          forwardMessage={forwardMessage}
+          onReactionInView={markReactionAsReadWhenInView}
+          unreadReactionNotifications={unreadReactionNotifications}
+          handleReactToMessage={handleReactToMessage}
+          showFileDragModal={showFileDragModal}
+          setShowFileDragModal={setShowFileDragModal}
+          unreadCounts={unreadCounts}
+          activeChat={activeChat}
+          searchContacts={searchContacts}
+          currentChat={currentChat}
+          showChatInfoSidebar={showChatInfoSidebar}
+          typingUsers={typingUsers}
+          username={username}
+          userStatuses={userStatuses}
+          setShowInviteModal={setShowInviteModal}
+          setShowKickModal={setShowKickModal}
+          setShowLeaveModal={setShowLeaveModal}
+          setShowDeleteModal={setShowDeleteModal}
+          showStickerPicker={showStickerPicker}
+          isLoadingMessages={isLoadingMessages}
+          setShowStickerPicker={setShowStickerPicker}
           messagesEndRef={messagesEndRef}
           stickerPickerRef={stickerPickerRef}
           fileInputRef={fileInputRef}
@@ -2003,6 +2390,7 @@ const markReactionAsRead = async (messageId: string, channelId: string) => {
           setImageUrl={setImageUrl}
           onMessageInView={markMessageAsReadWhenInView}
         />
+        )}
         <RenderModals
           handleContextMenuQuote={handleContextMenuQuote}
           showContactSearch={showContactSearch}

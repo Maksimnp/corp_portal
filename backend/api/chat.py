@@ -21,7 +21,10 @@ from sqlalchemy.orm.attributes import flag_modified
 from starlette.websockets import WebSocketState
 from fastapi.responses import FileResponse
 from pathlib import Path as FilePath
-
+import dashscope
+from dashscope import Generation
+from openai import OpenAI
+from openai import AsyncOpenAI
 # -----------------------------
 # Логирование
 # -----------------------------
@@ -32,6 +35,11 @@ logging.basicConfig(
 logger = logging.getLogger("chat")
 router = APIRouter(prefix="/chat", tags=["chat"])
 
+dashscope.api_key = os.getenv("QWEN_API_KEY")
+dashscope.base_http_api_url = 'https://dashscope-intl.aliyuncs.com/api/v1'
+
+DEEPSEEK_API_KEY=os.getenv("DEEPSEEK_API_KEY")
+QWEN_MAX_APP_ID = os.getenv("QWEN_MAX_APP_ID")
 # -----------------------------
 # Настройка БД
 # -----------------------------
@@ -267,6 +275,10 @@ class Contact(BaseModel):
     phone_mobile: Optional[str] = None
     email: Optional[str] = None
     sam_account_name: Optional[str] = None
+
+class DeleteRequest(BaseModel):
+    message_ids: List[UUIDType] = Field(..., min_items=1, description="Список UUID сообщений для удаления")
+
 
 # -----------------------------
 # Утилиты ldap3
@@ -593,6 +605,80 @@ manager = ConnectionManager()
 # -----------------------------
 # УТИЛИТЫ
 # -----------------------------
+
+def send_first_bot_message(db: Session, channel_id: UUIDType):
+    welcome_message = (
+        "👋 Привет! Я — ваш интеллектуальный ассистент на базе **МинскХлеб - AI**, продвинутой языковой модели, созданной для глубокого анализа, точных расчётов и ясных объяснений.\n"
+        "\n"
+        "Независимо от вашей профессии, я помогу сэкономить время и усилить вашу экспертизу:\n"
+        "\n"
+        "💼 **Бухгалтерам и финансистам**  \n"
+        "— Проверю корректность проводок и расчётов  \n"
+        "— Объясню нормы НК РФ или МСФО простым языком  \n"
+        "— Помогу составить пояснения к отчётности или автоматизировать рутинные расчёты в Excel/Google Sheets  \n"
+        "— Напомню дедлайны по сдаче отчётности  \n"
+        "\n"
+        "📊 **Аналитикам и Data Scientist’ам**  \n"
+        "— Напишу или оптимизирую SQL- и Python-запросы (Pandas, NumPy, scikit-learn)  \n"
+        "— Объясню статистические методы и метрики (NPS, LTV, ROC-AUC и др.)  \n"
+        "— Помогу интерпретировать данные и подготовить выводы для презентации  \n"
+        "— Сгенерирую шаблоны дашбордов или визуализаций  \n"
+        "\n"
+        "💻 **Программистам и инженерам**  \n"
+        "— Найду ошибку в коде и предложу исправление  \n"
+        "— Объясню, как работает алгоритм или библиотека  \n"
+        "— Помогу с рефакторингом, документацией или переводом legacy-кода  \n"
+        "— Подскажу best practices по безопасности, тестированию или архитектуре  \n"
+        "\n"
+        "📝 **Менеджерам, маркетологам, HR и другим специалистам**  \n"
+        "— Составлю структурированный бриф, email-рассылку или пост для соцсетей  \n"
+        "— Проанализирую конкурентов или рынок на основе открытых данных  \n"
+        "— Помогу подготовить речь, презентацию или план собеседования  \n"
+        "— Сформулирую KPI, OKR или регламенты процессов  \n"
+        "\n"
+        "Я не просто генерирую текст — я **понимаю контекст, считаю цифры, читаю код и даю обоснованные рекомендации**.\n"
+        "\n"
+        "Напишите, над чем работаете — и я стану вашим надёжным союзником в решении задач! 💡"
+    )
+    logger.info(f"Создаем второе сообщение")
+    msg = Message(
+        id=uuid.uuid4(),
+        channel_id=channel_id,
+        sender='hlebik.bot',
+        content=welcome_message or None,
+        is_read=False,
+        file_url=None,
+        file_name=None,
+        edited=False,
+        quoted_message_id=None,
+        forward_message_id=None,
+        timestamp=datetime.now(timezone.utc)
+    )
+    try:
+        db.add(msg)
+        db.commit()
+        db.refresh(msg)
+        logger.debug(f"Message saved to DB in channel {channel_id}: {msg.id}")
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to save message in channel {channel_id} for : {e}", exc_info=True)
+    payload_response = {
+        "type": "new_message",
+        "data": {
+            "id": str(msg.id),
+            "channel_id": str(msg.channel_id),
+            "sender": msg.sender,
+            "content": msg.content,
+            "timestamp": msg.timestamp.isoformat(),
+            "is_read": msg.is_read,
+            "file_url": msg.file_url,
+            "file_name": msg.file_name,
+            "edited": msg.edited,
+            "quoted_message_id": str(msg.quoted_message_id) if msg.quoted_message_id else None,
+            "forward_message_id": str(msg.forward_message_id) if msg.forward_message_id else None,
+        },
+    }
+    anyio.from_thread.run(manager.broadcast_to_channel_members(payload_response, msg.channel_id, db))
 
 def assert_membership(db: Session, channel_id: UUIDType, username: str):
     channel = db.query(Channel).filter(Channel.id == channel_id).first()
@@ -1228,6 +1314,10 @@ def create_private_chat(
             anyio.from_thread.run(manager.broadcast_to_channel_members, payload, chat.id, db)
         except Exception as e:
             logger.warning(f"Failed to broadcast private_chat_created: {e}")
+        logger.info(f"Создаем первое сообщение")
+        if contact_username == 'hlebik.bot':
+            logger.info(f"Создаем первое сообщение")
+            send_first_bot_message(db, chat.id)
         return serialize_chat(db, chat, username)
     except Exception as e:
         db.rollback()
@@ -1755,6 +1845,58 @@ def delete_message(
         db.rollback()
         logger.error(f"Неожиданная ошибка при удалении сообщения {message_id} пользователем {username}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Внутренняя ошибка сервера при удалении сообщения: {str(e)}")
+
+@router.delete("/messages")
+def delete_messages(
+    request: DeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: Dict[str, Any] = Depends(get_current_user),
+):
+    """
+    Удалить несколько сообщений по их ID.
+    """
+    username = current_user["username"]
+    message_ids = request.message_ids
+
+    messages = db.query(Message).filter(Message.id.in_(message_ids)).all()
+
+    found_ids = {msg.id for msg in messages}
+    requested_ids = set(message_ids)
+
+    if len(found_ids) != len(requested_ids):
+        missing = requested_ids - found_ids
+        raise HTTPException(status_code=404, detail=f"Сообщения не найдены: {list(missing)}")
+
+    unauthorized = [msg.id for msg in messages if msg.sender != username]
+    if unauthorized:
+        raise HTTPException(
+            status_code=403,
+            detail="Вы можете удалять только свои сообщения"
+        )
+
+    channel_ids = {msg.channel_id for msg in messages}
+    for channel_id in channel_ids:
+        assert_membership(db, channel_id, username)
+
+    file_paths_to_remove = []
+    for msg in messages:
+        if msg.file_url:
+            file_path = os.path.join("templates", "static", "chat_file", os.path.basename(msg.file_url))
+            if os.path.isfile(file_path):
+                file_paths_to_remove.append(file_path)
+
+    for fp in file_paths_to_remove:
+        try:
+            os.remove(fp)
+            logger.info(f"Файл удалён: {fp}")
+        except Exception as e:
+            logger.error(f"Ошибка при удалении файла {fp}: {e}")
+
+    db.query(Message).filter(Message.id.in_(message_ids)).delete(synchronize_session=False)
+    db.commit()
+
+    logger.info(f"Сообщения {message_ids} успешно удалены пользователем {username}")
+    return {"status": "ok", "deleted_count": len(message_ids)}
     
 @router.get("/contacts", response_model=List[Contact])
 def search_contacts(
@@ -1883,6 +2025,51 @@ async def delete_message(
 # -----------------------------
 # WEBSOCKET
 # -----------------------------
+def get_qwen_response(prompt: str) -> str:
+    try:
+        response = Generation.call(
+            model="qwen-max",
+            prompt=prompt
+        )
+        logger.info(f"response bot - {response}")
+        if response.status_code == 200:
+            return response.output.text.strip()
+        else:
+            logger.error(f"Qwen error: {response}")
+            return "Извините, произошла ошибка при генерации ответа."
+    except Exception as e:
+        logger.exception("Ошибка при вызове Qwen API")
+        return "Извините, не удалось получить ответ от ИИ."
+
+async def get_deepseek_response(prompt: str, ch_id: str, db: Session) -> str:
+    messages_context = (
+        db.query(Message)
+        .filter(Message.channel_id == ch_id)
+        .order_by(Message.timestamp.asc())
+        .limit(20)
+        .all()
+    )
+
+    formatted_messages = [{"role": "system", "content": "You are a helpful assistant"}]
+
+    for message in messages_context:
+        role = "assistant" if message.sender == "hlebik.bot" else "user"
+        formatted_messages.append({"role": role, "content": message.content or ""})
+
+    formatted_messages.append({"role": "user", "content": prompt})
+
+    client = AsyncOpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepseek.com")
+
+    response = await client.chat.completions.create(
+        model="deepseek-chat",
+        messages=formatted_messages,
+        stream=False
+    )
+
+    reply = response.choices[0].message.content or ""
+    logger.info(f"Bot response: {reply}")
+    return reply
+    
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(None)):
     await websocket.accept()
@@ -1945,19 +2132,151 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
             if action == "ping":
                 await websocket.send_json({"type": "pong"})
                 continue
+            if action == "send_first_bot_message":
+                ch_id = payload.get("channel_id")
+                content = payload.get("content", "").strip() if payload.get("content") else ""
+                logger.info(f"Добавляю первое сообщение бота - {content}")
+                msg = Message(
+                    id=uuid.uuid4(),
+                    channel_id=ch_id,
+                    sender='hlebik.bot',
+                    content=content or None,
+                    is_read=False,
+                    file_url=None,
+                    file_name=None,
+                    edited=False,
+                    quoted_message_id=None,
+                    forward_message_id=None,
+                    timestamp=datetime.now(timezone.utc)
+                )
+                try:
+                    db.add(msg)
+                    db.commit()
+                    db.refresh(msg)
+                    logger.debug(f"Message saved to DB in channel {ch_id}: {msg.id}")
+                except Exception as e:
+                    db.rollback()
+                    logger.error(f"Failed to save message in channel {ch_id} for {username}: {e}", exc_info=True)
+                    continue
+
+                payload_response = {
+                    "type": "new_message",
+                    "data": {
+                        "id": str(msg.id),
+                        "channel_id": str(msg.channel_id),
+                        "sender": msg.sender,
+                        "content": msg.content,
+                        "timestamp": msg.timestamp.isoformat(),
+                        "is_read": msg.is_read,
+                        "file_url": msg.file_url,
+                        "file_name": msg.file_name,
+                        "edited": msg.edited,
+                        "quoted_message_id": str(msg.quoted_message_id) if msg.quoted_message_id else None,
+                        "forward_message_id": str(msg.forward_message_id) if msg.forward_message_id else None,
+                    },
+                }
+                await manager.broadcast_to_channel_members(payload_response, msg.channel_id, db)
+            if action == "send_message_bot":
+                ch_id = payload.get("channel_id")
+                content = payload.get("content", "").strip() if payload.get("content") else ""
+                file_url = payload.get("file_url")
+                file_name = payload.get("file_name")
+                quoted_message_id_str = payload.get("quoted_message_id")
+                forward_message_id_str = payload.get("forward_message_id")
+
+                msg = Message(
+                    id=uuid.uuid4(),
+                    channel_id=ch_id,
+                    sender=username,
+                    content=content or None,
+                    is_read=True,
+                    file_url=file_url,
+                    file_name=file_name,
+                    edited=False,
+                    quoted_message_id=None,
+                    forward_message_id=None,
+                    timestamp=datetime.now(timezone.utc)
+                )
+                try:
+                    db.add(msg)
+                    db.commit()
+                    db.refresh(msg)
+                    logger.debug(f"Message saved to DB in channel {ch_id}: {msg.id}")
+                except Exception as e:
+                    db.rollback()
+                    logger.error(f"Failed to save message in channel {ch_id} for {username}: {e}", exc_info=True)
+                    continue
+
+                payload_response = {
+                    "type": "new_message",
+                    "data": {
+                        "id": str(msg.id),
+                        "channel_id": str(msg.channel_id),
+                        "sender": msg.sender,
+                        "content": msg.content,
+                        "timestamp": msg.timestamp.isoformat(),
+                        "is_read": msg.is_read,
+                        "file_url": msg.file_url,
+                        "file_name": msg.file_name,
+                        "edited": msg.edited,
+                        "quoted_message_id": str(msg.quoted_message_id) if msg.quoted_message_id else None,
+                        "forward_message_id": str(msg.forward_message_id) if msg.forward_message_id else None,
+                    },
+                }
+                await manager.broadcast_to_channel_members(payload_response, msg.channel_id, db)
+                
+                bot_reply = str(await get_deepseek_response(content, ch_id, db))
+                logger.info(f"Bot Response - {bot_reply}")
+                bot_msg = Message(
+                    id=uuid.uuid4(),
+                    channel_id=ch_id,
+                    sender="hlebik.bot",
+                    content=bot_reply,
+                    is_read=False,
+                    file_url=None,
+                    file_name=None,
+                    edited=False,
+                    quoted_message_id=None,
+                    forward_message_id=None,
+                    timestamp=datetime.now(timezone.utc)
+                )
+                try:
+                    db.add(bot_msg)
+                    db.commit()
+                    db.refresh(bot_msg)
+                    logger.debug(f"Bot reply saved: {bot_msg.id}")
+                except Exception as e:
+                    db.rollback()
+                    logger.error(f"Failed to save bot message in channel {ch_id}: {e}", exc_info=True)
+
+                payload_response_bot = {
+                    "type": "new_bot_message",
+                    "data": {
+                        "id": str(bot_msg.id),
+                        "channel_id": str(ch_id),
+                        "sender": "hlebik.bot",
+                        "content": bot_reply,
+                        "timestamp": msg.timestamp.isoformat(),
+                        "is_read": bot_msg.is_read,
+                        "file_url": bot_msg.file_url,
+                        "file_name": bot_msg.file_name,
+                        "edited": bot_msg.edited,
+                        "quoted_message_id": str(bot_msg.quoted_message_id) if bot_msg.quoted_message_id else None,
+                        "forward_message_id": str(bot_msg.forward_message_id) if bot_msg.forward_message_id else None,
+                    },
+                }
+                await manager.broadcast_to_channel_members(payload_response_bot, bot_msg.channel_id, db)
 
             if action == "send_message":
                 channel_id_str = payload.get("channel_id")
                 content = payload.get("content", "").strip() if payload.get("content") else ""
                 contacts = payload.get("members")
                 forward_members = [contact["id"] for contact in contacts] if contacts else []
-                logger.info(f"forward_members - {forward_members}")
+
                 file_url = payload.get("file_url")
                 file_name = payload.get("file_name")
                 quoted_message_id_str = payload.get("quoted_message_id")
                 forward_message_id_str = payload.get("forward_message_id")
-                
-                logger.info(f"quoted_message_id_str - {quoted_message_id_str}, forward_message_id_str - {forward_message_id_str}")
                 
                 forward_message_id = None
                 if forward_message_id_str:
@@ -2012,7 +2331,6 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
                         await websocket.send_json({"type": "error", "message": "Неверный формат channel_id"})
                         continue
                 
-                logger.info(f"target_channels - {target_channels}, forward_members - {forward_members}")
                 sent_messages = []
                 for ch_id in target_channels:
                     msg = Message(

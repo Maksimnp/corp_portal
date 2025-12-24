@@ -4,6 +4,7 @@ import { CopyOutlined, DeleteOutlined, EditOutlined, SmileOutlined } from '@ant-
 import { useTheme } from '../../hooks/ThemeContext';
 import { IoArrowUndoOutline, IoArrowRedoOutline  } from "react-icons/io5";
 import { MdOutlineKeyboardArrowDown } from "react-icons/md";
+import { FaRegCheckCircle } from "react-icons/fa";
 
 interface RenderContextMenuProps {
   messageContextMenu: MessageContextMenuState;
@@ -17,20 +18,22 @@ interface RenderContextMenuProps {
   searchContacts: (query: string) => Promise<void>;
   onReact: (reaction: string) => void;
   currentReaction?: string | null;
+  handleContextMenuHighlight: () => void;
 }
 
 const RenderContextMenu: React.FC<RenderContextMenuProps> = ({
-    messageContextMenu,
-    messageContextMenuRef,
-    handleContextMenuEdit,
-    handleContextMenuDelete,
-    handleContextMenuCopy,
-    handleContextMenuQuote,
-    handleContextMenuForward,
-    username,
-    searchContacts,
-    onReact,
-    currentReaction
+  messageContextMenu,
+  messageContextMenuRef,
+  handleContextMenuEdit,
+  handleContextMenuDelete,
+  handleContextMenuCopy,
+  handleContextMenuQuote,
+  handleContextMenuForward,
+  username,
+  searchContacts,
+  onReact,
+  currentReaction,
+  handleContextMenuHighlight
 }) => {
     const { theme } = useTheme();
     if (!messageContextMenu.visible || !messageContextMenu.message) return null;
@@ -97,6 +100,13 @@ const RenderContextMenu: React.FC<RenderContextMenuProps> = ({
           </button>
           {messageContextMenu.message.sender === username && (
             <>
+              <button
+                onClick={handleContextMenuHighlight}
+                className={`w-full text-left font-semibold gap-4 px-4 py-2 text-sm ${theme === 'light' ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-200 hover:bg-gray-700'} flex items-center`}
+              >
+                <FaRegCheckCircle className="text-xl" />
+                Выделить
+              </button>
               <button
                 onClick={handleContextMenuEdit}
                 className={`w-full text-left font-semibold gap-4 px-4 py-2 text-sm ${theme === 'light' ? 'text-gray-700 hover:bg-gray-100' : 'text-gray-200 hover:bg-gray-700'} flex items-center`}

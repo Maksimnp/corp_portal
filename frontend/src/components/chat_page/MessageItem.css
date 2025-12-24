@@ -1,3 +1,28 @@
+:root {
+  --text-light-theme: #374151;
+  --text-dark-theme: #c9d1d9;
+
+  --table-border-light: #ddd;
+  --table-border-dark: #4b5563;
+  --table-header-bg-light: #f2f2f2;
+  --table-header-bg-dark: #374151;
+  --table-row-even-light: #f9f9f9;
+  --table-row-even-dark: #1f2937;
+  --table-row-hover-light: #f5f5f5;
+  --table-row-hover-dark: #374151;
+
+  --pre-bg-light: #ffffff;
+  --pre-bg-dark: #0d1117;
+
+  --strong-text-light: #1f2937;
+  --strong-text-dark: #c9d1d9;
+  
+  --tail-right-bg-light: #dcf8c6;
+  --tail-right-bg-dark: #065f46;
+  --tail-left-bg-light: #ffffff;
+  --tail-left-bg-dark: #374151;
+}
+
 /* Базовые стили для хвостика */
 .has-tail::after {
   content: '';
@@ -8,21 +33,18 @@
   border-style: solid;
 }
 
-/* Хвостик для своих сообщений (справа) */
 .has-tail.tail-right::after {
   right: -8px;
   border-width: 0 0 12px 12px;
-  border-color: transparent transparent #dcf8c6 transparent; /* Цвет как у ваших сообщений */
+  border-color: transparent transparent #dcf8c6 transparent;
 }
 
-/* Хвостик для чужих сообщений (слева) */
 .has-tail.tail-left::after {
   left: -8px;
   border-width: 0 0 12px 12px;
-  border-color: transparent transparent #ffffff transparent; /* Цвет как у чужих сообщений */
+  border-color: transparent transparent #ffffff transparent;
 }
 
-/* Альтернативный вариант с использованием clip-path */
 .has-tail.tail-right {
   clip-path: polygon(
     0% 0%,
@@ -41,4 +63,235 @@
     12px 100%,
     0% calc(100% - 12px)
   );
+}
+
+/* Базовые стили для таблиц markdown */
+.markdown-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  border: none;
+}
+
+.markdown-body th, .markdown-body td {
+  border: 1px solid #ddd;
+  padding: 8px 12px;
+  text-align: center;
+}
+
+.markdown-body.dark table th,
+.markdown-body.dark table td {
+  border-color: var(--table-border-dark);
+}
+
+.markdown-body tr:first-child th,
+.markdown-body tr:first-child td {
+  border-top: none;
+}
+
+.markdown-body tr:last-child td {
+  border-bottom: none;
+}
+
+.markdown-body th:first-child,
+.markdown-body td:first-child {
+  border-left: none;
+}
+
+.markdown-body th:last-child,
+.markdown-body td:last-child {
+  border-right: none;
+}
+
+.markdown-body th {
+  background-color: #f2f2f2;
+  font-weight: 600;
+}
+
+.markdown-body tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.markdown-body tr:hover {
+  background-color: #f5f5f5;
+}
+
+.markdown-body.dark th {
+  background-color: var(--table-header-bg-dark);
+}
+
+.markdown-body.dark tr:nth-child(even) {
+  background-color: var(--table-row-even-dark);
+}
+
+.markdown-body.dark tr:hover {
+  background-color: var(--table-row-hover-dark);
+}
+
+/* Базовые стили для кодовой базы */
+
+.markdown-body pre {
+  border-radius: 14px;
+  padding: 5px;
+  margin-bottom: 10px;
+  background-color: #ffffff;
+}
+
+.markdown-body.dark pre {
+  background-color: var(--pre-bg-dark);
+}
+
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.markdown-body p {
+  margin: 0.15em 0;
+  line-height: 1.7;
+  color: #374151;
+}
+
+.markdown-body.dark p {
+  margin: 0.15em 0;
+  line-height: 1.7;
+  color: #ffffff;
+}
+
+.markdown-body strong {
+  color: #1f2937;
+  font-weight: 700;
+}
+
+/* Базовые стили для списков */
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0.25rem 0;
+  padding-left: 2rem;
+  color: #374151;
+}
+
+.markdown-body.dark ul,
+.markdown-body.dark ol {
+  color: var(--text-dark-theme);
+}
+
+.markdown-body ul {
+  list-style: none;
+}
+
+.markdown-body ul li {
+  position: relative;
+  padding: 0.2rem 0;
+  padding-left: 1rem;
+  line-height: 1.6;
+}
+
+.markdown-body.dark ul li::before {
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+}
+
+.markdown-body.dark ol li::before {
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+}
+
+.markdown-body ul li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 1rem;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
+.markdown-body ol {
+  counter-reset: item;
+}
+
+.markdown-body ol li {
+  position: relative;
+  padding: 0.5rem 0;
+  padding-left: 2.5rem;
+  line-height: 1.6;
+}
+
+.markdown-body ol li::before {
+  counter-increment: item;
+  content: counter(item);
+  position: absolute;
+  left: 0;
+  top: 0.5rem;
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75em;
+  font-weight: 600;
+}
+
+/* Базовые стили для ссылок */
+.markdown-body a {
+  color: #2563eb;
+  text-decoration: none;
+  position: relative;
+  transition: color 0.2s ease;
+  border-bottom: 1px dashed rgba(37, 99, 235, 0.3);
+  padding-bottom: 1px;
+}
+
+.markdown-body a:hover {
+  color: #1d4ed8;
+  border-bottom: 1px solid #1d4ed8;
+}
+
+.markdown-body a::after {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 2px;
+  bottom: -1px;
+  left: 0;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  transition: width 0.3s ease;
+}
+
+.markdown-body a:hover::after {
+  width: 100%;
+}
+
+.markdown-body.dark a {
+  color: #60a5fa;
+  border-bottom-color: rgba(96, 165, 250, 0.3);
+}
+
+.markdown-body.dark a:hover {
+  color: #93c5fd;
+  border-bottom-color: #93c5fd;
+}
+
+
+.markdown-body.dark {
+  color: var(--text-dark-theme);
+}
+
+.markdown-body.dark p {
+  color: var(--text-dark-theme);
+}
+
+.markdown-body.dark strong {
+  color: var(--strong-text-dark);
+}
+
+.markdown-body.dark a::after {
+  background: linear-gradient(90deg, #60a5fa, #a78bfa);
 }

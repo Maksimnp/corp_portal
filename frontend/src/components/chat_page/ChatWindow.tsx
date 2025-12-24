@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { PaperPlaneRight, Paperclip, Smiley, DotsThreeVertical, X, Microphone, Sticker, Plus, Heart, Trash, UserCircle, ArrowLeft, MagnifyingGlass, ArrowDown } from 'phosphor-react';
 import type { Chat, Message, Contact, MessageContextMenuState, UserContextMenuState } from '../../types/chat';
 import TextareaAutosize from 'react-textarea-autosize';
@@ -18,6 +18,7 @@ import { getAvatarData } from "../../utils/avatarCache";
 import RenderForwardMessage from "./ForwardMessage";
 import { TbPhotoCog } from "react-icons/tb";
 import { fetchBackgroundChatData, getBackgroundChatData } from "../../utils/backgroundChatCache";
+import { previousDay } from "date-fns";
 
 interface RenderChatWindowProps {
     forwardMessage: Message | null;
@@ -29,8 +30,6 @@ interface RenderChatWindowProps {
     username: string | null;
     unreadCounts: { [key: string]: number };
     userStatuses: { [username: string]: string };
-    showChatOptions: boolean;
-    setShowChatOptions: React.Dispatch<React.SetStateAction<boolean>>;
     setShowInviteModal: React.Dispatch<React.SetStateAction<boolean>>;
     setShowKickModal: React.Dispatch<React.SetStateAction<boolean>>;
     setShowLeaveModal: React.Dispatch<React.SetStateAction<boolean>>;
@@ -38,7 +37,6 @@ interface RenderChatWindowProps {
     showStickerPicker: boolean;
     isLoadingMessages: boolean;
     setShowStickerPicker: React.Dispatch<React.SetStateAction<boolean>>;
-    chatOptionsRef: React.RefObject<HTMLDivElement | null>;
     messagesEndRef: React.RefObject<HTMLDivElement | null>;
     stickerPickerRef: React.RefObject<HTMLDivElement | null>;
     fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -110,108 +108,126 @@ interface RenderChatWindowProps {
     onMessageInView: (messageId: string, channelId: string) => void;
     unreadReactionNotifications: Record<string, string[]>;
     onReactionInView: (messageId: string, channelId: string) => void;
+    statusChatBot:boolean;
+    highlightMenu: boolean;
+    setHighlightMenu: React.Dispatch<React.SetStateAction<boolean>>;
+    handleContextMenuHighlight: () => void;
+    setHighlightMessages: React.Dispatch<React.SetStateAction<Record<string,Message>>>;
+    highlightMessages: Record<string,Message>;
+    confirmDeleteHighlightedMessages: () => Promise<void>;
 }
 
 const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
-    forwardMessage,
-    cancelForward,
-    activeChat,
-    unreadReactionNotifications,
-    currentChat,
-    onReactionInView,
-    showChatInfoSidebar,
-    typingUsers,
-    username,
-    userStatuses = {},
-    showChatOptions,
-    unreadCounts,
-    setShowChatOptions,
-    setShowInviteModal,
-    setShowKickModal,
-    setShowLeaveModal,
-    setShowDeleteModal,
-    showStickerPicker,
-    isLoadingMessages,
-    setShowStickerPicker,
-    chatOptionsRef,
-    messagesEndRef,
-    stickerPickerRef,
-    fileInputRef,
-    message,
-    setMessage,
-    selectedFile,
-    setSelectedFile,
-    setShowDeleteMessageModal,
-    setMessageToDelete,
-    messageToDelete,
-    showDeleteMessageModal,
-    isRecording,
-    inputRef,
-    editingMessage,
-    cancelEdit,
-    handleSendMessage,
-    handleTyping,
-    handleStickerClick,
-    handleScroll,
-    isSidebarVisible,
-    setIsSidebarVisible,
-    setShowChatInfoSidebar,
-    contactMap = {},
-    quotedMessage,
-    cancelQuote,
-    filteredMessages = [],
-    quotedMessageData = {},
-    handleMessageContextMenu,
-    handleMessageContextMenuReaction,
-    fetchQuotedMessageData,
-    messageContextMenu,
-    messageContextMenuRef,
-    handleContextMenuEdit,
-    handleContextMenuDelete,
-    handleContextMenuCopy,
-    handleContextMenuQuote,
-    handleContextMenuForward,
-    openEditChatModal,
-    handleUserContextMenu,
-    leaveChat,
-    userContextMenu,
-    userContextMenuRef,
-    handleContextMenuSendMessage,
-    stopRecording,
-    startRecording,
-    confirmDeleteMessage,
-    isEditModalVisible,
-    closeEditModal,
-    showEditChatModal,
-    editChatName,
-    setEditChatName,
-    editChatDescription,
-    setEditChatDescription,
-    setChats,
-    setShowEditChatModal,
-    searchQuery,
-    setSearchQuery,
-    setShowImageModal,
-    messagesContainerRef,
-    isAtBottom,
-    loadMessagesAround,
-    setIsAutoScrolling,
-    setImageUrl,
-    searchContacts,
-    showFileDragModal,
-    setShowFileDragModal,
-    handleReactToMessage,
-    userReactions = {}, // Значение по умолчанию - пустой объект
-    onMessageInView
+  confirmDeleteHighlightedMessages,
+  highlightMessages,
+  setHighlightMessages,
+  handleContextMenuHighlight,
+  highlightMenu,
+  setHighlightMenu,
+  statusChatBot,
+  forwardMessage,
+  cancelForward,
+  activeChat,
+  unreadReactionNotifications,
+  currentChat,
+  onReactionInView,
+  showChatInfoSidebar,
+  typingUsers,
+  username,
+  userStatuses = {},
+  unreadCounts,
+  setShowInviteModal,
+  setShowKickModal,
+  setShowLeaveModal,
+  setShowDeleteModal,
+  showStickerPicker,
+  isLoadingMessages,
+  setShowStickerPicker,
+  messagesEndRef,
+  stickerPickerRef,
+  fileInputRef,
+  message,
+  setMessage,
+  selectedFile,
+  setSelectedFile,
+  setShowDeleteMessageModal,
+  setMessageToDelete,
+  messageToDelete,
+  showDeleteMessageModal,
+  isRecording,
+  inputRef,
+  editingMessage,
+  cancelEdit,
+  handleSendMessage,
+  handleTyping,
+  handleStickerClick,
+  handleScroll,
+  isSidebarVisible,
+  setIsSidebarVisible,
+  setShowChatInfoSidebar,
+  contactMap = {},
+  quotedMessage,
+  cancelQuote,
+  filteredMessages = [],
+  quotedMessageData = {},
+  handleMessageContextMenu,
+  handleMessageContextMenuReaction,
+  fetchQuotedMessageData,
+  messageContextMenu,
+  messageContextMenuRef,
+  handleContextMenuEdit,
+  handleContextMenuDelete,
+  handleContextMenuCopy,
+  handleContextMenuQuote,
+  handleContextMenuForward,
+  openEditChatModal,
+  handleUserContextMenu,
+  leaveChat,
+  userContextMenu,
+  userContextMenuRef,
+  handleContextMenuSendMessage,
+  stopRecording,
+  startRecording,
+  confirmDeleteMessage,
+  isEditModalVisible,
+  closeEditModal,
+  showEditChatModal,
+  editChatName,
+  setEditChatName,
+  editChatDescription,
+  setEditChatDescription,
+  setChats,
+  setShowEditChatModal,
+  searchQuery,
+  setSearchQuery,
+  setShowImageModal,
+  messagesContainerRef,
+  isAtBottom,
+  loadMessagesAround,
+  setIsAutoScrolling,
+  setImageUrl,
+  searchContacts,
+  showFileDragModal,
+  setShowFileDragModal,
+  handleReactToMessage,
+  userReactions = {}, // Значение по умолчанию - пустой объект
+  onMessageInView
 }) => {
   const { theme, toggleTheme } = useTheme();
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [showMessageSearch, setShowMessageSearch] = useState(false);
-  
+  const [showChatOptions, setShowChatOptions] = useState(false);
+
   const [searchQueryGifs, setSearchQueryGifs] = useState('');
   const [gifResults, setGifResults] = useState<string[]>([]);
   const [loadingGifs, setLoadingGifs] = useState(false);
+
+  const chatOptionsRef = useRef<HTMLDivElement>(null);
+  const chatOptionsRefBut = useRef<HTMLButtonElement>(null);
+  const [dragSelectStartId, setDragSelectStartId] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
   const VITE_API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
   const TENOR_API_KEY = import.meta.env.VITE_TENOR_API_KEY;
   const backgroundChat = getBackgroundChatData(currentChat?.font_name || 'chat_font_1');
@@ -223,7 +239,7 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
       setShowFileDragModal(true);
     }
   }, [showFileDragModal]);
-
+  
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     if (!showFileDragModal) {
@@ -283,6 +299,20 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
 
     return () => clearTimeout(handler);
   }, [searchQueryGifs]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (chatOptionsRef.current && !chatOptionsRef.current.contains(event.target as Node) &&
+          chatOptionsRefBut.current && !chatOptionsRefBut.current.contains(event.target as Node)) 
+      {
+        setShowChatOptions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   if (!activeChat || !currentChat) {
     return (
@@ -384,6 +414,9 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
       }
     }
   };
+  const getMessageById = (msdId: string) => {
+
+  }
 
   const getCurrentReaction = () => {
     if (!messageContextMenu.message) return undefined;
@@ -421,7 +454,24 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
       }`}>
         {/* Header - Modern Design */}
         <div className={`flex items-center justify-between p-4 border-b ${theme === 'light' ? 'border-slate-200/60' : 'border-slate-700/60'} ${theme === 'light' ? 'bg-white/95' : 'bg-slate-900/95'} backdrop-blur-xl shadow-sm relative z-30`}>
-          <div className="flex items-center space-x-4 flex-1 min-w-0">
+          {highlightMenu ? (
+            <div className={`flex items-center justify-between w-full min-h-[48px] relative trasition-all duration-300 ease-out transform ${highlightMenu ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-full'}`}>
+              <button 
+                onClick={confirmDeleteHighlightedMessages}
+					      className={`flex w-fit text-sm items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group hover:scale-105 transform z-20`}
+              >
+                УДАЛИТЬ {Object.keys(highlightMessages).length}
+              </button>
+              <button
+                onClick={() => {setHighlightMenu(false); setHighlightMessages({})}}
+					      className={`flex w-25 text-sm items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group hover:scale-105 transform z-20`}
+              >
+                ОТМЕНА
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center space-x-4 flex-1 min-w-0">
             {/* Chat Avatar and Info */}
             <div 
               className="flex items-center hover:cursor-pointer group flex-1 min-w-0"
@@ -499,6 +549,7 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
             {/* Chat Options */}
             <div className="relative">
               <button 
+                ref={chatOptionsRefBut}
                 onClick={() => setShowChatOptions(!showChatOptions)} 
                 className={`w-10 h-10 rounded-xl ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'} transition-all duration-300 flex items-center justify-center`}
               >
@@ -585,10 +636,14 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
               )}
             </div>
           </div>
+            </>
+          )}
+          
         </div>
 
         {/* Messages Area - без скроллбара */}
         <div
+          ref = {messagesEndRef}
           className={`flex flex-col flex-1 overflow-y-auto text-base messages-container`}
           style={{
             backgroundImage: currentChat?.font_name && backgroundChat
@@ -637,7 +692,78 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
                 </div>
               </div>
             </div>)}
+            <div
+              onMouseDown={(e) => {
+                if (!highlightMenu) return;
+                const target = (e.target as HTMLElement).closest('[data-message-id]');
+                if (!target) return;
+                const msgId = target.getAttribute('data-message-id');
+                if (!msgId) return;
+
+                setIsDragging(true);
+                setDragSelectStartId(msgId);
+
+                const msg = safeFilteredMessages.find(el => el.id === msgId);
+                if (msg) {
+                  // setHighlightMessages(prev => ({ ...prev, [msg.id]: msg }));
+                  setHighlightMessages(prev => {
+                      if (prev[msg.id]) {
+                        const { [msg.id]: _, ...rest } = prev;
+
+                        if (Object.keys(rest).length === 0) {
+                          setHighlightMenu(false);
+                        }
+                        return rest;
+                      } else {
+                        return { ...prev, [msg.id]: msg };
+                      }
+                    });
+                  }
+                e.preventDefault();
+              }}
+              onMouseMove={(e) => {
+                if (!isDragging || !dragSelectStartId) return;
+                const target = (e.target as HTMLElement).closest('[data-message-id]');
+                if (!target) return;
+                const msgId = target.getAttribute('data-message-id');
+                if (!msgId || msgId === dragSelectStartId) return;
+
+                const startIndex = filteredMessages.findIndex(m => m.id === dragSelectStartId);
+                const endIndex = filteredMessages.findIndex(m => m.id === msgId);
+                if (startIndex === -1 || endIndex === -1) return;
+
+                const [min, max] = [Math.min(startIndex, endIndex), Math.max(startIndex, endIndex)];
+                const range = filteredMessages.slice(min, max + 1);
+                setHighlightMessages(prev => {
+                  const updated = { ...prev };
+
+                  range.forEach(m => {
+                    if (m.sender === username) {
+                      updated[m.id] = m;
+                    }
+                  });
+
+                  return updated;
+                });
+              }}
+              onMouseUp={() => {
+                if (isDragging) {
+                  setIsDragging(false);
+                  setDragSelectStartId(null);
+                }
+              }}
+              onMouseLeave={() => {
+                if (isDragging) {
+                  setIsDragging(false);
+                  setDragSelectStartId(null);
+                }
+              }}
+            >
             <RenderMessages
+              setHighlightMenu={setHighlightMenu}
+              highlightMessages={highlightMessages}
+              setHighlightMessages={setHighlightMessages}
+              highlightMenu={highlightMenu}
               unreadCounts={unreadCounts}
               onReactionInView={onReactionInView}
               unreadReactionNotifications={unreadReactionNotifications}
@@ -655,11 +781,13 @@ const RenderChatWindow: React.FC<RenderChatWindowProps> = ({
               activeChat={activeChat}
               handleContextMenuQuote={handleContextMenuQuote}
               onMessageInView={onMessageInView}
+              statusChatBot={statusChatBot}
               onReact={(messageId: string, messageSender: string, reaction: string) => handleReactToMessage(messageId, messageSender, reaction)}
             />
-            
-            <div ref={messagesEndRef} />
+            </div>
+            {/* <div ref={messagesEndRef} /> */}
             <RenderContextMenu 
+              handleContextMenuHighlight={handleContextMenuHighlight}
               messageContextMenu={messageContextMenu}
               messageContextMenuRef={messageContextMenuRef}
               handleContextMenuEdit={handleContextMenuEdit}

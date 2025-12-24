@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTheme } from '../../hooks/ThemeContext';
 import { Moon, Sun, MagnifyingGlass, ArrowLeft, Cards, Table } from 'phosphor-react';
-
+import {getAvatarData, setAvatarData} from '../../utils/avatarCache'
+import { UserIcon } from '@heroicons/react/24/outline';
 // Интерфейс контакта
 export interface Contact {
   id: string;
@@ -34,11 +35,11 @@ const EmailIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const UserIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`w-4 h-4 ${className}`}>
-    <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
-  </svg>
-);
+// const UserIcon = ({ className }: { className?: string }) => (
+//   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`w-4 h-4 ${className}`}>
+//     <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
+//   </svg>
+// );
 
 const BuildingIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`w-4 h-4 ${className}`}>
@@ -75,13 +76,71 @@ const getInitials = (contact: Contact): string => {
 };
 
 // Компонент для отображения контакта в виде карточки
-const ContactCard = ({ contact, theme }: { contact: Contact, theme: string }) => {
+const ContactCard = React.memo(({ contact, theme }: { contact: Contact, theme: string }) => {
   const hasPhone = contact.phone_internal || contact.phone_city || contact.phone_mobile;
   const hasEmail = contact.email;
   const hasPosition = contact.position;
   const hasDepartment = contact.department;
   const hasLogin = contact.sam_account_name;
   const hasData = hasPhone || hasEmail || hasPosition || hasDepartment || hasLogin;
+
+  const UserAvatar: React.FC<{ userId: string; size?: number; mod?: string;}> = ({ userId, size = 50, mod }) => {
+    const [avatarsData, setAvatarsData] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+      const cached = getAvatarData(userId);
+      if (cached) {
+        setAvatarsData(cached);
+        setLoading(false);
+        return;
+      }
+
+      const fetchAndCache = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const res = await fetch(`${BASE_URL}/api/users/${userId}/avatar`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!res.ok) throw new Error('Аватар не найден');
+          const { avatar } = await res.json();
+          if (avatar === null) {
+            setAvatarsData(null);
+          } else {
+            setAvatarData(userId, avatar);
+            setAvatarsData(avatar);
+          }
+        } catch (err) {
+          setAvatarsData(null);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchAndCache();
+    }, [userId]);
+
+    if (loading) return <div className={`${mod === 'square' ? 'rounded-1' : 'rounded-full'} bg-gray-300 animate-pulse`} style={{ width: size, height: size }} />;
+    
+    if (!avatarsData) return <div
+        className={`rounded-full w-14 h-14 flex items-center justify-center text-xl font-bold shadow-lg ${
+          theme === 'dark' 
+            ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white' 
+            : 'bg-gradient-to-br from-blue-400 to-purple-400 text-white'
+        }`}
+      >
+        {getInitials(contact)}
+      </div>
+
+    return <img 
+      src={avatarsData} 
+      alt="avatar" 
+      loading='lazy'
+      className={`${mod === 'square' ? 'rounded-1' : 'rounded-full'} object-cover`}
+      style={{ width: size, height: size }}
+    />;
+  };
 
   return (
     <div
@@ -102,15 +161,7 @@ const ContactCard = ({ contact, theme }: { contact: Contact, theme: string }) =>
       <div className="relative p-5 z-10">
         {/* Заголовок карточки */}
         <div className="flex items-center gap-4 mb-4">
-          <div
-            className={`rounded-full w-14 h-14 flex items-center justify-center text-xl font-bold shadow-lg ${
-              theme === 'dark' 
-                ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white' 
-                : 'bg-gradient-to-br from-blue-400 to-purple-400 text-white'
-            }`}
-          >
-            {getInitials(contact)}
-          </div>
+          <UserAvatar userId={contact.displayName || ''} size={58}/>
           <div className="flex-1 min-w-0">
             <h3
               className={`text-xl font-bold break-words ${
@@ -275,7 +326,7 @@ const ContactCard = ({ contact, theme }: { contact: Contact, theme: string }) =>
       </div>
     </div>
   );
-};
+});
 
 // Компонент для отображения контакта в виде строки таблицы
 const ContactTableRow = ({ contact, theme }: { contact: Contact, theme: string }) => {
@@ -328,7 +379,10 @@ export default function ContactsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLimited, setIsLimited] = useState(false);
-  
+
+  const [renderedCards, setRenderedCards] = useState<React.JSX.Element[]>([]);
+  const [nextIndex, setNextIndex] = useState(15);
+
   // Загрузка сохраненных настроек из localStorage
   const [viewMode, setViewMode] = useState<'cards' | 'table'>(() => {
     const savedViewMode = localStorage.getItem('contactsViewMode');
@@ -657,14 +711,50 @@ export default function ContactsPage() {
     return () => clearTimeout(timeoutId);
   }, [query]);
 
+  useEffect(() => {
+    const handleWindowScroll = () => {
+      if (viewMode !== 'cards' || loading || nextIndex >= contacts.length) return;
+
+      const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
+      if (scrollTop + clientHeight >= scrollHeight * 0.8) {
+        const newBatch = renderBatch(nextIndex, 15);
+        setRenderedCards(prev => [...prev, ...newBatch]);
+        setNextIndex(prev => Math.min(prev + 15, contacts.length));
+      }
+    };
+
+    window.addEventListener('scroll', handleWindowScroll);
+    return () => window.removeEventListener('scroll', handleWindowScroll);
+  }, [viewMode, loading, contacts.length, nextIndex, theme]);
+
+  const renderBatch = (startIndex: number, count: number) => {
+    const endIndex = Math.min(startIndex + count, contacts.length);
+    const batch = contacts.slice(startIndex, endIndex).map(contact => (
+      <ContactCard
+        key={contact.id}
+        contact={contact}
+        theme={theme}
+      />
+    ));
+    return batch;
+  };
+
+  useEffect(() => {
+    if (contacts.length > 0 && viewMode === 'cards') {
+      const initialBatch = renderBatch(0, 15);
+      setRenderedCards(initialBatch);
+      setNextIndex(15);
+    }
+  }, [contacts, viewMode]);
   return (
     <>
       {/* Glassmorphism Background */}
       <div className={`min-h-screen transition-colors duration-500 ${
-        theme === 'dark'
-          ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white'
-          : 'bg-gradient-to-br from-gray-50 via-blue-50 to-gray-50 text-gray-800'
-      } py-6 px-4 relative overflow-hidden ${fontSizeClasses[fontSize]}`}>
+          theme === 'dark'
+            ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white'
+            : 'bg-gradient-to-br from-gray-50 via-blue-50 to-gray-50 text-gray-800'
+        } py-6 px-4 relative overflow-hidden ${fontSizeClasses[fontSize]}`}
+      >
         
         <div className="max-w-7xl mx-auto relative z-10">
           
@@ -827,13 +917,7 @@ export default function ContactsPage() {
           {/* Отображение контактов в виде карточек */}
           {!loading && !error && contacts.length > 0 && viewMode === 'cards' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {contacts.map((contact) => (
-                <ContactCard 
-                  key={contact.id} 
-                  contact={contact} 
-                  theme={theme} 
-                />
-              ))}
+              {renderedCards}
             </div>
           )}
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CountUp } from 'countup.js';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
@@ -19,7 +19,6 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const YOUTUBE_URL = import.meta.env.VITE_YOUTUBE_CHANNEL_URL;
 const INST_URL = import.meta.env.VITE_INSTAGRAM_URL;
 
-// Улучшенный LoginModal с премиальным эффектом стекла
 // Улучшенный LoginModal с функцией восстановления пароля
 const LoginModal: React.FC<{
   isOpen: boolean;
@@ -42,33 +41,33 @@ const LoginModal: React.FC<{
     await onLogin(username, password);
   };
 
- const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setForgotPasswordError(null);
-  
+  const handleForgotPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotPasswordError(null);
     
     // Валидация email
-    if (!email.trim()) {
-    setForgotPasswordError('Пожалуйста, введите email');
-    return;
-  }
+    const trimmedEmail = email.trim();
+    
+    if (!trimmedEmail) {
+      setForgotPasswordError('Пожалуйста, введите email');
+      return;
+    }
 
     // Проверка домена
-     if (!email.endsWith('@minskhleb.by')) {
-    setForgotPasswordError('Только почта в домене minskhleb.by разрешена');
-    return;
-  }
+    if (!trimmedEmail.endsWith('@minskhleb.by')) {
+      setForgotPasswordError('Только почта в домене @minskhleb.by разрешена');
+      return;
+    }
 
     setIsForgotPasswordLoading(true);
     
     try {
-      // Отправка запроса на восстановление пароля
       const response = await fetch(`${BASE_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: trimmedEmail }),
       });
 
       const data = await response.json();
@@ -78,12 +77,10 @@ const LoginModal: React.FC<{
         
         // Автоматически закрываем через 4 секунды
         setTimeout(() => {
-          setIsForgotPassword(false);
-          setForgotPasswordSuccess(false);
-          setEmail('');
+          resetForgotPassword();
         }, 4000);
       } else {
-        setForgotPasswordError(data.error || 'Ошибка при отправке запроса. Попробуйте позже.');
+        setForgotPasswordError(data.detail || data.error || 'Ошибка при отправке запроса. Попробуйте позже.');
       }
     } catch (err) {
       console.error('Forgot password error:', err);
@@ -104,6 +101,7 @@ const LoginModal: React.FC<{
     setEmail('');
     setForgotPasswordError(null);
     setForgotPasswordSuccess(false);
+    setIsForgotPasswordLoading(false);
   };
 
   useEffect(() => {
@@ -130,7 +128,7 @@ const LoginModal: React.FC<{
           aria-modal="true"
         >
           {/* Эффект фонового свечения */}
-          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-cyan-500/10 to-cyan-500/10 animate-pulse" />
+          <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 via-blue-500/10 to-purple-500/10 animate-pulse" />
           
           <motion.div
             ref={modalRef}
@@ -142,11 +140,11 @@ const LoginModal: React.FC<{
             onClick={(e) => e.stopPropagation()}
           >
             {/* Эффект стеклянной поверхности */}
-            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/5 to-white/0 border border-white/10 backdrop-blur-2xl" />
+            <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-white/5 to-white/0 border border-white/10 backdrop-blur-2xl pointer-events-none" />
             
             {/* Декоративные элементы */}
-            <div className="absolute -top-20 -right-20 w-40 h-40 bg-cyan-500/20 rounded-full blur-3xl" />
-            <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-cyan-500/20 rounded-full blur-3xl" />
+            <div className="absolute -top-20 -right-20 w-40 h-40 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
 
             <button
               onClick={onClose}
@@ -174,7 +172,7 @@ const LoginModal: React.FC<{
             )}
 
             <div className="relative z-10 text-center mb-2">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-cyan-600 to-cyan-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-cyan-500/30">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-cyan-500/30">
                 <span className="text-white font-bold text-xl">МХП</span>
               </div>
               <h2 id="login-modal-title" className="text-2xl font-bold text-white">
@@ -258,7 +256,7 @@ const LoginModal: React.FC<{
                 <motion.button
                   type="submit"
                   disabled={isLoading}
-                  className={`w-full py-4 mt-2 bg-gradient-to-r from-cyan-600 to-cyan-600 text-white rounded-xl font-semibold shadow-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-900 relative overflow-hidden ${
+                  className={`w-full py-4 mt-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-xl font-semibold shadow-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-900 relative overflow-hidden ${
                     isLoading ? 'opacity-70 cursor-not-allowed' : 'hover:shadow-cyan-500/25 hover:-translate-y-1'
                   }`}
                   whileHover={!isLoading ? { scale: 1.02 } : {}}
@@ -345,7 +343,7 @@ const LoginModal: React.FC<{
                 <motion.button
                   type="submit"
                   disabled={isForgotPasswordLoading || forgotPasswordSuccess}
-                  className={`w-full py-4 mt-2 bg-gradient-to-r from-cyan-600 to-cyan-600 text-white rounded-xl font-semibold shadow-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-900 relative overflow-hidden ${
+                  className={`w-full py-4 mt-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-xl font-semibold shadow-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-900 relative overflow-hidden ${
                     isForgotPasswordLoading || forgotPasswordSuccess ? 'opacity-70 cursor-not-allowed' : 'hover:shadow-cyan-500/25 hover:-translate-y-1'
                   }`}
                   whileHover={!(isForgotPasswordLoading || forgotPasswordSuccess) ? { scale: 1.02 } : {}}
@@ -395,6 +393,7 @@ const HomePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeFeature, setActiveFeature] = useState(0);
+  const [videoError, setVideoError] = useState(false);
 
   // Parallax scroll effects
   const { scrollYProgress } = useScroll();
@@ -494,8 +493,8 @@ const HomePage: React.FC = () => {
     }, 100);
   };
 
-  // Оптимизированная анимация частиц с useCallback
-  const initParticles = useCallback(() => {
+  // Оптимизированная анимация частиц
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     
@@ -521,7 +520,7 @@ const HomePage: React.FC = () => {
       color: string;
     }> = [];
 
-    const colors = ['#06B6D4', '#D946EF', '#22D3EE', '#34D399'];
+    const colors = ['#06B6D4', '#3B82F6', '#8B5CF6', '#10B981'];
 
     for (let i = 0; i < particleCount; i++) {
       const color = colors[Math.floor(Math.random() * colors.length)];
@@ -595,11 +594,6 @@ const HomePage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const cleanup = initParticles();
-    return cleanup;
-  }, [initParticles]);
-
-  useEffect(() => {
     if (totalRequestsRef.current && completedRequestsRef.current && completionRateRef.current) {
       const totalRequests = new CountUp(totalRequestsRef.current, 1247, { duration: 2.5, separator: ' ' });
       const completedRequests = new CountUp(completedRequestsRef.current, 1182, { duration: 2.5, separator: ' ' });
@@ -641,7 +635,7 @@ const HomePage: React.FC = () => {
       ),
       title: 'Центр администрирования',
       description: 'Полный контроль над системой, управление пользователями и настройка рабочих процессов.',
-      color: 'from-blue-500 to-cyan-500',
+      color: 'from-blue-500 to-purple-600',
     },
     {
       icon: (
@@ -649,9 +643,9 @@ const HomePage: React.FC = () => {
           <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
         </svg>
       ),
-      title: 'ИИ-ассистент (В разработке)',
-      description: 'Интеллектуальная система для помощи сотрудникам в работе.',
-      color: 'from-emerald-500 to-cyan-500',
+      title: 'ИИ-ассистент',
+      description: 'Интеллектуальная система для помощи сотрудникам в работе. (В разработке)',
+      color: 'from-purple-500 to-pink-600',
     },
     {
       icon: (
@@ -659,9 +653,9 @@ const HomePage: React.FC = () => {
           <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
       ),
-      title: 'Аналитика и отчетность (В разработке)',
-      description: 'Подробная аналитика, интерактивные таблицы, отчёты для повышения эффективности.',
-      color: 'from-cyan-500 to-cyan-600',
+      title: 'Аналитика и отчетность',
+      description: 'Подробная аналитика, интерактивные таблицы, отчёты для повышения эффективности. (В разработке)',
+      color: 'from-pink-500 to-rose-600',
     },
   ];
 
@@ -682,11 +676,13 @@ const HomePage: React.FC = () => {
           >
             <div className="relative">
               <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/20 shadow-2xl shadow-cyan-500/20 flex items-center justify-center">
-                <span className="text-white font-extrabold text-lg bg-gradient-to-r from-cyan-500 to-cyan-500 bg-clip-text text-transparent">МХП</span>
+                <span className="text-white font-extrabold text-lg">МХП</span>
               </div>
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-cyan-500 to-cyan-500 bg-clip-text text-transparent hidden md:block"></span>
+            <span className="text-xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent hidden md:block">
+              Портал
+            </span>
           </motion.div>
 
           {/* Кнопка бургер меню для мобильных */}
@@ -717,7 +713,7 @@ const HomePage: React.FC = () => {
                 <span className="relative z-10">
                   {section === 'features' ? 'Возможности' : section === 'stats' ? 'Результаты' : 'О проекте'}
                 </span>
-                <span className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-cyan-500 to-cyan-500 transition-all group-hover:w-3/4"></span>
+                <span className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-cyan-500 to-blue-500 transition-all group-hover:w-3/4"></span>
               </motion.a>
             ))}
           </nav>
@@ -727,12 +723,15 @@ const HomePage: React.FC = () => {
               <>
                 <motion.button
                   onClick={() => navigate('/dashboard')}
-                  className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-cyan-600 text-white rounded-2xl font-medium shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900 relative overflow-hidden"
+                  className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-2xl font-medium shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900 relative overflow-hidden"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300" />
-                  <svg className="w-4 h-4 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5a2 2 0 012-2h4a2 2 0 012 2v6H8V5z" /></svg>
+                  <svg className="w-4 h-4 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5a2 2 0 012-2h4a2 2 0 012 2v6H8V5z" />
+                  </svg>
                   <span className="relative z-10">Панель</span>
                 </motion.button>
                 <motion.button
@@ -741,19 +740,23 @@ const HomePage: React.FC = () => {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
                   Выйти
                 </motion.button>
               </>
             ) : (
               <motion.button
                 onClick={openLoginModal}
-                className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-cyan-600 text-white rounded-2xl font-medium shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900 relative overflow-hidden"
+                className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-2xl font-medium shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900 relative overflow-hidden"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300" />
-                <svg className="w-4 h-4 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg>
+                <svg className="w-4 h-4 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
                 <span className="relative z-10">Войти</span>
               </motion.button>
             )}
@@ -771,8 +774,8 @@ const HomePage: React.FC = () => {
               transition={{ duration: 0.5, ease: "easeInOut" }}
             >
               {/* Фоновые декоративные элементы */}
-              <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-red-500 rounded-full blur-3xl" />
-              <div className="absolute bottom-1/4 right-1/4 w-32 h-32 bg-red-500 rounded-full blur-3xl" />
+              <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute bottom-1/4 right-1/4 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
               
               <button 
                 onClick={() => setIsNavOpen(false)} 
@@ -813,8 +816,11 @@ const HomePage: React.FC = () => {
               </div>
               {!isAuthenticated && (
                 <motion.button
-                  onClick={openLoginModal}
-                  className="px-8 py-4 mt-8 bg-gradient-to-r from-cyan-600 to-cyan-600 text-white rounded-2xl font-medium text-lg shadow-lg"
+                  onClick={() => {
+                    setIsNavOpen(false);
+                    openLoginModal();
+                  }}
+                  className="px-8 py-4 mt-8 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-2xl font-medium text-lg shadow-lg"
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
                 >
@@ -837,7 +843,10 @@ const HomePage: React.FC = () => {
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent z-5" />
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-slate-900/60 to-transparent z-5" />
         
-       
+        {/* Декоративные светящиеся элементы */}
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-cyan-500/20 rounded-full blur-3xl animate-pulse pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl animate-pulse pointer-events-none" style={{ animationDelay: '1s' }} />
+        
         <motion.div
           className="relative z-20 max-w-6xl mx-auto px-6 text-center"
           initial={{ opacity: 0, y: 50 }}
@@ -854,7 +863,7 @@ const HomePage: React.FC = () => {
           </motion.div>
 
           <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black mb-8 leading-tight">
-            <span className="bg-gradient-to-r from-cyan-500 via-cyan-500 to-cyan-500 bg-clip-text text-transparent bg-size-200 animate-gradient">
+            <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent animate-gradient-x">
               Корпоративный портал
             </span>
             <br />
@@ -872,7 +881,7 @@ const HomePage: React.FC = () => {
               whileHover={{ scale: 1.05, y: -5 }}
               whileTap={{ scale: 0.95 }}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <span className="relative z-10">Исследовать возможности</span>
               <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
@@ -882,7 +891,7 @@ const HomePage: React.FC = () => {
             {!isAuthenticated && (
               <motion.button
                 onClick={openLoginModal}
-                className="group px-8 py-4 bg-gradient-to-r from-cyan-600 to-cyan-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900 relative overflow-hidden"
+                className="group px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900 relative overflow-hidden"
                 whileHover={{ scale: 1.05, y: -5 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -917,8 +926,9 @@ const HomePage: React.FC = () => {
         id="features"
         className="py-32 relative overflow-hidden"
       >
-      
-        
+        {/* Декоративные светящиеся элементы */}
+        <div className="absolute top-1/3 left-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-1/3 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
         
         <div className="container mx-auto px-6 relative z-10">
           <motion.div
@@ -929,7 +939,7 @@ const HomePage: React.FC = () => {
             transition={{ duration: 0.8 }}
           >
             <h2 className="text-4xl lg:text-5xl font-black mb-6">
-              <span className="bg-gradient-to-r from-cyan-500 to-cyan-500 bg-clip-text text-transparent">Возможности</span> будущего
+              <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Возможности</span> будущего
             </h2>
             <p className="text-xl text-gray-200 max-w-3xl mx-auto font-light leading-relaxed">
               Инструменты, которые преобразуют ваш рабочий процесс
@@ -944,7 +954,7 @@ const HomePage: React.FC = () => {
                   key={index}
                   className={`p-6 rounded-2xl backdrop-blur-2xl border transition-all duration-500 cursor-pointer group relative overflow-hidden ${
                     activeFeature === index
-                      ? `border-cyan-500/50 shadow-2xl shadow-cyan-500/30 bg-gradient-to-r ${feature.color}`
+                      ? `border-cyan-500/50 shadow-2xl shadow-cyan-500/30 bg-gradient-to-r ${feature.color} bg-opacity-20`
                       : 'border-white/20 bg-white/5 hover:border-cyan-500/30 hover:bg-white/10'
                   }`}
                   initial={{ opacity: 0, x: -50 }}
@@ -958,7 +968,7 @@ const HomePage: React.FC = () => {
                   aria-label={`Выбрать функцию: ${feature.title}`}
                 >
                   {/* Эффект блеска */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent -skew-x-12 transform translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 transform translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
                   
                   <div className="flex items-start gap-4 relative z-10">
                     <div className={`p-3 rounded-xl backdrop-blur-sm border flex-shrink-0 transition-colors ${
@@ -987,26 +997,36 @@ const HomePage: React.FC = () => {
 
             {/* Визуальная часть */}
             <motion.div
-      className="relative"
-      style={{ y: featureParallax }}
-      initial={{ opacity: 0, scale: 0.8 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      viewport={{ once: true, margin: '-100px' }}
-      transition={{ duration: 0.8 }}
+              className="relative"
+              style={{ y: featureParallax }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true, margin: '-100px' }}
+              transition={{ duration: 0.8 }}
             >
               <div className="relative w-full h-[400px] bg-white/10 backdrop-blur-2xl rounded-2xl border border-white/20 overflow-hidden shadow-2xl shadow-cyan-500/20">
-        <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-cyan-500/20" />
-        <div className="flex items-center justify-center h-full p-4">
-          <motion.video
-            src="/mocaup.mp4"
-            autoPlay
-            muted
-            loop
-            playsInline
-            className="w-full h-full object-cover rounded-lg"
-          >
-                    Ваш браузер не поддерживает видео.
-                  </motion.video>
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-blue-500/20" />
+                <div className="flex items-center justify-center h-full p-4">
+                  {!videoError ? (
+                    <video
+                      src="/mocaup.mp4"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      className="w-full h-full object-cover rounded-lg"
+                      onError={() => setVideoError(true)}
+                      aria-label="Демонстрация функций портала"
+                    >
+                      Ваш браузер не поддерживает видео.
+                    </video>
+                  ) : (
+                    <div className="flex items-center justify-center text-gray-400">
+                      <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -1032,7 +1052,7 @@ const HomePage: React.FC = () => {
             transition={{ duration: 0.8 }}
           >
             <h2 className="text-4xl lg:text-5xl font-black mb-6">
-              Наши <span className="bg-gradient-to-r from-cyan-500 to-cyan-500 bg-clip-text text-transparent">результаты</span>
+              Наши <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">результаты</span>
             </h2>
             <p className="text-xl text-gray-200 max-w-3xl mx-auto font-light leading-relaxed">
               Реальные показатели эффективности нашей платформы (Демо данные)
@@ -1052,8 +1072,9 @@ const HomePage: React.FC = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.2 }}
+                whileHover={{ y: -5 }}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-cyan-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <h3 className="text-4xl font-bold text-cyan-400 mb-4 group-hover:text-cyan-300 transition-colors relative z-10">
                   <span ref={stat.ref}>{stat.value}</span>
                 </h3>
@@ -1078,7 +1099,7 @@ const HomePage: React.FC = () => {
             transition={{ duration: 0.8 }}
           >
             <h2 className="text-4xl lg:text-5xl font-black mb-6">
-              О <span className="bg-gradient-to-r from-cyan-500 to-cyan-500 bg-clip-text text-transparent">проекте</span>
+              О <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">проекте</span>
             </h2>
             <p className="text-xl text-gray-200 max-w-3xl mx-auto font-light leading-relaxed">
               Инновационная платформа Минскхлебпром для оптимизации процессов и повышения эффективности
@@ -1093,14 +1114,14 @@ const HomePage: React.FC = () => {
               transition={{ duration: 0.8 }}
             >
               <p className="text-gray-200 mb-6 text-lg leading-relaxed">
-               Корпоративный портал Минскхлебпром — это современная платформа, разработанная для автоматизации и упрощения рабочих процессов. Мы стремимся предоставить интуитивно понятные инструменты, которые помогут вам сосредоточиться на главном.
+                Корпоративный портал Минскхлебпром — это современная платформа, разработанная для автоматизации и упрощения рабочих процессов. Мы стремимся предоставить интуитивно понятные инструменты, которые помогут вам сосредоточиться на главном.
               </p>
               <p className="text-gray-300 font-light leading-relaxed">
                 Наша миссия — трансформировать подход к управлению задачами, обеспечивая прозрачность, эффективность и инновации на каждом этапе.
               </p>
               <motion.a
                 href="#features"
-                className="inline-block mt-8 px-8 py-4 bg-gradient-to-r from-cyan-600 to-cyan-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900"
+                className="inline-block mt-8 px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -1115,21 +1136,28 @@ const HomePage: React.FC = () => {
               transition={{ duration: 0.8 }}
             >
               <div className="relative w-full h-[300px] bg-white/10 backdrop-blur-2xl rounded-2xl border border-white/20 overflow-hidden shadow-2xl shadow-cyan-500/20">
-  <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-cyan-500/20" />
-  <div className="flex items-center justify-center h-full p-0">
-    <motion.video
-      src="/mocaup2.mp4"
-      autoPlay
-      muted
-      loop
-      playsInline
-      className="w-full h-full object-cover rounded-lg"
-      animate={{ scale: activeFeature % 2 === 0 ? 1.05 : 1 }}
-      transition={{ duration: 6, repeat: Infinity, repeatType: 'reverse' }}
-    >
-  
-                    Ваш браузер не поддерживает видео.
-                  </motion.video>
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-blue-500/20" />
+                <div className="flex items-center justify-center h-full p-0">
+                  {!videoError ? (
+                    <video
+                      src="/mocaup2.mp4"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      className="w-full h-full object-cover rounded-lg"
+                      onError={() => setVideoError(true)}
+                      aria-label="Демонстрация возможностей системы"
+                    >
+                      Ваш браузер не поддерживает видео.
+                    </video>
+                  ) : (
+                    <div className="flex items-center justify-center text-gray-400">
+                      <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -1144,7 +1172,7 @@ const HomePage: React.FC = () => {
             <div>
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
-                  <span className="text-white font-extrabold text-lg bg-gradient-to-r from-cyan-500 to-cyan-500 bg-clip-text text-transparent">МХП</span>
+                  <span className="text-white font-extrabold text-lg">МХП</span>
                 </div>
                 <span className="text-xl font-bold text-white">Минскхлебпром</span>
               </div>
@@ -1159,7 +1187,7 @@ const HomePage: React.FC = () => {
                   <li key={section}>
                     <a
                       href={`#${section}`}
-                      className="text-white-400 hover:text-cyan-400 transition-colors font-light"
+                      className="text-gray-400 hover:text-cyan-400 transition-colors font-light"
                     >
                       {section === 'features' ? 'Возможности' : section === 'stats' ? 'Результаты' : 'О проекте'}
                     </a>

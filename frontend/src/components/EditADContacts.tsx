@@ -119,13 +119,19 @@ const EditADContacts: React.FC = () => {
 
   const showModal = (type: 'success' | 'error' | 'info' | 'edit' | 'create', message?: string, contact?: Contact) => {
     setModal({ visible: true, type, message, contact });
+    
     if (type === 'edit' && contact) {
+      console.log('ontact.sam_account_name', contact)
       form.setFieldsValue({
-        ...contact,
+        displayName: contact.displayName || '',
+        email: contact.email || '',
         phone_internal: formatPhoneNumber(contact.phone_internal),
         phone_city: formatPhoneNumber(contact.phone_city),
         phone_mobile: formatPhoneNumber(contact.phone_mobile),
+        department: contact.department || '',
+        position: contact.position || '',
         groups: contact.groups || [],
+        sam_account_name: contact.id || '',
       });
     } else if (type === 'create') {
       form.resetFields();
@@ -781,7 +787,18 @@ const EditADContacts: React.FC = () => {
               form={form}
               layout="vertical"
               onFinish={modal.type === 'create' ? createContact : updateContact}
-              initialValues={modal.type === 'create' ? { isFrozen: false, groups: [] } : undefined}
+              initialValues={
+                modal.type === 'create'
+                  ? { isFrozen: false, groups: [] }
+                  : {
+                      ...modal.contact,
+                      phone_internal: formatPhoneNumber(modal.contact?.phone_internal),
+                      phone_city: formatPhoneNumber(modal.contact?.phone_city),
+                      phone_mobile: formatPhoneNumber(modal.contact?.phone_mobile),
+                      groups: modal.contact?.groups || [],
+                      sam_account_name: modal.contact?.id || '',
+                    }
+              }
               className={`space-y-4 ${theme === 'light'? 'text-gray-700':'text-white'}`}
             >
               <div className={`p-4 rounded-md ${theme === 'light' ? 'bg-gray-50':'bg-black'}`}>

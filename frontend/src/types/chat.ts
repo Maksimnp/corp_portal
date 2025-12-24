@@ -45,6 +45,7 @@ interface Chat {
   unread_count: number;
   last_message?: LastMessage | null;
   font_name: string;
+  last_read_message?: Message | null;
 }
 
 interface Contact {

@@ -53,6 +53,8 @@ async def get_admins(
         logger.error(f"Error getting admins: {str(e)}")
         raise HTTPException(status_code=500, detail="Ошибка получения списка администраторов")
 
+# api/admin.py
+
 @router.post("/admin_add")
 async def add_admin(
     admin_data: dict,
@@ -102,7 +104,7 @@ async def add_admin(
                 success = admin_manager.update_admin(existing_admin['id'], **update_data)
                 if success:
                     # Получаем обновленного администратора
-                    updated_admin = admin_manager.get_admin_by_id(existing_admin['id'])
+                    updated_admin = admin_manager.get_admin_by_username(username)
                     return {
                         "message": "Неактивный администратор активирован", 
                         "username": username,
@@ -143,7 +145,6 @@ async def add_admin(
     except Exception as e:
         logger.error(f"Error adding admin {admin_data.get('username')}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Ошибка добавления администратора: {str(e)}")
-
 @router.put("/admin/{admin_id}")
 async def update_admin(
     admin_id: int,
@@ -172,8 +173,13 @@ async def update_admin(
         success = admin_manager.update_admin(admin_id, **admin_data)
         
         if success:
-            # Возвращаем обновленные данные администратора
-            updated_admin = admin_manager.get_admin_by_id(admin_id)
+            # Получаем обновленного администратора по username
+            username = admin_data.get('username', '')
+            if username:
+                updated_admin = admin_manager.get_admin_by_username(username)
+            else:
+                updated_admin = None
+            
             response_data = {
                 "message": "Администратор успешно обновлен"
             }
@@ -336,3 +342,82 @@ async def get_services(current_user: dict = Depends(get_current_admin_user)):
     except Exception as e:
         logger.error(f"Error getting services: {str(e)}")
         raise HTTPException(status_code=500, detail="Ошибка получения списка сервисов")
+
+# Добавляем новые эндпоинты для управления настройками токенов
+
+@router.get("/token-settings")
+async def get_token_settings(current_user: dict = Depends(get_current_admin_user)):
+    """Получение настроек токенов"""
+    try:
+        # Здесь должна быть логика получения настроек из базы данных или конфигурации
+        # Для примера вернем значения по умолчанию
+        default_settings = {
+            "access_token_expire_minutes": 1440,
+            "refresh_token_expire_days": 7,
+            "algorithm": "HS256"
+        }
+        return {"settings": default_settings}
+    except Exception as e:
+        logger.error(f"Error getting token settings: {str(e)}")
+        raise HTTPException(status_code=500, detail="Ошибка получения настроек токенов")
+
+@router.post("/token-settings")
+async def update_token_settings(
+    settings: dict,
+    current_user: dict = Depends(get_current_admin_user)
+):
+    """Обновление настроек токенов"""
+    try:
+        # Проверяем права на управление администраторами
+        permissions = current_user.get("admin_permissions", {})
+        if not permissions.get("manage_admins"):
+            raise HTTPException(status_code=403, detail="Недостаточно прав для управления администраторами")
+        
+        # Валидация входных данных
+        access_token_expire_minutes = settings.get("access_token_expire_minutes", 1440)
+        refresh_token_expire_days = settings.get("refresh_token_expire_days", 7)
+        algorithm = settings.get("algorithm", "HS256")
+        
+        if access_token_expire_minutes < 5:
+            raise HTTPException(status_code=400, detail="Access Token должен быть не менее 5 минут")
+        if refresh_token_expire_days < 1:
+            raise HTTPException(status_code=400, detail="Refresh Token должен быть не менее 1 дня")
+        
+        # Здесь должна быть логика обновления настроек в базе данных или конфигурации
+        # Для примера просто вернем обновленные настройки
+        updated_settings = {
+            "access_token_expire_minutes": access_token_expire_minutes,
+            "refresh_token_expire_days": refresh_token_expire_days,
+            "algorithm": algorithm
+        }
+        
+        return {"settings": updated_settings}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating token settings: {str(e)}")
+        raise HTTPException(status_code=500, detail="Ошибка обновления настроек токенов")
+
+@router.post("/token-settings/reset")
+async def reset_token_settings(current_user: dict = Depends(get_current_admin_user)):
+    """Сброс настроек токенов к значениям по умолчанию"""
+    try:
+        # Проверяем права на управление администраторами
+        permissions = current_user.get("admin_permissions", {})
+        if not permissions.get("manage_admins"):
+            raise HTTPException(status_code=403, detail="Недостаточно прав для управления администраторами")
+        
+        # Здесь должна быть логика сброса настроек в базе данных или конфигурации
+        # Для примера вернем значения по умолчанию
+        default_settings = {
+            "access_token_expire_minutes": 1440,
+            "refresh_token_expire_days": 7,
+            "algorithm": "HS256"
+        }
+        
+        return {"settings": default_settings}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error resetting token settings: {str(e)}")
+        raise HTTPException(status_code=500, detail="Ошибка сброса настроек токенов")

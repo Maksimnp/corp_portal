@@ -1,0 +1,16 @@
+This package is a fork of Kenneth Reitz's certifi. The original license is
+found on https://github.com/certifi/python-certifi/blob/master/LICENSE
+
+SOURCE CODE
+The source code is maintained under the same license as the original content:
+
+This Source Code Form is subject to the terms of the Mozilla Public License,
+v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain
+one at http://mozilla.org/MPL/2.0/.
+
+CERTIFICATE BUNDLE
+The certificate bundle contains proprietary intellectual property of Microsoft,
+Inc. and this package does NOT grant you any rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of the bundle.
+
+For a full copyright notice, please refer to https://aka.ms/RootCert

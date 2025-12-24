@@ -27,7 +27,7 @@ export default defineConfig({
 
   server: {
     allowedHosts: [
-      'cloud.minskhleb.by'
+      'portal.mhp.net'
     ],
     proxy: {
       // Унифицированный прокси для всех API эндпоинтов

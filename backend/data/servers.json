@@ -1,0 +1,46 @@
+[
+  {
+    "id": "98317bd5-5aff-464d-b168-ff9e9b74f619",
+    "name": "Google",
+    "host": "google.com",
+    "port": 443,
+    "check_type": "https",
+    "path": "/",
+    "location": "Глобальный",
+    "timeout": 5.0,
+    "retries": 2
+  },
+  {
+    "id": "b5bb1a40-02eb-4744-916b-f80a7ea988f3",
+    "name": "Yandex",
+    "host": "yandex.ru",
+    "port": 443,
+    "check_type": "https",
+    "path": "/",
+    "location": "Россия",
+    "timeout": 5.0,
+    "retries": 2
+  },
+  {
+    "id": "4f10f7c9-8c16-4bea-8c48-93a508bf8eee",
+    "name": "192.1.3.81",
+    "host": "192.1.3.81",
+    "port": 80,
+    "check_type": "http",
+    "path": "/",
+    "location": "Локальная сеть",
+    "timeout": 5.0,
+    "retries": 2
+  },
+  {
+    "id": "1e4e567a-866d-4fad-a6e4-d9a6bbf7c830",
+    "name": "dasda",
+    "host": "192.1.3.40",
+    "port": 443,
+    "check_type": "tcp",
+    "path": "",
+    "location": "Локальная сеть",
+    "timeout": 5.0,
+    "retries": 2
+  }
+]

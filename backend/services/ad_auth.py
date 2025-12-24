@@ -248,13 +248,13 @@ def get_user_details(username: str) -> Optional[Dict[str, str]]:
         conn = get_ad_connection()
         
         search_filter = f"(sAMAccountName={username})"
-        logger.debug(f"Поиск деталей пользователя с фильтром: {search_filter}")
+        logger.info(f"Поиск деталей пользователя с фильтром: {search_filter}")
         
         conn.search(
             search_base=BASE_DN,
             search_filter=search_filter,
             search_scope=SUBTREE,
-            attributes=["displayName", "mail", "department"]
+            attributes=["displayName", "mail", "department", "telephoneNumber", "title", "otherTelephone", "mobile"]
         )
         
         if not conn.entries:
@@ -263,19 +263,26 @@ def get_user_details(username: str) -> Optional[Dict[str, str]]:
 
         entry = conn.entries[0]
         attrs = entry.entry_attributes_as_dict
-        
+
         display_name = attrs.get("displayName", [""])[0] if attrs.get("displayName") else ""
         mail = attrs.get("mail", [""])[0] if attrs.get("mail") else ""
         department = attrs.get("department", [""])[0] if attrs.get("department") else ""
-        
+        telephoneNumber = attrs.get("telephoneNumber", [""])[0] if attrs.get("telephoneNumber") else ""
+        title = attrs.get("title", [""])[0] if attrs.get("title") else ""
+        otherTelephone = attrs.get("otherTelephone", [""])[0] if attrs.get("otherTelephone") else ""
+        mobile = attrs.get("mobile", [""])[0] if attrs.get("mobile") else ""
         full_name = display_name or username
         
-        logger.debug(f"Получены детали для пользователя {username}")
+        logger.info(f"Получены детали для пользователя {username}: mail - {mail}, department - {department}, telephoneNumber - {telephoneNumber}, title - {title}, otherTelephone - {otherTelephone}, mobile - {mobile}")
         return {
             "username": username,
             "full_name": full_name,
             "email": mail,
-            "department": department
+            "department": department,
+            "title": title,
+            "telephoneNumber": telephoneNumber,
+            "otherTelephone": otherTelephone,
+            "mobile": mobile
         }
     except LDAPException as e:
         logger.error(f"Ошибка LDAP при получении деталей пользователя {username}: {e}", exc_info=True)

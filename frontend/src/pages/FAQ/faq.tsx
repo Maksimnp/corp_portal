@@ -1,8 +1,22 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftIcon, ComputerDesktopIcon } from '@heroicons/react/24/outline';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css'; // Import Quill styles
+import { IoRefresh, IoDownload, IoStatsChart } from "react-icons/io5";
+import { toast } from 'react-toastify';
+import { useAuth } from '../AuthContext';
+import { Modal, Tooltip, Popover, Button, List, Tag } from 'antd';
+import screenfull from 'screenfull';
+import { CloseOutlined, FileOutlined, FullscreenExitOutlined, FullscreenOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+
+interface SoftwareItem {
+  title: string;
+  filePath: string;
+  created_at: string;
+  downloads_count: number;
+  file_size: number;
+}
 
 interface FAQItem {
   id: number;
@@ -64,7 +78,12 @@ const quillFormats = [
   'size'
 ];
 
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const onlyOfficeServerUrl = import.meta.env.VITE_ONLYOFFICE_SERVER_URL;
+
+
 const FAQ: React.FC = () => {
+  const { role } = useAuth();
   const [faqs, setFaqs] = useState<FAQItem[]>([]);
   const [categories, setCategories] = useState<FAQCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -88,12 +107,19 @@ const FAQ: React.FC = () => {
   const [editingFaq, setEditingFaq] = useState<FAQItem | null>(null);
   const [showEditForm, setShowEditForm] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
-
+  const [showFiles, setShowFiles] = useState<boolean>(false);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
   });
-
+  const [allSoftware, setAllSoftware] = useState<SoftwareItem[]>([]);
+  const [currentPath, setCurrentPath] = useState<string>('');
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://192.1.66.117:8000';
+  const editContainerRef = useRef<HTMLDivElement>(null);
+  const [isOnlyOfficeModalOpen, setIsOnlyOfficeModalOpen] = useState(false);
+  const [onlyOfficeConfig, setOnlyOfficeConfig] = useState<any>(null);
+  const [onlyOfficeJwtToken, setOnlyOfficeJwtToken] = useState<string | undefined>(undefined);
+
+  const token = localStorage.getItem('token');
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -128,7 +154,12 @@ const FAQ: React.FC = () => {
         fetchAllDepartments();
       }
     }
-  }, [userInfo, selectedCategory, selectedDepartment, searchTerm]);
+  }, [userInfo]);
+
+  useEffect(() => {
+    fetchFAQs();
+    fetchSoftware();
+  }, [])
 
   useEffect(() => {
     if (userInfo?.department && !newFaq.is_general) {
@@ -173,13 +204,8 @@ const FAQ: React.FC = () => {
       if (!token) {
         throw new Error('Токен аутентификации не найден');
       }
-      const params = new URLSearchParams({
-        ...(selectedCategory !== 'all' && { category: selectedCategory }),
-        ...(searchTerm && { search: searchTerm }),
-        ...(selectedDepartment !== 'all' && selectedDepartment !== 'general' && { department: selectedDepartment }),
-      });
 
-      const response = await fetch(`${API_BASE_URL}/faq?${params}`, {
+      const response = await fetch(`${API_BASE_URL}/faq`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -260,6 +286,179 @@ const FAQ: React.FC = () => {
     }
   };
 
+  const fetchSoftware = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Токен аутентификации не найден');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/faq/files`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+        mode: 'cors',
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Ошибка получения ПО: ${response.status} - ${errorData.detail || 'Неизвестная ошибка'}`);
+      }
+
+      const data = await response.json();
+        console.log(data);
+      setAllSoftware(data.software || []);
+      // setSoftwareList(data.software || []);
+    } catch (err) {
+      console.error('Ошибка получения ПО:', err);
+      setError(err instanceof Error ? err.message : 'Не удалось загрузить список ПО');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  const filteredFaqs = useMemo(() => {
+    let filtered = faqs;
+
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(faq => faq.category === selectedCategory);
+    }
+
+    if (selectedDepartment !== 'all') {
+      if (selectedDepartment === 'general') {
+        filtered = filtered.filter(faq => faq.is_general);
+      } else {
+        filtered = filtered.filter(faq => faq.department === selectedDepartment);
+      }
+    }
+
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(faq => 
+        faq.question.toLowerCase().includes(searchLower) ||
+        (faq.content_html && faq.content_html.toLowerCase().includes(searchLower))
+      );
+    }
+
+    if (userInfo && !userInfo.isAdmin) {
+      filtered = filtered.filter(faq => 
+        faq.is_general || faq.department === userInfo.department
+      );
+    }
+
+    return filtered;
+  }, [faqs, selectedCategory, selectedDepartment, searchTerm, userInfo]);
+
+  const updatedCategories = useMemo(() => {
+    return categories.map(category => ({
+      ...category,
+      count: faqs.filter(faq => faq.category === category.name).length
+    }));
+  }, [categories, faqs]);
+
+
+  const currentSubdirs = useMemo(() => {
+    const dirs = new Set<string>();
+
+    allSoftware.forEach(item => {
+      const path = item.filePath;
+
+      if (currentPath && !path.startsWith(currentPath + '/')) {
+        return;
+      }
+      if (!currentPath && path.includes('/')) {
+        const firstDir = path.split('/')[0];
+        dirs.add(firstDir);
+      } else if (currentPath && path !== currentPath) {
+        const relative = path.slice(currentPath.length + 1);
+        if (relative.includes('/')) {
+          const nextDir = relative.split('/')[0];
+          dirs.add(currentPath + '/' + nextDir);
+        }
+      }
+    });
+
+    return Array.from(dirs).map(fullPath => {
+      const displayName = fullPath.split('/').pop() || fullPath;
+      return { displayName, fullPath };
+    });
+  }, [allSoftware, currentPath]);
+
+  const filteredSoftware = useMemo(() => {
+      let filtered = allSoftware;
+  
+      if (currentPath) {
+        filtered = filtered.filter(version => {
+          const filePath = version.filePath;
+          if (!filePath.startsWith(currentPath + '/')) return false;
+            const remaining = filePath.slice(currentPath.length + 1);
+          return !remaining.includes('/');
+        });
+      } else {
+        filtered = filtered.filter(version => !version.filePath.includes('/'));
+      }
+  
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        filtered = allSoftware.filter(group =>
+          group.title.toLowerCase().includes(searchLower)
+        );
+      }
+  
+      return filtered;
+    }, [selectedCategory, currentPath, searchTerm, showFiles]);
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Б';
+
+    const k = 1024;
+    const sizes = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+    const value = parseFloat((bytes / Math.pow(k, i)).toFixed(2));
+    return `${value} ${sizes[i]}`;
+  };
+
+  const handleDownload = async (filePath: string, title: string) => {
+      try {
+        console.log('filePath',filePath)
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('Токен аутентификации не найден');
+        }
+        
+        toast.info(`Начинаем загрузку: ${title}`);
+        
+        const response = await fetch(`${API_BASE_URL}/faq/download/${encodeURIComponent(filePath)}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+  
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(`Ошибка скачивания: ${response.status} - ${errorData.detail || 'Неизвестная ошибка'}`);
+        }
+  
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filePath.split('/').pop() || 'software';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+  
+        toast.success(`${title} успешно скачан!`);
+        fetchSoftware();
+      } catch (err) {
+        toast.error('Ошибка при скачивании');
+      }
+    };
+
   const handleFeedback = async (faqId: number, helpful: boolean) => {
     try {
       const token = localStorage.getItem('token');
@@ -282,10 +481,191 @@ const FAQ: React.FC = () => {
         throw new Error(`Ошибка отправки отзыва: ${response.status} - ${errorData.detail || 'Неизвестная ошибка'}`);
       }
 
-      await fetchFAQs();
+      const updatedFaqResponse = await fetch(`${API_BASE_URL}/faq/${faqId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+        mode: 'cors',
+      });
+
+      if (updatedFaqResponse.ok) {
+        const updatedFaq = await updatedFaqResponse.json();
+        setFaqs(prev => prev.map(faq => faq.id === faqId ? updatedFaq : faq));
+      }
     } catch (err) {
       console.error('Ошибка отправки отзыва:', err);
       setError(err instanceof Error ? err.message : 'Не удалось отправить отзыв');
+    }
+  };
+
+  const closeOnlyModal = async () => {
+    setIsOnlyOfficeModalOpen(false);
+    setOnlyOfficeConfig(null);
+    setOnlyOfficeJwtToken(undefined);
+  }
+  const OnlyOfficeModal = ({ 
+      isOpen, 
+      onClose, 
+      config,
+      jwtToken 
+    }: { 
+      isOpen: boolean; 
+      onClose: () => void; 
+      config: any;
+      jwtToken?: string | undefined; 
+    }) => {
+      const modalContainerRef = useRef<HTMLDivElement>(null);
+      const [isFullscreenActive, setIsFullscreenActive] = useState(false);
+  
+      useEffect(() => {
+        if (!isOpen || !config) return;
+  
+        let editorInstance: any = null;
+  
+        const initEditor = () => {
+          if (window.DocsAPI) {
+            try {
+              editorInstance = new window.DocsAPI.DocEditor("onlyoffice-editor-container", config, jwtToken );
+              console.log("OnlyOffice editor initialized", editorInstance);
+            } catch (initError) {
+              console.error("Error initializing OnlyOffice editor:", initError);
+              toast.error("Ошибка инициализации редактора OnlyOffice");
+              onClose();
+            }
+          } else {
+            console.error("OnlyOffice DocsAPI not loaded");
+            toast.error("Не удалось загрузить API OnlyOffice");
+            onClose();
+          }
+        };
+        const script = document.createElement('script');
+        script.src = `${onlyOfficeServerUrl}/web-apps/apps/api/documents/api.js`;
+        script.async = true;
+        script.onload = () => {
+          initEditor();
+        };
+        script.onerror = () => {
+          console.error("Failed to load OnlyOffice API script");
+          toast.error("Не удалось загрузить скрипт OnlyOffice");
+          onClose();
+        };
+  
+        document.body.appendChild(script);
+  
+        return () => {
+          if (script.parentNode) {
+            script.parentNode.removeChild(script);
+          }
+          if (editorInstance && typeof editorInstance.destroy === 'function') {
+            editorInstance.destroy();
+            console.log("OnlyOffice editor destroyed");
+          }
+        };
+      }, [isOpen, config, jwtToken]);
+  
+      useEffect(() => {
+        if (!screenfull.isEnabled) {
+          console.warn('Fullscreen mode is not supported by this browser.');
+          return;
+        }
+  
+        const handleFullscreenChange = () => {
+          setIsFullscreenActive(screenfull.isEnabled ? screenfull.isFullscreen : false);
+        };
+  
+        screenfull.on('change', handleFullscreenChange);
+        handleFullscreenChange();
+  
+        return () => {
+          screenfull.off('change', handleFullscreenChange);
+        };
+      }, []);
+  
+      const toggleFullscreen = async () => {
+        if (!screenfull.isEnabled) {
+          toast.error('Полноэкранный режим не поддерживается вашим браузером.');
+          console.warn('Fullscreen is not enabled/supported.');
+          return;
+        }
+  
+        try {
+          await screenfull.toggle();
+        } catch (error) {
+          console.error('Failed to toggle fullscreen mode:', error);
+          toast.error('Не удалось переключить полноэкранный режим.');
+        }
+      };
+  
+      return (
+      <div ref={modalContainerRef}>
+        <Modal
+          title={
+            <div className="flex justify-between items-center w-full">
+              <span>Редактор OnlyOffice</span>
+              <div className="flex items-center space-x-2">
+                {screenfull.isEnabled && (
+                  <Tooltip title={isFullscreenActive ? "Выйти из полноэкранного режима" : "На весь экран"}>
+                    <button
+                      onClick={toggleFullscreen}
+                      className="p-1 -mt-2 rounded mr-5 hover:bg-gray-200 focus:outline-none focus:ring-1 focus:ring-gray-400"
+                    >
+                      {isFullscreenActive ? (
+                        <FullscreenExitOutlined style={{ fontSize: '18px', padding: '0' }}/>
+                        
+                      ) : (
+                        <FullscreenOutlined style={{ fontSize: '18px', padding: '0' }}/>
+                      )}
+                    </button>
+                  </Tooltip>
+                )}
+              </div>
+            </div>
+          }
+          open={isOpen}
+          onCancel={onClose}
+          footer={null}
+          width="calc(100vw - 20px)"
+          style={{ top: 10 }}
+          styles={{
+            body: {
+              height: "93vh",
+              padding: 0,
+              margin: 0,
+              overflow: "hidden",
+            },
+          }}
+        >
+          <div id="onlyoffice-editor-container" style={{ width: "100%", height: "100%" }}></div>
+        </Modal>
+      </div>
+    );};
+
+  const openInOnlyOffice = async (docId: string) => {
+    try {
+      const response = await fetch(`${BASE_URL}/faq/onlyoffice/config/${docId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Ошибка получения конфигурации OnlyOffice: ${errorData.detail || response.statusText}`);
+      }
+
+      const { config, jwtToken } = await response.json();
+      
+      setOnlyOfficeConfig(config);
+      setIsOnlyOfficeModalOpen(true);
+      setOnlyOfficeJwtToken(jwtToken);
+    }
+    catch (error) {
+      console.error("Ошибка открытия документа в OnlyOffice:", error);
+      toast.error('Не удалось открыть документ в OnlyOffice.');
     }
   };
 
@@ -355,6 +735,8 @@ const FAQ: React.FC = () => {
         throw new Error(`Ошибка создания FAQ: ${response.status} - ${errorData.detail || 'Неизвестная ошибка'}`);
       }
 
+      const newFaqData = await response.json();
+      setFaqs(prev => [newFaqData, ...prev]);
       setNewFaq({ 
         question: '', 
         content_html: '', 
@@ -363,7 +745,6 @@ const FAQ: React.FC = () => {
         is_general: false 
       });
       setShowCreateForm(false);
-      fetchFAQs();
     } catch (err) {
       console.error('Ошибка создания FAQ:', err);
       setError(err instanceof Error ? err.message : 'Не удалось создать FAQ');
@@ -371,6 +752,7 @@ const FAQ: React.FC = () => {
   };
 
   const startEdit = (faq: FAQItem) => {
+    editContainerRef.current?.scrollIntoView({ behavior: 'auto' })
     setEditingFaq(faq);
     setShowEditForm(true);
   };
@@ -408,9 +790,10 @@ const FAQ: React.FC = () => {
         throw new Error(`Ошибка обновления FAQ: ${response.status} - ${errorData.detail || 'Неизвестная ошибка'}`);
       }
 
+      const updatedFaq = await response.json();
+      setFaqs(prev => prev.map(faq => faq.id === editingFaq.id ? updatedFaq : faq));
       setEditingFaq(null);
       setShowEditForm(false);
-      fetchFAQs();
     } catch (err) {
       console.error('Ошибка обновления FAQ:', err);
       setError(err instanceof Error ? err.message : 'Не удалось обновить FAQ');
@@ -437,31 +820,45 @@ const FAQ: React.FC = () => {
         throw new Error(`Ошибка удаления FAQ: ${response.status} - ${errorData.detail || 'Неизвестная ошибка'}`);
       }
 
+      setFaqs(prev => prev.filter(faq => faq.id !== id));
       setDeleteConfirm(null);
-      fetchFAQs();
     } catch (err) {
       console.error('Ошибка удаления FAQ:', err);
       setError(err instanceof Error ? err.message : 'Не удалось удалить FAQ');
     }
   };
 
-  const filteredFaqs = useMemo(() => {
-    if (!userInfo || userInfo.isAdmin) {
-      return faqs;
+  const handleSyncMetadata = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Токен не найден');
+
+      toast.info('Синхронизация данных...');
+      
+      const response = await fetch(`${API_BASE_URL}/faq/sync`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+
+      const result = await response.json();
+      const syncFiles = result.created;
+      toast.success(`Успешно обновлено файлов: ${syncFiles}`);
+      // fetchSoftware();
+    } catch (err) {
+      console.error('Ошибка синхронизации:', err);
+      toast.error('Ошибка синхронизации');
     }
-    return faqs.filter(faq => 
-      faq.is_general || faq.department === userInfo.department
-    );
-  }, [faqs, userInfo]);
+  };
 
   const getAvailableDepartments = () => {
     return allDepartments;
   };
 
-  // Стили для стеклянного дизайна
   const glassClasses = {
     background: theme === 'dark' 
-      ? 'bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900' 
+      ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' 
       : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-100',
     card: theme === 'dark' 
       ? 'bg-black/20 backdrop-blur-lg border border-white/10 shadow-2xl text-white' 
@@ -573,22 +970,33 @@ const FAQ: React.FC = () => {
             )}
           </div>
           
-          {userInfo?.isAdmin && (
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={() => setShowStats(!showStats)}
-                className={`px-6 py-3 rounded-xl transition-all flex items-center gap-3 ${glassClasses.button.primary} hover:scale-105 transform duration-200 backdrop-blur-sm`}
-              >
-                {showStats ? '📊 Скрыть статистику' : '📊 Показать статистику'}
-              </button>
-              <button
-                onClick={() => setShowCreateForm(true)}
-                className={`px-6 py-3 rounded-xl transition-all flex items-center gap-3 ${glassClasses.button.success} hover:scale-105 transform duration-200 backdrop-blur-sm`}
-              >
-                ➕ Добавить FAQ
-              </button>
+          
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+              {userInfo?.isAdmin && (
+                <>
+                <button
+                  onClick={() => setShowStats(!showStats)}
+                  className={`px-6 py-3 rounded-xl transition-all flex items-center gap-3 ${glassClasses.button.primary} hover:scale-105 transform duration-200 backdrop-blur-sm`}
+                >
+                  {showStats ? '📊 Скрыть статистику' : '📊 Показать статистику'}
+                </button>
+                <button
+                  onClick={() => setShowCreateForm(true)}
+                  className={`px-6 py-3 rounded-xl transition-all flex items-center gap-3 ${glassClasses.button.success} hover:scale-105 transform duration-200 backdrop-blur-sm`}
+                >
+                  ➕ Добавить FAQ
+                </button>
+                <button
+                  onClick={handleSyncMetadata}
+                  className={`flex items-center gap-3 px-6 py-3 rounded-xl transition-all duration-200 ${glassClasses.button.secondary} hover:scale-105`}
+                >
+                  <IoRefresh size={20} />
+                  Обновить данные
+                </button>
+                </>
+              )}
             </div>
-          )}
+          
         </div>
 
         {/* Статистика */}
@@ -724,7 +1132,10 @@ const FAQ: React.FC = () => {
 
         {/* Форма редактирования */}
         {showEditForm && editingFaq && userInfo?.isAdmin && (
-          <div className={`rounded-2xl p-6 mb-8 ${glassClasses.card} backdrop-blur-lg`}>
+          <div 
+            className={`rounded-2xl p-6 mb-8 ${glassClasses.card} backdrop-blur-lg`}
+            ref={editContainerRef}
+          >
             <h3 className={`text-2xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent`}>
               ✏️ Редактировать FAQ
             </h3>
@@ -856,79 +1267,131 @@ const FAQ: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-6">
-            <div className="flex-1">
-              <h4 className={`text-sm font-medium mb-3 ${glassClasses.text.secondary}`}>Категории</h4>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => setSelectedCategory('all')}
-                  className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
-                    selectedCategory === 'all' 
-                      ? `${glassClasses.button.primary} shadow-lg` 
-                      : glassClasses.button.secondary
-                  } hover:scale-105 backdrop-blur-sm`}
-                >
-                  Все ({faqs.length})
-                </button>
-
-                {categories.map(category => (
+          <div className="flex flex-col justify-between sm:flex-row gap-6">
+            {!showFiles && (
+              <>
+              <div className="flex-1">
+                <h4 className={`text-sm font-medium mb-3 ${glassClasses.text.secondary}`}>Категории</h4>
+                <div className="flex flex-wrap gap-2">
                   <button
-                    key={category.name}
-                    onClick={() => setSelectedCategory(category.name)}
+                    onClick={() => setSelectedCategory('all')}
                     className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
-                      selectedCategory === category.name
-                        ? `${glassClasses.button.primary} shadow-lg`
+                      selectedCategory === 'all' 
+                        ? `${glassClasses.button.primary} shadow-lg` 
                         : glassClasses.button.secondary
                     } hover:scale-105 backdrop-blur-sm`}
                   >
-                    {category.name} ({category.count})
+                    Все ({faqs.length})
                   </button>
-                ))}
-              </div>
-            </div>
 
-            <div className="flex-1">
-              <h4 className={`text-sm font-medium mb-3 ${glassClasses.text.secondary}`}>Тип FAQ</h4>
-              <div className="flex flex-wrap gap-2">
+                  {updatedCategories.map(category => (
+                    <button
+                      key={category.name}
+                      onClick={() => setSelectedCategory(category.name)}
+                      className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
+                        selectedCategory === category.name
+                          ? `${glassClasses.button.primary} shadow-lg`
+                          : glassClasses.button.secondary
+                      } hover:scale-105 backdrop-blur-sm`}
+                    >
+                      {category.name} ({category.count})
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+            )}
+            {showFiles && (<>
+              {currentPath && (
+              <div className="flex justify-between mb-4">
                 <button
-                  onClick={() => setSelectedDepartment('all')}
-                  className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
-                    selectedDepartment === 'all'
-                      ? `${glassClasses.button.success} shadow-lg`
-                      : glassClasses.button.secondary
-                  } hover:scale-105 backdrop-blur-sm`}
+                  onClick={() => {
+                    const parent = currentPath.split('/').slice(0, -1).join('/');
+                    setCurrentPath(parent);
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg ${glassClasses.button.secondary} hover:scale-105`}
                 >
-                  Все
+                  <ArrowLeftIcon className="h-4 w-4" />
+                  Назад к {currentPath.split('/').slice(0, -1).join('/') || 'корню'}
                 </button>
-                <button
-                  onClick={() => setSelectedDepartment('general')}
-                  className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
-                    selectedDepartment === 'general'
-                      ? `${glassClasses.button.success} shadow-lg`
-                      : glassClasses.button.secondary
-                  } hover:scale-105 backdrop-blur-sm`}
-                >
-                  Общие
-                </button>
-                {userInfo?.department && (
+              </div>
+            )}
+            {currentSubdirs.length > 0 &&  (
+              <div className="mb-6">
+                <h4 className={`text-sm font-semibold mb-2 uppercase tracking-wide ${glassClasses.text.muted}`}>
+                  Папки
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {currentSubdirs.map(dir => (
+                    <button
+                      key={dir.fullPath}
+                      onClick={() => setCurrentPath(dir.fullPath)}
+                      className={`px-4 py-2 text-sm font-medium rounded-lg ${glassClasses.button.secondary} hover:scale-105`}
+                    >
+                      📁 {dir.displayName}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            </>)}
+
+              <div className="">
+                <h4 className={`text-sm font-medium mb-3 ${glassClasses.text.secondary}`}>Тип FAQ</h4>
+                <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => setSelectedDepartment(userInfo.department ?? '')}
+                    onClick={() => {setShowFiles(false); setSelectedDepartment('all')}}
                     className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
-                      selectedDepartment === userInfo.department
+                      selectedDepartment === 'all'
                         ? `${glassClasses.button.success} shadow-lg`
                         : glassClasses.button.secondary
                     } hover:scale-105 backdrop-blur-sm`}
                   >
-                    Мой отдел
+                    Все
                   </button>
-                )}
+                  <button
+                    onClick={() => {setShowFiles(false); setSelectedDepartment('general')}}
+                    className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
+                      selectedDepartment === 'general'
+                        ? `${glassClasses.button.success} shadow-lg`
+                        : glassClasses.button.secondary
+                    } hover:scale-105 backdrop-blur-sm`}
+                  >
+                    Общие
+                  </button>
+                  {userInfo?.department && (
+                    <button
+                      onClick={() => {setShowFiles(false); setSelectedDepartment(userInfo.department ?? '');}}
+                      className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
+                        selectedDepartment === userInfo.department
+                          ? `${glassClasses.button.success} shadow-lg`
+                          : glassClasses.button.secondary
+                      } hover:scale-105 backdrop-blur-sm`}
+                    >
+                      Мой отдел
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {setShowFiles(true); setSelectedDepartment('files')}}
+                    className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all ${
+                      selectedDepartment === 'files'
+                        ? `${glassClasses.button.success} shadow-lg`
+                        : glassClasses.button.secondary
+                    } hover:scale-105 backdrop-blur-sm`}
+                  >
+                    В облаке
+                  </button>
+                </div>
               </div>
-            </div>
+
+            
+            
           </div>
         </div>
-
+        
         {/* Список FAQ */}
-        <div className="space-y-4">
+        
+        {!showFiles && (<div className="space-y-4">
           {filteredFaqs.length === 0 ? (
             <div className={`text-center py-16 rounded-2xl ${glassClasses.card} backdrop-blur-lg`}>
               <div className="text-8xl mb-6">🔍</div>
@@ -988,13 +1451,13 @@ const FAQ: React.FC = () => {
 
                 {expandedItems.has(faq.id) && (
                   <div className={`px-8 py-6 border-t ${
-                    theme === 'dark' ? 'border-white/10' : 'border-gray-200/50'
+                    theme === 'dark' ? 'border-white/10 text-white' : 'border-gray-200/50'
                   }`}>
                     <ReactQuill
                       theme="snow"
                       value={faq.content_html || ''}
                       readOnly={true}
-                      modules={{ toolbar: false }} // Отключаем тулбар для просмотра
+                      modules={{ toolbar: false }}
                       formats={quillFormats}
                       className={`${theme === 'dark' ? 'ql-dark' : ''}`}
                     />
@@ -1092,8 +1555,79 @@ const FAQ: React.FC = () => {
               </div>
             ))
           )}
+        </div>)}
+
+        {showFiles && (
+          <div className="space-y-4">
+          {filteredSoftware.length === 0 ? (
+            <div className={`text-center py-12 rounded-xl shadow-lg ${glassClasses.card}`}>
+              <div className="text-6xl mb-4">🔍</div>
+              <h3 className={`text-xl font-medium mb-2 ${glassClasses.text.primary}`}>Программы не найдены</h3>
+              <p className={glassClasses.text.secondary}>Попробуйте изменить параметры поиска или фильтры</p>
+            </div>
+          ) : (
+            filteredSoftware.map(software => (
+              <div 
+                key={software.title} 
+                className={`rounded-xl shadow-lg overflow-hidden transition-all hover:shadow-xl ${
+                  theme === 'dark' 
+                    ? 'bg-gray-800 border-gray-700 hover:border-gray-600' 
+                    : 'bg-white border-gray-200 hover:border-gray-300/50'
+                } border`}
+              >
+                <div
+                  // onClick={() => toggleItemFile(software.title)}
+                  className={`w-full px-6 py-5 text-left focus:outline-none transition-colors ${
+                    theme === 'dark' ? 'hover:bg-slate-700' : 'hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <ComputerDesktopIcon className={`h-6 w-6 ${theme === 'dark' ? 'text-violet-400' : 'text-violet-600'}`} />
+                      <div>
+                        <h3 className={`text-lg font-medium ${glassClasses.text.primary}`}>{software.title}</h3>
+                        {software.title && (
+                          <div className='flex gap-2'>
+                          <span className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-full ${glassClasses.badge.category}`}>
+                            Добавлено: {new Date(software.created_at).toLocaleDateString('ru-RU')}
+                          </span>
+                          <span className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-full ${glassClasses.badge.category}`}>
+                            Размер: {formatFileSize(software.file_size)}
+                          </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className='flex gap-3'>
+                      <button
+                        onClick={() => openInOnlyOffice(software.title)}
+                        className={`px-4 py-2 rounded-lg transition-colors cursor-pointer font-medium ${glassClasses.button.primary}`}
+                      >
+                        Открыть
+                      </button>
+                      <button
+                        onClick={() => {handleDownload(software.filePath, software.title)}}
+                        className={`px-4 py-2 rounded-lg transition-colors cursor-pointer font-medium ${glassClasses.button.primary}`}
+                      >
+                        Скачать
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
+        )}
       </div>
+      {isOnlyOfficeModalOpen && (
+        <OnlyOfficeModal
+          isOpen={isOnlyOfficeModalOpen}
+          onClose={closeOnlyModal}
+          config={onlyOfficeConfig}
+          jwtToken={onlyOfficeJwtToken}
+        />
+      )}
     </div>
   );
 };

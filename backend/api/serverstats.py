@@ -1,671 +1,1175 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from datetime import datetime, timedelta
-import logging
+# backend/api/serverstat.py — исправленная версия
+import json
 import os
-from typing import List, Dict, Any, Optional
-from pydantic import BaseModel
-from services.jwt_utils import verify_token
-from concurrent.futures import ThreadPoolExecutor
 import asyncio
-import routeros_api
+import aiohttp
+import socket
+import logging
 import time
+import threading
+import uuid
+from datetime import datetime, timedelta
+from fastapi import APIRouter, HTTPException, BackgroundTasks
+from pydantic import BaseModel, Field, validator, ConfigDict, field_validator
+from typing import List, Optional, Literal, Dict, Any
+from enum import Enum
+from collections import defaultdict
+import ssl
 
-router = APIRouter(prefix="/serverstats", tags=["server-stats"])
-
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Модель данных для ответа
-class ServerData(BaseModel):
-    ip: str
-    status: str
-    onlineTime: str
-    offlineTime: str
-    trafficIn: str
-    trafficOut: str
-    failedTests: int = 0
-    latency: str = "0ms"
-    packetLoss: str = "0%"
+router = APIRouter(prefix="/servers", tags=["server-monitor"])
 
-# Модель для графиков
-class TimeSeriesData(BaseModel):
+DATA_DIR = "data"
+SERVERS_FILE = os.path.join(DATA_DIR, "servers.json")
+MAX_SERVERS = 100  # Ограничение количества серверов
+os.makedirs(DATA_DIR, exist_ok=True)
+
+# === Безопасный кэш с блокировкой ===
+class StatusCache:
+    def __init__(self, ttl_seconds: int = 10):
+        self.data = None
+        self.timestamp = None
+        self.expires_at = None
+        self.ttl = ttl_seconds
+        self.lock = threading.RLock()
+    
+    def get(self):
+        with self.lock:
+            if self.data is not None and self.expires_at is not None:
+                now = datetime.now()
+                if now < self.expires_at:
+                    return self.data
+            return None
+    
+    def set(self, data):
+        with self.lock:
+            self.data = data
+            self.timestamp = datetime.now()
+            self.expires_at = self.timestamp + timedelta(seconds=self.ttl)
+    
+    def clear(self):
+        with self.lock:
+            self.data = None
+            self.timestamp = None
+            self.expires_at = None
+
+_status_cache = StatusCache(ttl_seconds=10)
+
+# === Модели данных ===
+class CheckType(str, Enum):
+    HTTP = "http"
+    HTTPS = "https"
+    TCP = "tcp"
+
+class ServerIn(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100, description="Название устройства")
+    host: str = Field(..., description="IP адрес или доменное имя")
+    port: int = Field(default=443, ge=1, le=65535, description="Порт устройства")
+    check_type: CheckType = Field(default=CheckType.HTTPS, description="Тип проверки")
+    path: str = Field(default="/", description="Путь для HTTP проверки")
+    location: str = Field(default="Локальная сеть", description="Местоположение устройства")
+    timeout: float = Field(default=5.0, ge=0.5, le=30.0, description="Таймаут в секундах")
+    retries: int = Field(default=1, ge=1, le=5, description="Количество попыток")
+    
+    model_config = ConfigDict(from_attributes=True)
+    
+    @field_validator('host')
+    def validate_host(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError('Host не может быть пустым')
+        if len(v) > 255:
+            raise ValueError('Host слишком длинный')
+        return v.strip()
+    
+    @field_validator('path')
+    def validate_path(cls, v, info):
+        check_type = info.data.get('check_type', CheckType.HTTPS)
+        if check_type == CheckType.TCP:
+            return ""  # Для TCP путь не используется
+        if not v.startswith('/'):
+            return '/' + v
+        return v
+    
+    @field_validator('timeout')
+    def validate_timeout(cls, v):
+        return min(max(v, 0.5), 30.0)
+
+class ServerStatus(BaseModel):
+    id: str
+    name: str
+    host: str
+    port: int
+    check_type: CheckType
+    path: str
+    location: str
+    status: Literal["online", "offline", "checking", "error"]
+    latency: float = Field(ge=0, description="Задержка в миллисекундах")
     timestamp: str
-    value: float
+    last_check: str
+    message: Optional[str] = None
 
-class TrafficData(BaseModel):
-    ip: str
-    bytesIn: List[TimeSeriesData]
-    bytesOut: List[TimeSeriesData]
-    packetsIn: List[TimeSeriesData]
-    packetsOut: List[TimeSeriesData]
+class StatusResponse(BaseModel):
+    servers: List[ServerStatus]
+    updated_at: str
+    total_online: int
+    total_offline: int
+    total_checking: int
+    statistics: Dict[str, Any]
 
-class LatencyData(BaseModel):
-    ip: str
-    latency: List[TimeSeriesData]
-    packetLoss: List[TimeSeriesData]
+class TestConnectionResponse(BaseModel):
+    host: str
+    port: int
+    type: str
+    latency: float
+    status: Literal["online", "offline"]
+    timestamp: str
+    message: Optional[str] = None
 
-# Модель для системной информации
-class SystemInfo(BaseModel):
-    cpuLoad: str
-    memoryUsage: str
-    uptime: str
-    version: str
+class ServerListResponse(BaseModel):
+    servers: List[Dict[str, Any]]
+    count: int
 
-# Настройки MikroTik из переменных окружения
-MIKROTIK_HOST = os.getenv("MIKROTIK_HOST", "192.1.3.154")
-MIKROTIK_USERNAME = os.getenv("MIKROTIK_USERNAME", "mnp")
-MIKROTIK_PASSWORD = os.getenv("MIKROTIK_PASSWORD", "Season24")
-MIKROTIK_PORT = int(os.getenv("MIKROTIK_PORT", "8728"))
+# === Работа с файлом ===
+def load_servers() -> List[Dict[str, Any]]:
+    """Загрузка списка серверов из файла с валидацией"""
+    try:
+        if not os.path.exists(SERVERS_FILE):
+            logger.info(f"Файл {SERVERS_FILE} не найден, создаем тестовые данные")
+            default_servers = [
+                {
+                    "id": str(uuid.uuid4()),
+                    "name": "Google",
+                    "host": "google.com",
+                    "port": 443,
+                    "check_type": "https",
+                    "path": "/",
+                    "location": "Глобальный",
+                    "timeout": 5.0,
+                    "retries": 2
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "name": "Yandex",
+                    "host": "yandex.ru",
+                    "port": 443,
+                    "check_type": "https",
+                    "path": "/",
+                    "location": "Россия",
+                    "timeout": 5.0,
+                    "retries": 2
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "name": "Локальный сервер",
+                    "host": "localhost",
+                    "port": 8080,
+                    "check_type": "http",
+                    "path": "/",
+                    "location": "Локальная сеть",
+                    "timeout": 2.0,
+                    "retries": 3
+                }
+            ]
+            save_servers(default_servers)
+            return default_servers
+        
+        with open(SERVERS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if not isinstance(data, list):
+                logger.error(f"Неверный формат данных в {SERVERS_FILE}")
+                return []
+            
+            validated_servers = []
+            for server in data:
+                if not isinstance(server, dict):
+                    continue
+                
+                server_id = server.get("id")
+                if not server_id:
+                    server_id = str(uuid.uuid4())
+                
+                # Проверяем уникальность ID
+                if any(s["id"] == server_id for s in validated_servers):
+                    server_id = str(uuid.uuid4())
+                
+                # Валидация типа проверки
+                check_type = server.get("check_type", "https")
+                if check_type not in ["http", "https", "tcp"]:
+                    check_type = "https"
+                
+                # Нормализуем данные
+                validated_server = {
+                    "id": str(server_id),
+                    "name": str(server.get("name", "Без имени")).strip(),
+                    "host": str(server.get("host", "")).strip(),
+                    "port": int(server.get("port", 80 if check_type == "http" else 443)),
+                    "check_type": check_type,
+                    "path": str(server.get("path", "/")).strip(),
+                    "location": str(server.get("location", "Неизвестно")).strip(),
+                    "timeout": float(server.get("timeout", 5.0)),
+                    "retries": int(server.get("retries", 1))
+                }
+                
+                # Корректируем путь для TCP
+                if validated_server["check_type"] == "tcp":
+                    validated_server["path"] = ""
+                elif not validated_server["path"].startswith('/'):
+                    validated_server["path"] = '/' + validated_server["path"]
+                
+                # Валидация порта
+                if not (1 <= validated_server["port"] <= 65535):
+                    validated_server["port"] = 443 if check_type in ["https", "tcp"] else 80
+                
+                validated_servers.append(validated_server)
+            
+            logger.info(f"Загружено {len(validated_servers)} валидированных серверов")
+            return validated_servers[:MAX_SERVERS]
+            
+    except json.JSONDecodeError as e:
+        logger.error(f"Ошибка парсинга JSON в {SERVERS_FILE}: {e}")
+        # Создаем новый файл с дефолтными данными
+        default_servers = [
+            {
+                "id": str(uuid.uuid4()),
+                "name": "Резервный сервер",
+                "host": "google.com",
+                "port": 443,
+                "check_type": "https",
+                "path": "/",
+                "location": "Глобальный",
+                "timeout": 5.0,
+                "retries": 2
+            }
+        ]
+        save_servers(default_servers)
+        return default_servers
+    except Exception as e:
+        logger.error(f"Ошибка загрузки серверов: {e}", exc_info=True)
+        return []
 
-if not all([MIKROTIK_PASSWORD, MIKROTIK_USERNAME]):
-    logger.critical("Переменные окружения MIKROTIK_PASSWORD или MIKROTIK_USERNAME не установлены")
-    raise EnvironmentError("Переменные окружения MIKROTIK_PASSWORD или MIKROTIK_USERNAME не установлены")
-
-# Пул потоков для синхронных операций
-executor = ThreadPoolExecutor(max_workers=4)
-
-# Проверка токена
-security = HTTPBearer()
-
-# Кэш для оптимизации запросов
-cache = {}
-CACHE_TTL = 300  # 5 минут
-
-async def verify_token_dependency(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
-    user_data = verify_token(token)
-    if not user_data:
-        logger.warning(f"Недействительный или истёкший токен: {token[:10]}...")
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Недействительный или истёкший токен")
-    return user_data
-
-def get_cached_data(key: str) -> Optional[Any]:
-    """Получение данных из кэша"""
-    if key in cache:
-        data, timestamp = cache[key]
-        if time.time() - timestamp < CACHE_TTL:
-            return data
+def save_servers(servers: List[Dict[str, Any]]) -> bool:
+    """Сохранение списка серверов в файл"""
+    try:
+        if len(servers) > MAX_SERVERS:
+            logger.warning(f"Количество серверов ({len(servers)}) превышает максимум {MAX_SERVERS}")
+            servers = servers[:MAX_SERVERS]
+        
+        # Создаем временный файл для безопасного сохранения
+        temp_file = SERVERS_FILE + ".tmp"
+        with open(temp_file, "w", encoding="utf-8") as f:
+            json.dump(servers, f, ensure_ascii=False, indent=2)
+        
+        # Заменяем оригинальный файл
+        if os.path.exists(SERVERS_FILE):
+            os.replace(temp_file, SERVERS_FILE)
         else:
-            del cache[key]
-    return None
+            os.rename(temp_file, SERVERS_FILE)
+        
+        logger.info(f"Сохранено {len(servers)} серверов в файл")
+        return True
+    except Exception as e:
+        logger.error(f"Ошибка сохранения серверов: {e}")
+        return False
 
-def set_cached_data(key: str, data: Any):
-    """Сохранение данных в кэш"""
-    cache[key] = (data, time.time())
+# === Утилиты для работы с сетью ===
+def is_local_network(host: str) -> bool:
+    """Проверяет, является ли хост локальным адресом"""
+    try:
+        # Пробуем разрешить домен
+        ip = socket.gethostbyname(host)
+        
+        # Проверяем локальные диапазоны
+        if ip.startswith('192.168.'):
+            return True
+        if ip.startswith('10.'):
+            return True
+        if ip.startswith('172.') and 16 <= int(ip.split('.')[1]) <= 31:
+            return True
+        if ip.startswith('127.'):
+            return True
+        if ip == 'localhost':
+            return True
+        if ip == '::1':
+            return True
+            
+        return False
+    except (socket.gaierror, ValueError):
+        # Если не удалось разрешить, проверяем по паттерну
+        host_lower = host.lower()
+        if host_lower in ['localhost', 'local']:
+            return True
+        if host_lower.startswith(('192.168.', '10.', '172.16.', '172.17.', '172.18.', '172.19.', 
+                           '172.20.', '172.21.', '172.22.', '172.23.', '172.24.', '172.25.',
+                           '172.26.', '172.27.', '172.28.', '172.29.', '172.30.', '172.31.',
+                           '127.', 'localhost')):
+            return True
+        return False
+    except Exception:
+        return False
 
-def get_router_connection():
-    """Создание подключения к роутеру"""
-    return routeros_api.RouterOsApiPool(
-        host=MIKROTIK_HOST,
-        username=MIKROTIK_USERNAME,
-        password=MIKROTIK_PASSWORD,
-        port=MIKROTIK_PORT,
-        plaintext_login=True
+def get_port_description(port: int) -> str:
+    """Возвращает описание порта"""
+    port_descriptions = {
+        80: "HTTP",
+        443: "HTTPS",
+        22: "SSH",
+        3389: "RDP",
+        21: "FTP",
+        25: "SMTP",
+        110: "POP3",
+        143: "IMAP",
+        3306: "MySQL",
+        5432: "PostgreSQL",
+        27017: "MongoDB",
+        554: "RTSP (камера)",
+        9100: "Принтер",
+        515: "LPR (принтер)",
+        161: "SNMP",
+        389: "LDAP",
+        636: "LDAPS",
+        8080: "HTTP Alt",
+        8443: "HTTPS Alt",
+        5900: "VNC",
+        23: "Telnet",
+        53: "DNS",
+        123: "NTP",
+        445: "SMB",
+        548: "AFP"
+    }
+    return port_descriptions.get(port, f"Порт {port}")
+
+# === Проверка соединений ===
+async def check_tcp_connection(host: str, port: int, timeout: float = 3.0) -> float:
+    """Проверка TCP соединения с использованием time.perf_counter"""
+    start_time = time.perf_counter()
+    
+    try:
+        # Для локальных хостов уменьшаем таймаут
+        if is_local_network(host):
+            timeout = min(timeout, 1.5)
+        
+        # Используем asyncio.open_connection для асинхронной проверки
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port),
+            timeout=timeout
+        )
+        
+        writer.close()
+        await writer.wait_closed()
+        
+        latency = round((time.perf_counter() - start_time) * 1000, 2)
+        logger.debug(f"TCP {host}:{port} - успешно, задержка: {latency}мс")
+        return max(1.0, latency)  # Минимум 1 мс
+        
+    except asyncio.TimeoutError:
+        logger.debug(f"TCP {host}:{port} - таймаут ({timeout}с)")
+        return -1
+    except ConnectionRefusedError:
+        logger.debug(f"TCP {host}:{port} - соединение отклонено")
+        return -1
+    except OSError as e:
+        logger.debug(f"TCP {host}:{port} - ошибка ОС: {e}")
+        return -1
+    except Exception as e:
+        logger.debug(f"TCP {host}:{port} - ошибка: {e}")
+        return -1
+
+async def check_http_connection(host: str, port: int, path: str = "/", timeout: float = 5.0, 
+                              use_ssl: bool = True) -> float:
+    """Проверка HTTP/HTTPS соединения"""
+    start_time = time.perf_counter()
+    
+    try:
+        scheme = "https" if use_ssl else "http"
+        
+        # Формируем URL
+        if (use_ssl and port == 443) or (not use_ssl and port == 80):
+            url = f"{scheme}://{host}{path}"
+        else:
+            url = f"{scheme}://{host}:{port}{path}"
+        
+        logger.info(f"HTTP проверка: {url}")
+        
+        # Специальные настройки для Google и других популярных сайтов
+        ssl_context = None
+        if use_ssl:
+            import ssl
+            
+            # Создаем SSL контекст с современными настройками
+            ssl_context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+            
+            # Отключаем старые небезопасные протоколы
+            ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
+            
+            # Для Google устанавливаем свой User-Agent
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.5',
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'close'
+            }
+            
+            # Дополнительные настройки для популярных сайтов
+            if host.lower() in ['google.com', 'www.google.com']:
+                # Явно указываем доверенные корневые сертификаты
+                ssl_context.load_default_certs()
+                # Добавляем более широкий список шифров
+                ssl_context.set_ciphers('ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20:ECDH+AESGCM:ECDH+CHACHA20:DH+AESGCM:DH+CHACHA20:RSA+AESGCM:RSA+AES:RSA+HIGH:!aNULL:!eNULL:!MD5:!DSS')
+        else:
+            headers = {
+                'User-Agent': 'ServerMonitor/2.0',
+                'Accept': '*/*',
+                'Connection': 'close'
+            }
+        
+        # Для локальных хостов уменьшаем таймаут
+        if is_local_network(host):
+            timeout = min(timeout, 2.0)
+        
+        timeout_obj = aiohttp.ClientTimeout(
+            total=timeout,
+            connect=2,
+            sock_read=3,
+            sock_connect=2
+        )
+        
+        connector = aiohttp.TCPConnector(
+            ssl=ssl_context if use_ssl else False,
+            limit=1,
+            force_close=True,
+            enable_cleanup_closed=True
+        )
+        
+        async with aiohttp.ClientSession(
+            timeout=timeout_obj,
+            headers=headers,
+            connector=connector
+        ) as session:
+            
+            try:
+                async with session.get(url) as response:
+                    # Принимаем любые коды ответа как успех соединения
+                    # Главное - что сервер ответил
+                    if response.status is not None:
+                        latency = round((time.perf_counter() - start_time) * 1000, 2)
+                        logger.info(f"HTTP {host}:{port} - статус {response.status}, задержка: {latency}мс")
+                        return max(1.0, latency)
+                    else:
+                        return -1
+                        
+            except aiohttp.ClientSSLError as e:
+                logger.warning(f"SSL ошибка для {host}: {e}")
+                # Пробуем без SSL если с SSL не получилось
+                if use_ssl and port == 443:
+                    logger.info(f"Пробуем HTTP для {host} вместо HTTPS")
+                    return await check_http_connection(host, 80, path, timeout, use_ssl=False)
+                return -1
+                
+            except aiohttp.ClientConnectorError as e:
+                logger.debug(f"Ошибка соединения с {host}: {e}")
+                return -1
+                
+    except asyncio.TimeoutError:
+        logger.debug(f"HTTP {host}:{port} - таймаут ({timeout}с)")
+        return -1
+    except Exception as e:
+        logger.debug(f"HTTP {host}:{port} - общая ошибка: {e}")
+        return -1
+async def check_server_with_retry(server: Dict[str, Any]) -> ServerStatus:
+    """Проверка одного сервера с повторными попытками"""
+    server_id = server.get("id", str(uuid.uuid4()))
+    server_name = server.get("name", "Без имени")
+    host = server.get("host", "").strip()
+    port = server.get("port", 443)
+    check_type = server.get("check_type", "https")
+    path = server.get("path", "/")
+    location = server.get("location", "Локальная сеть")
+    timeout = server.get("timeout", 5.0)
+    retries = server.get("retries", 1)
+    
+    if not host:
+        return ServerStatus(
+            id=server_id,
+            name=server_name,
+            host=host,
+            port=port,
+            check_type=CheckType(check_type),
+            path=path if check_type != "tcp" else "",
+            location=location,
+            status="error",
+            latency=0,
+            timestamp=datetime.now().isoformat(),
+            last_check=datetime.now().isoformat(),
+            message="Не указан host"
+        )
+    
+    best_latency = -1
+    last_error = None
+    
+    # Пробуем несколько раз
+    for attempt in range(retries):
+        try:
+            latency = -1
+            
+            if check_type == "tcp":
+                latency = await check_tcp_connection(host, port, timeout)
+            elif check_type == "https":
+                latency = await check_http_connection(host, port, path, timeout, use_ssl=True)
+            else:  # http
+                latency = await check_http_connection(host, port, path, timeout, use_ssl=False)
+            
+            if latency > 0:
+                if best_latency == -1 or latency < best_latency:
+                    best_latency = latency
+                # Если успешно, выходим
+                if attempt == 0:
+                    break
+            
+            if attempt < retries - 1:
+                await asyncio.sleep(0.5)  # Небольшая задержка между попытками
+                
+        except Exception as e:
+            last_error = str(e)
+            logger.warning(f"Попытка {attempt + 1} для {host}:{port} - ошибка: {e}")
+    
+    # Определяем статус
+    status = "online" if best_latency > 0 else "offline"
+    message = None
+    
+    if status == "online":
+        message = f"Задержка: {best_latency}мс"
+    else:
+        message = last_error or "Не удалось установить соединение"
+    
+    return ServerStatus(
+        id=server_id,
+        name=server_name,
+        host=host,
+        port=port,
+        check_type=CheckType(check_type),
+        path=path if check_type != "tcp" else "",
+        location=location,
+        status=status,
+        latency=max(0, best_latency),
+        timestamp=datetime.now().isoformat(),
+        last_check=datetime.now().isoformat(),
+        message=message
     )
 
-def get_router_stats_sync(ips: List[str]):
-    """Синхронное получение статистики"""
-    connection = None
+async def check_server(server: Dict[str, Any]) -> ServerStatus:
+    """Проверка одного сервера (обертка для совместимости)"""
+    return await check_server_with_retry(server)
+
+# === Основные эндпоинты ===
+@router.get("/status", response_model=StatusResponse)
+async def get_status(background_tasks: BackgroundTasks):
+    """
+    Получение статуса всех серверов.
+    Использует кэширование для уменьшения нагрузки.
+    """
     try:
         # Проверяем кэш
-        cache_key = f"stats_{','.join(ips)}"
-        cached_data = get_cached_data(cache_key)
-        if cached_data:
+        cached_data = _status_cache.get()
+        if cached_data is not None:
+            logger.debug("Возвращаем данные из кэша")
             return cached_data
-
-        connection = get_router_connection()
-        api = connection.get_api()
-
-        logger.info("Получение данных Netwatch...")
-        netwatch_data = api.get_resource('/tool/netwatch').get()
-
-        logger.info("Получение данных о трафике...")
-        queue_data = api.get_resource('/queue/simple').get()
-
-        logger.info("Получение системной информации...")
-        system_resource = api.get_resource('/system/resource').get()
-        system_health = api.get_resource('/system/health').get()
-
-        stats = []
-        current_time = datetime.now()
-
-        for ip in ips:
-            status = 'offline'
-            online_time = 0
-            offline_time = 0
-            traffic_in = 0.0
-            traffic_out = 0.0
-            failed_tests = 0
-            latency = "0ms"
-            packet_loss = "0%"
-
-            # Поиск в Netwatch
-            netwatch_entries = [entry for entry in netwatch_data if entry.get('host') == ip]
-            if netwatch_entries:
-                # Берем запись с самым поздним since
-                netwatch_entries.sort(key=lambda e: parse_mikrotik_time(e.get('since', '1900-01-01 00:00:00')), reverse=True)
-                entry = netwatch_entries[0]
-                status_value = entry.get('status', '').lower()
-                status = 'online' if status_value == 'up' else 'offline'
-                failed_tests = int(entry.get('packet-count-lost', '0'))
-                latency = entry.get('average-rtt', '0ms')
-                packet_loss = entry.get('packet-loss', '0%')
-                since = entry.get('since', '')
-                if since:
-                    try:
-                        since_time = parse_mikrotik_time(since)
-                        duration = (current_time - since_time).total_seconds()
-                        if status == 'online':
-                            online_time = duration
-                        else:
-                            offline_time = duration
-                    except Exception as e:
-                        logger.warning(f"Ошибка парсинга времени для IP {ip}: {e}")
-
-            # Поиск в Queue
-            queue_entry = next((entry for entry in queue_data if entry.get('target', '').split('/')[0] == ip), None)
-            if queue_entry:
-                try:
-                    bytes_in = int(queue_entry.get('bytes-in', '0'))
-                    bytes_out = int(queue_entry.get('bytes-out', '0'))
-                    traffic_in = bytes_in / (1024 * 1024)
-                    traffic_out = bytes_out / (1024 * 1024)
-                except Exception as e:
-                    logger.warning(f"Ошибка парсинга трафика для IP {ip}: {e}")
-
-            stats.append(ServerData(
-                ip=ip,
-                status=status,
-                onlineTime=format_duration(online_time),
-                offlineTime=format_duration(offline_time),
-                trafficIn=f"{traffic_in:.2f} MB",
-                trafficOut=f"{traffic_out:.2f} MB",
-                failedTests=failed_tests,
-                latency=latency,
-                packetLoss=packet_loss
-            ))
-
-        # Сохраняем в кэш
-        set_cached_data(cache_key, stats)
-        return stats
-
-    except Exception as e:
-        logger.error(f"Ошибка в get_router_stats_sync: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка подключения к роутеру: {str(e)}")
-    finally:
-        if connection:
-            connection.disconnect()
-
-def parse_limit(limit_str: str) -> int:
-    """Парсинг лимита скорости (с суффиксами k, M, G)"""
-    multipliers = {'k': 1000, 'M': 1000000, 'G': 1000000000}
-    if limit_str[-1] in multipliers:
-        return int(limit_str[:-1]) * multipliers[limit_str[-1]]
-    return int(limit_str)
-
-def get_traffic_history_sync(ip: str, hours: int = 24):
-    """Получение истории трафика для IP"""
-    connection = None
-    try:
-        cache_key = f"traffic_{ip}_{hours}"
-        cached_data = get_cached_data(cache_key)
-        if cached_data:
-            return cached_data
-
-        connection = get_router_connection()
-        api = connection.get_api()
-
-        # Получаем данные из интерфейсов (пример для ether1)
-        interface_data = api.get_resource('/interface/monitor-traffic').get()
         
-        # Получаем данные из очередей
-        queue_data = api.get_resource('/queue/simple').get()
+        logger.info("=== Начало проверки статуса серверов ===")
         
-        # Формируем временные ряды
-        bytes_in_data = []
-        bytes_out_data = []
-        packets_in_data = []
-        packets_out_data = []
-
-        # TODO: Для реальной истории трафика используйте внешнюю БД или скрипты для логирования данных со временем.
-        # Здесь синтетические данные для демонстрации.
-        now = datetime.now()
-        for i in range(hours):
-            timestamp = (now - timedelta(hours=i)).isoformat()
-            bytes_in_data.append(TimeSeriesData(
-                timestamp=timestamp,
-                value=float(i * 1000000)  # 1MB/hour
-            ))
-            bytes_out_data.append(TimeSeriesData(
-                timestamp=timestamp,
-                value=float(i * 500000)   # 0.5MB/hour
-            ))
-            packets_in_data.append(TimeSeriesData(
-                timestamp=timestamp,
-                value=float(i * 1000)     # 1000 packets/hour
-            ))
-            packets_out_data.append(TimeSeriesData(
-                timestamp=timestamp,
-                value=float(i * 500)      # 500 packets/hour
-            ))
-
-        traffic_data = TrafficData(
-            ip=ip,
-            bytesIn=bytes_in_data,
-            bytesOut=bytes_out_data,
-            packetsIn=packets_in_data,
-            packetsOut=packets_out_data
-        )
-
-        set_cached_data(cache_key, traffic_data)
-        return traffic_data
-
-    except Exception as e:
-        logger.error(f"Ошибка в get_traffic_history_sync: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка получения истории трафика: {str(e)}")
-    finally:
-        if connection:
-            connection.disconnect()
-
-def get_latency_history_sync(ip: str, hours: int = 24):
-    """Получение истории задержек для IP"""
-    connection = None
-    try:
-        cache_key = f"latency_{ip}_{hours}"
-        cached_data = get_cached_data(cache_key)
-        if cached_data:
-            return cached_data
-
-        connection = get_router_connection()
-        api = connection.get_api()
-
-        # Получаем данные из Netwatch
-        netwatch_data = api.get_resource('/tool/netwatch').get()
+        # Загружаем серверы
+        servers_data = load_servers()
+        logger.info(f"Загружено {len(servers_data)} серверов")
         
-        # Формируем временные ряды
-        latency_data = []
-        packet_loss_data = []
-
-        # TODO: Для реальной истории задержек используйте внешнюю БД или скрипты для логирования данных со временем.
-        # Здесь синтетические данные для демонстрации.
-        now = datetime.now()
-        for i in range(hours):
-            timestamp = (now - timedelta(hours=i)).isoformat()
-            latency_data.append(TimeSeriesData(
-                timestamp=timestamp,
-                value=float(10 + i % 20)  # 10-30ms
-            ))
-            packet_loss_data.append(TimeSeriesData(
-                timestamp=timestamp,
-                value=float(i % 5)        # 0-5% packet loss
-            ))
-
-        latency_result = LatencyData(
-            ip=ip,
-            latency=latency_data,
-            packetLoss=packet_loss_data
-        )
-
-        set_cached_data(cache_key, latency_result)
-        return latency_result
-
-    except Exception as e:
-        logger.error(f"Ошибка в get_latency_history_sync: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка получения истории задержек: {str(e)}")
-    finally:
-        if connection:
-            connection.disconnect()
-
-def get_system_info_sync():
-    """Получение системной информации роутера"""
-    connection = None
-    try:
-        cache_key = "system_info"
-        cached_data = get_cached_data(cache_key)
-        if cached_data:
-            return cached_data
-
-        connection = get_router_connection()
-        api = connection.get_api()
-
-        system_resource = api.get_resource('/system/resource').get()
-        system_health = api.get_resource('/system/health').get()
-
-        if system_resource:
-            resource = system_resource[0]
-            total_memory = int(resource.get('total-memory', 1))
-            free_memory = int(resource.get('free-memory', 0))
-            memory_usage = f"{((total_memory - free_memory) / total_memory * 100):.1f}%" if total_memory > 0 else "0%"
-            system_info = SystemInfo(
-                cpuLoad=resource.get('cpu-load', '0') + '%',
-                memoryUsage=memory_usage,
-                uptime=resource.get('uptime', '0s'),
-                version=resource.get('version', 'Unknown')
-            )
-            
-            set_cached_data(cache_key, system_info)
-            return system_info
-
-        return SystemInfo(cpuLoad="0%", memoryUsage="0%", uptime="0s", version="Unknown")
-
-    except Exception as e:
-        logger.error(f"Ошибка в get_system_info_sync: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка получения системной информации: {str(e)}")
-    finally:
-        if connection:
-            connection.disconnect()
-
-def get_interface_stats_sync():
-    """Получение статистики интерфейсов"""
-    connection = None
-    try:
-        cache_key = "interface_stats"
-        cached_data = get_cached_data(cache_key)
-        if cached_data:
-            return cached_data
-
-        connection = get_router_connection()
-        api = connection.get_api()
-
-        interfaces = api.get_resource('/interface').get()
-        interface_stats = []
-
-        for interface in interfaces:
-            if interface.get('running') == 'true':
-                stats = {
-                    'name': interface.get('name', ''),
-                    'type': interface.get('type', ''),
-                    'rx_bytes': interface.get('rx-byte', '0'),
-                    'tx_bytes': interface.get('tx-byte', '0'),
-                    'rx_packets': interface.get('rx-packet', '0'),
-                    'tx_packets': interface.get('tx-packet', '0'),
-                    'status': 'up' if interface.get('running') == 'true' else 'down'
+        if not servers_data:
+            response = StatusResponse(
+                servers=[],
+                updated_at=datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+                total_online=0,
+                total_offline=0,
+                total_checking=0,
+                statistics={
+                    "total_checks": 0,
+                    "success_rate": 100,
+                    "avg_response_time": 0,
+                    "local_devices": 0,
+                    "remote_devices": 0,
+                    "port_distribution": {}
                 }
-                interface_stats.append(stats)
-
-        set_cached_data(cache_key, interface_stats)
-        return interface_stats
-
-    except Exception as e:
-        logger.error(f"Ошибка в get_interface_stats_sync: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка получения статистики интерфейсов: {str(e)}")
-    finally:
-        if connection:
-            connection.disconnect()
-
-def format_duration(seconds: float) -> str:
-    """Форматирование времени в читаемый формат"""
-    if seconds <= 0:
-        return "0s"
-    
-    parts = []
-    days = int(seconds // 86400)
-    if days > 0:
-        parts.append(f"{days}d")
-    seconds %= 86400
-
-    hours = int(seconds // 3600)
-    if hours > 0:
-        parts.append(f"{hours}h")
-    seconds %= 3600
-
-    minutes = int(seconds // 60)
-    if minutes > 0:
-        parts.append(f"{minutes}m")
-    seconds %= 60
-    
-    if seconds > 0 or not parts:
-        parts.append(f"{int(seconds)}s")
-    
-    return " ".join(parts)
-
-def parse_mikrotik_time(time_str: str) -> datetime:
-    """Парсинг времени формата MikroTik"""
-    try:
-        time_str = time_str.strip()
-        if not time_str:
-            raise ValueError("Пустая строка времени")
+            )
+            _status_cache.set(response)
+            return response
         
-        if '/' in time_str:
-            # Формат: aug/28/2025 13:00:40
-            date_part, time_part = time_str.split(' ', 1)
-            month_str, day_str, year_str = date_part.lower().split('/')
-            month_dict = {
-                'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
-                'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+        # Ограничиваем одновременные проверки
+        max_concurrent = min(20, len(servers_data))
+        semaphore = asyncio.Semaphore(max_concurrent)
+        
+        async def check_with_semaphore(server):
+            async with semaphore:
+                return await check_server_with_retry(server)
+        
+        # Проверяем все серверы
+        tasks = [check_with_semaphore(s) for s in servers_data]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        logger.info(f"results - {results}")
+        # Обрабатываем результаты
+        valid_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                logger.error(f"Ошибка проверки сервера {i}: {result}")
+                server = servers_data[i]
+                valid_results.append(ServerStatus(
+                    id=server.get("id", str(uuid.uuid4())),
+                    name=server.get("name", "Ошибка"),
+                    host=server.get("host", ""),
+                    port=server.get("port", 0),
+                    check_type=CheckType(server.get("check_type", "https")),
+                    path=server.get("path", "/"),
+                    location=server.get("location", "Локальная сеть"),
+                    status="error",
+                    latency=0,
+                    timestamp=datetime.now().isoformat(),
+                    last_check=datetime.now().isoformat(),
+                    message=str(result)
+                ))
+            else:
+                valid_results.append(result)
+        
+        # Рассчитываем статистику
+        total_servers = len(valid_results)
+        online_servers = sum(1 for r in valid_results if r.status == "online")
+        offline_servers = sum(1 for r in valid_results if r.status == "offline")
+        checking_servers = sum(1 for r in valid_results if r.status == "checking")
+        error_servers = sum(1 for r in valid_results if r.status == "error")
+        
+        success_rate = round((online_servers / total_servers * 100), 2) if total_servers > 0 else 100
+        
+        # Средняя задержка для онлайн серверов
+        online_latencies = [r.latency for r in valid_results if r.status == "online"]
+        avg_latency = round(sum(online_latencies) / len(online_latencies), 2) if online_latencies else 0
+        
+        # Подсчет локальных устройств
+        local_devices = sum(1 for s in servers_data if is_local_network(s.get('host', '')))
+        
+        # Распределение по портам
+        port_distribution = defaultdict(int)
+        for server in valid_results:
+            port_desc = get_port_description(server.port)
+            port_distribution[port_desc] += 1
+        
+        # Создаем ответ
+        response = StatusResponse(
+            servers=valid_results,
+            updated_at=datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+            total_online=online_servers,
+            total_offline=offline_servers,
+            total_checking=checking_servers,
+            statistics={
+                "total_checks": total_servers,
+                "success_rate": success_rate,
+                "avg_response_time": avg_latency,
+                "local_devices": local_devices,
+                "remote_devices": total_servers - local_devices,
+                "port_distribution": dict(port_distribution),
+                "error_devices": error_servers
             }
-            month = month_dict.get(month_str)
-            if month is None:
-                raise ValueError(f"Недопустимый месяц: {month_str}")
-            hour, minute, second = map(int, time_part.split(':'))
-            return datetime(int(year_str), month, int(day_str), hour, minute, second)
+        )
+        
+        # Сохраняем в кэш
+        _status_cache.set(response)
+        
+        # Запускаем фоновую задачу для логирования
+        background_tasks.add_task(
+            lambda: logger.info(f"=== Проверка завершена: {online_servers}/{total_servers} онлайн ===")
+        )
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Критическая ошибка в /status: {e}", exc_info=True)
+        return StatusResponse(
+            servers=[],
+            updated_at=datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+            total_online=0,
+            total_offline=0,
+            total_checking=0,
+            statistics={
+                "total_checks": 0,
+                "success_rate": 0,
+                "avg_response_time": 0,
+                "local_devices": 0,
+                "remote_devices": 0,
+                "port_distribution": {},
+                "error": str(e)
+            }
+        )
+
+@router.get("/test")
+async def test_endpoint():
+    """Тестовый эндпоинт для проверки работы API"""
+    return {
+        "message": "Server Monitor API работает",
+        "version": "2.2",
+        "timestamp": datetime.now().isoformat(),
+        "features": [
+            "Проверка HTTP/HTTPS/TCP серверов",
+            "Поддержка локальных сетей",
+            "Кэширование результатов",
+            "Повторные попытки",
+            "Детальная статистика",
+            "Управление списком серверов"
+        ],
+        "endpoints": [
+            "GET /servers/status - статус всех серверов",
+            "GET /servers/list - список серверов",
+            "GET /servers/check/{host}/{port} - проверка конкретного сервера",
+            "GET /servers/test - этот эндпоинт",
+            "GET /servers/statistics - статистика",
+            "POST /servers/add - добавить сервер",
+            "PUT /servers/edit/{id} - редактировать сервер",
+            "DELETE /servers/delete/{id} - удалить сервер",
+            "GET /servers/health - проверка здоровья сервиса",
+            "POST /servers/clear-cache - очистить кэш"
+        ]
+    }
+
+@router.get("/check/{host}/{port}", response_model=TestConnectionResponse)
+async def check_single(
+    host: str,
+    port: int,
+    check_type: CheckType = CheckType.HTTPS,
+    path: str = "/",
+    timeout: float = 5.0
+):
+    """
+    Проверить конкретный хост и порт.
+    Используется для тестирования соединения перед добавлением сервера.
+    """
+    try:
+        logger.info(f"Тестирование соединения: {host}:{port} ({check_type})")
+        
+        latency = -1
+        message = None
+        
+        if check_type == CheckType.TCP:
+            latency = await check_tcp_connection(host, port, timeout)
+            if latency > 0:
+                message = f"TCP соединение успешно установлено. Задержка: {latency}мс"
+            else:
+                message = "Не удалось установить TCP соединение"
+        elif check_type == CheckType.HTTPS:
+            latency = await check_http_connection(host, port, path, timeout, use_ssl=True)
+            if latency > 0:
+                message = f"HTTPS запрос выполнен успешно. Задержка: {latency}мс"
+            else:
+                message = "Не удалось выполнить HTTPS запрос"
+        else:  # HTTP
+            latency = await check_http_connection(host, port, path, timeout, use_ssl=False)
+            if latency > 0:
+                message = f"HTTP запрос выполнен успешно. Задержка: {latency}мс"
+            else:
+                message = "Не удалось выполнить HTTP запрос"
+        
+        status = "online" if latency > 0 else "offline"
+        
+        return TestConnectionResponse(
+            host=host,
+            port=port,
+            type=check_type.value,
+            latency=latency if latency > 0 else 0,
+            status=status,
+            timestamp=datetime.now().isoformat(),
+            message=message
+        )
+        
+    except Exception as e:
+        logger.error(f"Ошибка проверки {host}:{port}: {e}")
+        return TestConnectionResponse(
+            host=host,
+            port=port,
+            type=check_type.value,
+            latency=0,
+            status="offline",
+            timestamp=datetime.now().isoformat(),
+            message=f"Ошибка при проверке соединения: {str(e)}"
+        )
+
+@router.get("/list", response_model=ServerListResponse)
+async def get_list():
+    """Получить список всех серверов без проверки статуса"""
+    try:
+        servers = load_servers()
+        return ServerListResponse(
+            servers=servers,
+            count=len(servers)
+        )
+    except Exception as e:
+        logger.error(f"Ошибка получения списка серверов: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/add", response_model=Dict[str, Any])
+async def add_server(server_in: ServerIn):
+    """Добавить новый сервер в мониторинг"""
+    try:
+        servers = load_servers()
+        
+        # Проверяем лимит серверов
+        if len(servers) >= MAX_SERVERS:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Достигнут лимит серверов ({MAX_SERVERS}). Удалите некоторые серверы перед добавлением новых."
+            )
+        
+        # Генерируем уникальный ID
+        server_id = str(uuid.uuid4())
+        
+        # Проверяем уникальность имени
+        existing_names = [s.get("name", "").lower() for s in servers]
+        if server_in.name.lower() in existing_names:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Сервер с именем '{server_in.name}' уже существует"
+            )
+        
+        # Создаем новый сервер
+        new_server = {
+            "id": server_id,
+            **server_in.model_dump()
+        }
+        
+        # Для TCP проверок очищаем путь
+        if server_in.check_type == CheckType.TCP:
+            new_server["path"] = ""
+        
+        servers.append(new_server)
+        
+        if save_servers(servers):
+            # Очищаем кэш, так как данные изменились
+            _status_cache.clear()
+            
+            logger.info(f"Добавлен новый сервер: {server_in.name} ({server_in.host}:{server_in.port})")
+            
+            return {
+                "success": True,
+                "server": new_server,
+                "message": "Сервер успешно добавлен",
+                "server_id": server_id
+            }
         else:
-            # Формат: 2025-08-28 13:00:40
-            date_part, time_part = time_str.split(' ', 1)
-            year_str, month_str, day_str = date_part.split('-')
-            hour, minute, second = map(int, time_part.split(':'))
-            return datetime(int(year_str), int(month_str), int(day_str), hour, minute, second)
+            raise HTTPException(status_code=500, detail="Ошибка сохранения сервера")
+            
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.warning(f"Ошибка парсинга времени {time_str}: {e}")
-        return datetime.now()
+        logger.error(f"Ошибка добавления сервера: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
-# Основные endpoints
-@router.get("", response_model=List[ServerData])
-async def get_server_stats(_: dict = Depends(verify_token_dependency)):
-    """Получение статистики серверов"""
+@router.put("/edit/{server_id}", response_model=Dict[str, Any])
+async def edit_server(server_id: str, server_in: ServerIn):
+    """Редактировать существующий сервер"""
     try:
-        monitored_ips = ['192.1.3.3', '192.1.3.11', '192.1.2.117', '192.1.12.99', '192.1.13.99']
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(executor, get_router_stats_sync, monitored_ips)
+        servers = load_servers()
+        
+        found = False
+        updated_server = None
+        
+        for i, s in enumerate(servers):
+            if s.get("id") == server_id:
+                # Проверяем уникальность имени (кроме текущего сервера)
+                existing_names = [
+                    serv.get("name", "").lower() 
+                    for j, serv in enumerate(servers) 
+                    if j != i
+                ]
+                if server_in.name.lower() in existing_names:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Сервер с именем '{server_in.name}' уже существует"
+                    )
+                
+                # Обновляем сервер
+                updated_server = {
+                    "id": server_id,
+                    **server_in.model_dump()
+                }
+                
+                # Для TCP проверок очищаем путь
+                if server_in.check_type == CheckType.TCP:
+                    updated_server["path"] = ""
+                
+                servers[i] = updated_server
+                found = True
+                break
+        
+        if not found:
+            raise HTTPException(status_code=404, detail="Сервер не найден")
+        
+        if save_servers(servers):
+            # Очищаем кэш
+            _status_cache.clear()
+            
+            logger.info(f"Отредактирован сервер ID {server_id}: {server_in.name}")
+            
+            return {
+                "success": True,
+                "server": updated_server,
+                "message": "Сервер успешно обновлен"
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Ошибка сохранения изменений")
+            
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Ошибка при получении статистики: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка сервера: {str(e)}")
+        logger.error(f"Ошибка редактирования сервера {server_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/traffic/{ip}", response_model=TrafficData)
-async def get_traffic_history(ip: str, hours: int = 24, _: dict = Depends(verify_token_dependency)):
-    """Получение истории трафика для конкретного IP"""
+@router.delete("/delete/{server_id}", response_model=Dict[str, Any])
+async def delete_server(server_id: str):
+    """Удалить сервер из мониторинга"""
     try:
-        if hours > 168:  # Ограничение на 1 неделю
-            hours = 168
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(executor, get_traffic_history_sync, ip, hours)
+        servers = load_servers()
+        initial_count = len(servers)
+        
+        # Находим сервер для удаления
+        deleted_server_name = None
+        for s in servers:
+            if s.get("id") == server_id:
+                deleted_server_name = s.get("name", "Неизвестный сервер")
+                break
+        
+        new_servers = [s for s in servers if s.get("id") != server_id]
+        
+        if len(new_servers) == initial_count:
+            raise HTTPException(status_code=404, detail="Сервер не найден")
+        
+        if save_servers(new_servers):
+            # Очищаем кэш
+            _status_cache.clear()
+            
+            logger.info(f"Удален сервер ID: {server_id} ({deleted_server_name})")
+            
+            return {
+                "success": True,
+                "message": f"Сервер '{deleted_server_name}' успешно удален",
+                "deleted_id": server_id
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Ошибка сохранения изменений")
+            
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Ошибка при получении истории трафика: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка сервера: {str(e)}")
+        logger.error(f"Ошибка удаления сервера {server_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/latency/{ip}", response_model=LatencyData)
-async def get_latency_history(ip: str, hours: int = 24, _: dict = Depends(verify_token_dependency)):
-    """Получение истории задержек для конкретного IP"""
+@router.get("/statistics")
+async def get_statistics():
+    """Получить дополнительную статистику"""
     try:
-        if hours > 168:  # Ограничение на 1 неделю
-            hours = 168
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(executor, get_latency_history_sync, ip, hours)
+        cached_data = _status_cache.get()
+        
+        if cached_data is not None:
+            data = cached_data
+            cache_hit = True
+        else:
+            # Создаем фоновую задачу для проверки
+            data = await get_status(BackgroundTasks())
+            cache_hit = False
+        
+        servers = data.servers
+        total = len(servers)
+        online = data.total_online
+        offline = data.total_offline
+        
+        if total == 0:
+            return {
+                "total_servers": 0,
+                "online_servers": 0,
+                "offline_servers": 0,
+                "availability_rate": 100,
+                "avg_response_time": 0,
+                "check_types": {},
+                "common_ports": {},
+                "locations": {},
+                "cache_hit": cache_hit,
+                "last_updated": data.updated_at
+            }
+        
+        # Статистика по типам проверок
+        check_types = defaultdict(int)
+        for server in servers:
+            check_types[server.check_type.value] += 1
+        
+        # Статистика по портам
+        common_ports = defaultdict(int)
+        for server in servers:
+            port_desc = get_port_description(server.port)
+            common_ports[port_desc] += 1
+        
+        # Статистика по локациям
+        locations = defaultdict(int)
+        for server in servers:
+            locations[server.location] += 1
+        
+        # Статистика по статусам
+        statuses = defaultdict(int)
+        for server in servers:
+            statuses[server.status] += 1
+        
+        # Среднее время ответа
+        online_servers = [s for s in servers if s.status == "online"]
+        avg_response = round(
+            sum(s.latency for s in online_servers) / len(online_servers), 2
+        ) if online_servers else 0
+        
+        # Самый быстрый и самый медленный сервер
+        fastest = min(online_servers, key=lambda x: x.latency, default=None)
+        slowest = max(online_servers, key=lambda x: x.latency, default=None)
+        
+        return {
+            "total_servers": total,
+            "online_servers": online,
+            "offline_servers": offline,
+            "availability_rate": round((online / total) * 100, 2) if total > 0 else 0,
+            "avg_response_time": avg_response,
+            "check_types": dict(check_types),
+            "common_ports": dict(sorted(common_ports.items(), key=lambda x: x[1], reverse=True)[:10]),
+            "locations": dict(locations),
+            "statuses": dict(statuses),
+            "fastest_server": {
+                "name": fastest.name if fastest else None,
+                "latency": fastest.latency if fastest else None,
+                "host": fastest.host if fastest else None
+            },
+            "slowest_server": {
+                "name": slowest.name if slowest else None,
+                "latency": slowest.latency if slowest else None,
+                "host": slowest.host if slowest else None
+            },
+            "last_updated": data.updated_at,
+            "cache_hit": cache_hit,
+            "cache_ttl": _status_cache.ttl
+        }
+        
     except Exception as e:
-        logger.error(f"Ошибка при получении истории задержек: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка сервера: {str(e)}")
+        logger.error(f"Ошибка получения статистики: {e}")
+        return {
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
-@router.get("/system", response_model=SystemInfo)
-async def get_system_info(_: dict = Depends(verify_token_dependency)):
-    """Получение системной информации роутера"""
-    try:
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(executor, get_system_info_sync)
-    except Exception as e:
-        logger.error(f"Ошибка при получении системной информации: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка сервера: {str(e)}")
-
-@router.get("/interfaces")
-async def get_interface_stats(_: dict = Depends(verify_token_dependency)):
-    """Получение статистики интерфейсов"""
-    try:
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(executor, get_interface_stats_sync)
-    except Exception as e:
-        logger.error(f"Ошибка при получении статистики интерфейсов: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Ошибка сервера: {str(e)}")
+@router.post("/clear-cache")
+async def clear_cache():
+    """Очистить кэш статуса серверов"""
+    _status_cache.clear()
+    
+    return {
+        "success": True,
+        "message": "Кэш очищен",
+        "timestamp": datetime.now().isoformat()
+    }
 
 @router.get("/health")
-async def check_router_health(_: dict = Depends(verify_token_dependency)):
-    """Проверка состояния соединения с роутером"""
-    connection = None
+async def health_check():
+    """Проверка здоровья сервиса"""
     try:
-        logger.info("=== ПРОВЕРКА СОСТОЯНИЯ СОЕДИНЕНИЯ ===")
-        connection = get_router_connection()
-        api = connection.get_api()
-        result = api.get_resource('/system/identity').get()
-        logger.info(f"Результат проверки: {result}")
-        return {"status": "connected", "router_info": result[0] if result else {}}
-    except Exception as e:
-        logger.error(f"Ошибка проверки состояния: {e}", exc_info=True)
-        return {"status": "error", "message": str(e)}
-    finally:
-        if connection:
-            connection.disconnect()
-
-@router.get("/debug/netwatch")
-async def debug_netwatch(_: dict = Depends(verify_token_dependency)):
-    """Просмотр всех записей Netwatch для диагностики"""
-    connection = None
-    try:
-        connection = get_router_connection()
-        api = connection.get_api()
-        netwatch_data = api.get_resource('/tool/netwatch').get()
-        return {"netwatch_entries": netwatch_data}
-    except Exception as e:
-        logger.error(f"Ошибка при получении Netwatch: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        if connection:
-            connection.disconnect()
-
-@router.get("/debug/queue")
-async def debug_queue(_: dict = Depends(verify_token_dependency)):
-    """Просмотр всех записей Queue для диагностики"""
-    connection = None
-    try:
-        connection = get_router_connection()
-        api = connection.get_api()
-        queue_data = api.get_resource('/queue/simple').get()
-        return {"queue_entries": queue_data}
-    except Exception as e:
-        logger.error(f"Ошибка при получении Queue: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        if connection:
-            connection.disconnect()
-
-# Дополнительные endpoints для расширенного мониторинга
-@router.get("/bandwidth")
-async def get_bandwidth_usage(_: dict = Depends(verify_token_dependency)):
-    """Получение использования пропускной способности"""
-    connection = None
-    try:
-        connection = get_router_connection()
-        api = connection.get_api()
+        # Проверяем доступность файла с данными
+        file_exists = os.path.exists(SERVERS_FILE)
         
-        # Получаем данные о пропускной способности
-        queues = api.get_resource('/queue/simple').get()
+        # Проверяем возможность чтения/записи
+        file_readable = False
+        file_writable = False
         
-        total_bandwidth = 0
-        used_bandwidth = 0
-        
-        for queue in queues:
-            # Анализируем текущее использование (rate-in/out в bps)
-            rate_in = int(queue.get('rate-in', '0'))
-            rate_out = int(queue.get('rate-out', '0'))
-            used_bandwidth += rate_in + rate_out
+        if file_exists:
+            try:
+                with open(SERVERS_FILE, "r", encoding="utf-8") as f:
+                    json.load(f)
+                file_readable = True
+            except:
+                file_readable = False
             
-            # Получаем лимиты (если есть)
-            max_limit = queue.get('max-limit', '')
-            if max_limit:
-                # Парсим максимальный лимит
-                parts = max_limit.split('/')
-                if len(parts) == 2:
-                    try:
-                        upload_limit = parse_limit(parts[0])
-                        download_limit = parse_limit(parts[1])
-                        total_bandwidth += upload_limit + download_limit
-                    except:
-                        pass
+            try:
+                with open(SERVERS_FILE, "a", encoding="utf-8") as f:
+                    f.write("")
+                file_writable = True
+            except:
+                file_writable = False
         
-        utilization = f"{(used_bandwidth / total_bandwidth * 100) if total_bandwidth > 0 else 0:.2f}%"
+        # Проверяем наличие данных
+        servers = load_servers()
+        
         return {
-            "total_bandwidth": f"{total_bandwidth / 1000000:.2f} Mbps",
-            "used_bandwidth": f"{used_bandwidth / 1000000:.2f} Mbps",
-            "utilization": utilization
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "data_file": {
+                "exists": file_exists,
+                "readable": file_readable,
+                "writable": file_writable,
+                "path": SERVERS_FILE,
+                "server_count": len(servers)
+            },
+            "cache": {
+                "has_data": _status_cache.data is not None,
+                "timestamp": _status_cache.timestamp.isoformat() if _status_cache.timestamp else None,
+                "ttl": _status_cache.ttl
+            },
+            "system": {
+                "max_servers": MAX_SERVERS,
+                "data_dir": DATA_DIR,
+                "python_version": os.sys.version
+            }
         }
     except Exception as e:
-        logger.error(f"Ошибка при получении использования пропускной способности: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        if connection:
-            connection.disconnect()
+        logger.error(f"Ошибка проверки здоровья: {e}")
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
-@router.get("/top-talkers")
-async def get_top_talkers(_: dict = Depends(verify_token_dependency)):
-    """Получение списка самых активных клиентов"""
-    connection = None
+@router.get("/local-devices")
+async def get_local_devices():
+    """Получить список локальных устройств в сети"""
     try:
-        connection = get_router_connection()
-        api = connection.get_api()
+        servers = load_servers()
+        local_servers = []
         
-        queues = api.get_resource('/queue/simple').get()
-        
-        # Сортируем по трафику
-        talkers = []
-        for queue in queues:
-            bytes_in = int(queue.get('bytes-in', '0'))
-            bytes_out = int(queue.get('bytes-out', '0'))
-            total_bytes = bytes_in + bytes_out
-            
-            if total_bytes > 0:
-                talkers.append({
-                    "target": queue.get('target', ''),
-                    "bytes_in": bytes_in,
-                    "bytes_out": bytes_out,
-                    "total_bytes": total_bytes,
-                    "comment": queue.get('comment', '')
+        for server in servers:
+            host = server.get("host", "")
+            if is_local_network(host):
+                local_servers.append({
+                    **server,
+                    "is_local": True,
+                    "port_description": get_port_description(server.get("port", 0))
                 })
         
-        # Сортируем по убыванию трафика
-        talkers.sort(key=lambda x: x['total_bytes'], reverse=True)
+        return {
+            "local_devices": local_servers,
+            "count": len(local_servers),
+            "timestamp": datetime.now().isoformat()
+        }
         
-        # Возвращаем топ-10
-        return {"top_talkers": talkers[:10]}
     except Exception as e:
-        logger.error(f"Ошибка при получении списка самых активных клиентов: {e}", exc_info=True)
+        logger.error(f"Ошибка получения локальных устройств: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        if connection:
-            connection.disconnect()
 
-@router.get("/alerts")
-async def get_network_alerts(_: dict = Depends(verify_token_dependency)):
-    """Получение сетевых оповещений"""
-    connection = None
-    try:
-        connection = get_router_connection()
-        api = connection.get_api()
-        
-        # Получаем логи
-        logs = api.get_resource('/log').get()
-        
-        # Фильтруем важные события
-        alerts = []
-        for log in logs:
-            topics = log.get('topics', '').split(',')
-            if any(topic.strip() in ['error', 'warning', 'critical'] for topic in topics):
-                alerts.append({
-                    "time": log.get('time', ''),
-                    "topics": log.get('topics', ''),
-                    "message": log.get('message', '')
-                })
-        
-        return {"alerts": alerts[:50]}  # Последние 50 событий
-    except Exception as e:
-        logger.error(f"Ошибка при получении сетевых оповещений: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        if connection:
-            connection.disconnect()
+@router.post("/refresh")
+async def refresh_status(background_tasks: BackgroundTasks):
+    """Принудительно обновить статус всех серверов"""
+    # Очищаем кэш
+    _status_cache.clear()
+    
+    # Запускаем фоновую задачу для проверки
+    background_tasks.add_task(
+        lambda: logger.info("Принудительное обновление статуса серверов")
+    )
+    
+    return {
+        "success": True,
+        "message": "Кэш очищен, статус будет обновлен при следующем запросе",
+        "timestamp": datetime.now().isoformat()
+    }

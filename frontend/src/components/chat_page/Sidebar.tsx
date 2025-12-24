@@ -3,7 +3,7 @@ import type React from "react";
 import { formatTimestamp, getChatDisplayIcon, getChatDisplayName, getTypingText, formatTimestampSidebar, messageIsPhoto, resolveFileUrl } from '../../utils/chat';
 import type { Chat, Message, Contact } from '../../types/chat';
 import { IoArrowUndoOutline, IoArrowRedoOutline  } from "react-icons/io5";
-import type { NewLifecycle } from "react";
+import { useEffect, useRef, useState, type NewLifecycle } from "react";
 import { useTheme } from '../../hooks/ThemeContext';
 import { Link } from "react-router-dom";
 import { getAvatarData } from "../../utils/avatarCache";
@@ -11,9 +11,6 @@ import { getAvatarData } from "../../utils/avatarCache";
 interface RenderSidebarProps {
 	searchQuery: string;
 	setSearchQuery: React.Dispatch<React.SetStateAction<string>>;
-	setShowCreateOptions: React.Dispatch<React.SetStateAction<boolean>>;
-	showCreateOptions: boolean;
-	createOptionsRef: React.RefObject<HTMLDivElement | null>;
 	setShowContactSearch: React.Dispatch<React.SetStateAction<boolean>>;
 	setShowCreateGroup: React.Dispatch<React.SetStateAction<boolean>>;
 	setShowCreateChannel: React.Dispatch<React.SetStateAction<boolean>>;
@@ -37,9 +34,6 @@ interface RenderSidebarProps {
 const RenderSidebar: React.FC<RenderSidebarProps> = ({
 	searchQuery,
 	setSearchQuery,
-	setShowCreateOptions,
-	showCreateOptions,
-	createOptionsRef,
 	setShowContactSearch,
 	setShowCreateGroup,
 	setShowCreateChannel,
@@ -61,6 +55,25 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 }) => {
 	const { theme, toggleTheme } = useTheme();
 	const API_BASE = import.meta.env.VITE_API_BASE_URL;
+	const createOptionsRef = useRef<HTMLDivElement>(null);
+	const createOptionsRefBut = useRef<HTMLButtonElement>(null);
+
+	const [showCreateOptions, setShowCreateOptions] = useState(false);
+	
+	useEffect(() => {
+		const handleClickOutside = (event: MouseEvent) => {
+		  	if (createOptionsRef.current && !createOptionsRef.current.contains(event.target as Node) &&
+				createOptionsRefBut.current && !createOptionsRefBut.current.contains(event.target as Node)) 
+			{
+				setShowCreateOptions(false);
+		  	}
+		};
+		document.addEventListener('mousedown', handleClickOutside);
+		return () => {
+		  document.removeEventListener('mousedown', handleClickOutside);
+		};
+	}, []);
+
 	const handleCreatePersonalChat = () => {
 		console.log("Creating personal chat...");
 		setShowContactSearch(true);
@@ -127,6 +140,7 @@ const RenderSidebar: React.FC<RenderSidebarProps> = ({
 						: <Sun size={22} weight="regular" />}
 					</button>
 					<button 
+						ref={createOptionsRefBut}
 						onClick={() => setShowCreateOptions(!showCreateOptions)} 
 						className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group hover:scale-105 transform z-20"
 					>

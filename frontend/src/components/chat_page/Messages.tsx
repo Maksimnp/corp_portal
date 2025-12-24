@@ -4,45 +4,55 @@ import { formatDate } from '../../utils/chat';
 import RenderMessageItem from "./MessageItem";
 
 interface RenderMessagesProps {
-    currentChat: Chat | undefined;
-    activeChat: string | null;
-    filteredMessages: Message[];
-    quotedMessageData: Record<string, Message | null>;
-    contactMap: Record<string, string>;
-    handleMessageContextMenu: (e: React.MouseEvent, msg: Message) => void;
-    handleMessageContextMenuReaction: (msg: Message) => void;
-    fetchQuotedMessageData: (id: string) => Promise<Message | null>;
-    username: string | null;
-    setShowImageModal: React.Dispatch<React.SetStateAction<boolean>>;
-    loadMessagesAround: (messageId: string) => Promise<void>;
-    setImageUrl: React.Dispatch<React.SetStateAction<Message | null>>;
-    handleContextMenuQuote: () => void;
-    onReact: (messageId:string, messageSender: string, reaction: string) => void;
-    onMessageInView: (messageId: string, channelId: string) => void;
-    unreadReactionNotifications: Record<string, string[]>;
-    onReactionInView: (messageId: string, channelId: string) => void;
-    unreadCounts: { [key: string]: number };
+  currentChat: Chat | undefined;
+  activeChat: string | null;
+  filteredMessages: Message[];
+  quotedMessageData: Record<string, Message | null>;
+  contactMap: Record<string, string>;
+  handleMessageContextMenu: (e: React.MouseEvent, msg: Message) => void;
+  handleMessageContextMenuReaction: (msg: Message) => void;
+  fetchQuotedMessageData: (id: string) => Promise<Message | null>;
+  username: string | null;
+  setShowImageModal: React.Dispatch<React.SetStateAction<boolean>>;
+  loadMessagesAround: (messageId: string) => Promise<void>;
+  setImageUrl: React.Dispatch<React.SetStateAction<Message | null>>;
+  handleContextMenuQuote: () => void;
+  onReact: (messageId:string, messageSender: string, reaction: string) => void;
+  onMessageInView: (messageId: string, channelId: string) => void;
+  unreadReactionNotifications: Record<string, string[]>;
+  onReactionInView: (messageId: string, channelId: string) => void;
+  unreadCounts: { [key: string]: number };
+  highlightMenu: boolean;
+  statusChatBot: boolean;
+  setHighlightMessages: React.Dispatch<React.SetStateAction<Record<string,Message>>>;
+  highlightMessages: Record<string,Message>;
+  setHighlightMenu: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const RenderMessages: React.FC<RenderMessagesProps> = ({
-    filteredMessages,
-    activeChat,
-    quotedMessageData,
-    contactMap,
-    handleMessageContextMenu,
-    handleMessageContextMenuReaction,
-    fetchQuotedMessageData,
-    username,
-    setShowImageModal,
-    loadMessagesAround,
-    setImageUrl,
-    handleContextMenuQuote,
-    currentChat,
-    onReact,
-    onMessageInView,
-    unreadReactionNotifications,
-    onReactionInView,
-    unreadCounts
+  setHighlightMenu,
+  highlightMessages,
+  setHighlightMessages,
+  highlightMenu,
+  filteredMessages,
+  activeChat,
+  quotedMessageData,
+  contactMap,
+  handleMessageContextMenu,
+  handleMessageContextMenuReaction,
+  fetchQuotedMessageData,
+  username,
+  setShowImageModal,
+  loadMessagesAround,
+  setImageUrl,
+  handleContextMenuQuote,
+  currentChat,
+  onReact,
+  onMessageInView,
+  unreadReactionNotifications,
+  onReactionInView,
+  unreadCounts,
+  statusChatBot
 }) => {
     let lastDate = '';
 
@@ -73,7 +83,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
         messagesWithGroupInfo[i] = { ...currentMsg, isGroupEnd: true };
       }
     }
-
+    // console.log(filteredMessages);
     return filteredMessages.map((msg, index) => {
       const messageDate = formatDate(msg.timestamp);
       const showDateHeader = messageDate !== lastDate;
@@ -99,7 +109,11 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
               </span>
             </div>
           )}
-            <RenderMessageItem 
+            <RenderMessageItem
+              setHighlightMenu={setHighlightMenu}
+              highlightMessages={highlightMessages}
+              setHighlightMessages={setHighlightMessages}
+              highlightMenu={highlightMenu}
               handleMessageContextMenuReaction={handleMessageContextMenuReaction}
               unreadReactionNotifications={unreadReactionNotifications}
               onReact={onReact}

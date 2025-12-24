@@ -9,6 +9,10 @@ import { marked } from 'marked';
 import { useTheme } from '../../hooks/ThemeContext';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getAvatarData } from "../../utils/avatarCache";
+import './MessageItem.css';
+import hljs from 'highlight.js';
+import { MdOutlineRadioButtonUnchecked } from "react-icons/md";
+import { FaCheckCircle } from "react-icons/fa";
 
 interface RenderMessageItemProps {
   msg: Message;
@@ -29,6 +33,10 @@ interface RenderMessageItemProps {
   onMessageInView?: (messageId: string, channelId: string) => void;
   unreadReactionNotifications: Record<string, string[]>;
   onReactionInView?: (messageId: string, channelId: string) => void;
+  highlightMenu: boolean;
+  setHighlightMessages: React.Dispatch<React.SetStateAction<Record<string,Message>>>;
+  highlightMessages: Record<string,Message>;
+  setHighlightMenu: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 interface VideoMessageProps {
@@ -99,7 +107,11 @@ export const VideoMessage = ({ fileUrl }: VideoMessageProps) => {
 };
 
 const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
+  setHighlightMenu,
+  highlightMessages,
+  setHighlightMessages,
   msg,
+  highlightMenu,
   activeChat,
   prev_msg,
   currentChat,
@@ -122,8 +134,6 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
   const { theme } = useTheme();
   const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
-  
-  
   const safeReactionsByUser = msg.reactions_by_user || {};
   const reactionCounts: Record<string, number> = {};
   const reactionsByUser = msg.reactions_by_user || {};
@@ -166,12 +176,47 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
     }
     return null;
   };
+
+  useEffect(() => {
+    const HLJS_THEME_ID = 'hljs-theme';
+
+    const existingLink = document.getElementById(HLJS_THEME_ID);
+    if (existingLink) {
+      existingLink.remove();
+    }
+
+    const link = document.createElement('link');
+    link.id = HLJS_THEME_ID;
+    link.rel = 'stylesheet';
+    link.href =
+      theme === 'dark'
+        ? 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css'
+        : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css';
+
+    document.head.appendChild(link);
+
+
+    return () => {
+      const cleanupLink = document.getElementById(HLJS_THEME_ID);
+      if (cleanupLink) {
+        cleanupLink.remove();
+      }
+    };
+  }, [theme]);
   
+  useEffect(() => {
+    const codeBlocks = document.querySelectorAll('pre code:not([data-highlighted="yes"])');
+    codeBlocks.forEach((block) => {
+      hljs.highlightElement(block as HTMLElement);
+    });
+  }, []);
+
+  // hljs.highlightAll();
   const renderContent = (content: string | undefined) => {
     if (!content) return null;
     try {
       const html = marked.parse(content) as string;
-      return <div dangerouslySetInnerHTML={{ __html: html }} className="markdown-body inline-block" />;
+      return <div dangerouslySetInnerHTML={{ __html: html }} className={`markdown-body inline-block ${theme === 'light' ? '': isMyMessage ? '': 'dark'}`} />;
     } catch (error) {
       console.error('Error parsing markdown:', error);
       return <div>{content}</div>;
@@ -452,7 +497,7 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
       {
         root: null,
         rootMargin: '0px',
-        threshold: 0.5,
+        threshold: 0.3,
       }
     );
     observer.observe(messageRef.current);
@@ -496,9 +541,26 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
     <div
       ref={messageRef}
       key={msg.id}
+      data-message-id={msg.id}
       id={`message-${msg.id}`}
       className={`flex ${msg.is_notification ? 'justify-center' : isMyMessage ? 'justify-end' : 'justify-start'} ${msg.isGroupStart ? 'mt-2':''} group mb-[2px] transition-all duration-1000 transform`}
       onDoubleClick={handleContextMenuQuote}
+      // onClick={() => {
+      //   if (highlightMenu && isMyMessage) {
+      //     setHighlightMessages(prev => {
+      //       if (prev[msg.id]) {
+      //         const { [msg.id]: _, ...rest } = prev;
+
+      //         if (Object.keys(rest).length === 0) {
+      //           setHighlightMenu(false);
+      //         }
+      //         return rest;
+      //       } else {
+      //         return { ...prev, [msg.id]: msg };
+      //       }
+      //     });
+      //   }
+      // }}
     >
       {msg.is_notification ? 
         <div className="text-center my-2">
@@ -508,7 +570,7 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
         </div>
         :
         <div 
-          className={`relative md:max-w-md lg:max-w-lg xl:max-w-xl ${messageIsPhoto(msg) ? '' : 'px-3 py-1'} 
+          className={`relative md:max-w-md lg:max-w-lg xl:max-w-[1000px] ${messageIsPhoto(msg) ? '' : 'px-3 py-1'} 
             ${isMyMessage ? 
               `${msg.isGroupStart && !msg.isGroupEnd ? 'rounded-br-md rounded-tr-2xl':`${msg.isGroupEnd ? 'rounded-tr-md':'rounded-r-md'}`} rounded-l-2xl` 
               : 
@@ -540,7 +602,7 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
           ) : messageIsVideo(msg) ? (
             <VideoMessage fileUrl={msg.file_url} />
           ) : (
-            <div className="relative flex max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl break-words word-break">
+            <div className="relative flex max-w-xs md:max-w-md lg:max-w-lg xl:max-w-[1000px] break-words word-break">
               <div className="flex flex-col text-base wrap-break-word break-all w-full">
                 {msg.forward_message_id && RenderForwardMsg(msg)}
                 
@@ -608,6 +670,15 @@ const RenderMessageItem: React.FC<RenderMessageItemProps> = ({
           )}
         </div>
       }
+
+        <div className="flex items-center ml-2">
+          <div 
+            className={`relative transition-all duration-300 ease-out transform ${highlightMenu && isMyMessage ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-full'}`}
+          >
+            {highlightMessages[msg.id] ? <FaCheckCircle size={30} color="#5ca853"/> : <MdOutlineRadioButtonUnchecked size={30} color="#e3fee0"/>}
+          </div>
+        </div>
+
     </div>
   );
 };

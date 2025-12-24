@@ -124,7 +124,7 @@ export const RequestList: React.FC = () => {
       : 'bg-gradient-to-br from-gray-100 via-gray-50 to-gray-200',
     card: theme === 'dark' 
       ? 'bg-gray-800/90 backdrop-blur-md border border-gray-700 text-gray-100 shadow-2xl' 
-      : 'bg-white/95 backdrop-blur-md border border-gray-200 text-gray-800 shadow-2xl',
+      : 'bg-white/95 border border-gray-200 text-gray-800 shadow-2xl',
     button: {
       primary: theme === 'dark' 
         ? 'bg-blue-600 hover:bg-blue-500 text-white border border-blue-500' 
@@ -676,7 +676,7 @@ export const RequestList: React.FC = () => {
         } animate-pulse delay-500`}></div>
       </div>
 
-      <div className={`p-4 sm:p-6 md:p-7 m-auto max-w-[1400px] min-h-screen relative z-10 ${fontSizeClasses[fontSize]}`}>
+      <div className={`p-4 sm:p-6 md:p-7 m-auto max-w-[1400px] relative z-10 ${fontSizeClasses[fontSize]}`}>
         <ToastContainer 
           position="top-right" 
           autoClose={3000}
@@ -686,12 +686,12 @@ export const RequestList: React.FC = () => {
         {/* Кнопка Назад */}
         <Link
           to="/dashboard"
-          className={`flex text-sm items-center rounded-lg gap-2 px-4 py-2  transition-colors ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'} shadow-lg`}
+          className={`flex text-sm w-fit mb-3 items-center rounded-lg gap-2 px-4 py-2  transition-colors ${theme === 'light' ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'} shadow-lg`}
         >
           <ArrowLeft size={16} />Вернуться на главную
         </Link>
 
-        <div className={`rounded-2xl p-4 sm:p-6 md:p-8 ${glassClasses.card}`}>
+        <div className={`rounded-2xl min-h-[90vh] p-4 sm:p-6 md:p-8 ${glassClasses.card}`}>
           
           {/* Header and controls */}
           <div className={`flex flex-wrap items-center justify-between mb-6 gap-3 print:hidden`}>
@@ -1088,7 +1088,7 @@ export const RequestList: React.FC = () => {
 
               {/* Create request modal */}
               {isCreateModalOpen && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
                   <div
                     className={`rounded-2xl shadow-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto ${glassClasses.modal}`}
                   >
@@ -1300,6 +1300,7 @@ export const RequestList: React.FC = () => {
           )}
         </div>
       </div>
+      <ToastContainer />
     </div>
   );
 };

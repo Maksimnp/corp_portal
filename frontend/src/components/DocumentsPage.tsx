@@ -498,23 +498,23 @@ const DocumentsPage: React.FC = () => {
       };
     }, [isOpen, config, jwtToken]);
 
-  useEffect(() => {
-    if (!screenfull.isEnabled) {
-      console.warn('Fullscreen mode is not supported by this browser.');
-      return;
-    }
+    useEffect(() => {
+      if (!screenfull.isEnabled) {
+        console.warn('Fullscreen mode is not supported by this browser.');
+        return;
+      }
 
-    const handleFullscreenChange = () => {
-      setIsFullscreenActive(screenfull.isEnabled ? screenfull.isFullscreen : false);
-    };
+      const handleFullscreenChange = () => {
+        setIsFullscreenActive(screenfull.isEnabled ? screenfull.isFullscreen : false);
+      };
 
-    screenfull.on('change', handleFullscreenChange);
-    handleFullscreenChange();
+      screenfull.on('change', handleFullscreenChange);
+      handleFullscreenChange();
 
-    return () => {
-      screenfull.off('change', handleFullscreenChange);
-    };
-  }, []);
+      return () => {
+        screenfull.off('change', handleFullscreenChange);
+      };
+    }, []);
 
   const toggleFullscreen = async () => {
     if (!screenfull.isEnabled) {
@@ -1161,6 +1161,7 @@ const DocumentsPage: React.FC = () => {
           jwtToken={onlyOfficeJwtToken}
         />
       )}
+      <ToastContainer />
     </div>
   );
 };
