@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { PaperPlaneRight, Paperclip, Smiley, DotsThreeVertical, X, Microphone, Sticker, Plus, Heart, Trash, UserCircle, ArrowLeft, MagnifyingGlass, ArrowDown } from 'phosphor-react';
-import type { Chat, Message, Contact, MessageContextMenuState, UserContextMenuState } from '../../types/chat';
+import { PaperPlaneRight, DotsThreeVertical, Plus, Heart, Trash, UserCircle, ArrowLeft, MagnifyingGlass, ArrowDown } from 'phosphor-react';
+import type { Chat, Message, MessageContextMenuState, UserContextMenuState } from '../../types/chat';
 import TextareaAutosize from 'react-textarea-autosize';
 import { IoCheckmarkOutline } from "react-icons/io5";
-import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
+import { type EmojiClickData } from 'emoji-picker-react';
 import { getChatDisplayIcon, getChatDisplayName, getTypingText } from '../../utils/chat';
 import RenderEditingMessage from "./EditingMessage";
 import RenderQuotedMessage from "./QuotedMessage";
@@ -12,13 +12,11 @@ import RenderContextMenu from "./ContextMenu";
 import RenderChatInfoSidebar from "./ChatInfoSidebar";
 import RenderUserContextMenu from "./UserContextMenu";
 import { useTheme } from '../../hooks/ThemeContext';
-import { stickerPacks } from '../../data/StickerPacks'
 import FileDragModal from './modals/FileDragModal';
 import { getAvatarData } from "../../utils/avatarCache";
 import RenderForwardMessage from "./ForwardMessage";
 import { TbPhotoCog } from "react-icons/tb";
-import { fetchBackgroundChatData, getBackgroundChatData } from "../../utils/backgroundChatCache";
-import hljs from 'highlight.js';
+import { getBackgroundChatData } from "../../utils/backgroundChatCache";
 import 'highlight.js/styles/github.css';
 
 interface RenderChatBotWindowProps {

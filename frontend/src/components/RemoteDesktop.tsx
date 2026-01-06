@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.1.66.117:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://cloud.mhp.net';
 const WS_BASE_URL = API_BASE_URL.replace('http', 'ws');
 
 interface PC {

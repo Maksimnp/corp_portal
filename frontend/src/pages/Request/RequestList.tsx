@@ -977,7 +977,7 @@ export const RequestList: React.FC = () => {
                                             <img
                                               loading="lazy"
                                               key={i}
-                                              src={`http://192.1.66.117:8000/static/images/${img}`}
+                                              src={`http://cloud.mhp.net/static/images/${img}`}
                                               alt={`Фото ${i + 1}`}
                                               className="w-24 h-24 object-cover rounded-xl border-2 border-transparent hover:border-blue-400 transition-all duration-300 cursor-pointer shadow-lg"
                                               onClick={() =>
@@ -1093,7 +1093,7 @@ export const RequestList: React.FC = () => {
                     className={`rounded-2xl shadow-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto ${glassClasses.modal}`}
                   >
                     <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-2xl font-bold text-gray-900">
+                      <h2 className={`text-2xl font-bold ${theme === 'dark' ? 'text-gray-400' : 'text-gray-900'}`}>
                         Создание запроса
                       </h2>
                       <button
@@ -1109,7 +1109,7 @@ export const RequestList: React.FC = () => {
                     </div>
                     <form onSubmit={handleSubmit} className="space-y-6">
                       <div>
-                        <h3 className="text-lg font-semibold mb-4 text-gray-900">Тип обращения</h3>
+                        <h3 className={`text-lg font-semibold mb-4 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-900'}`}>Тип обращения</h3>
                         <div className="flex gap-3 mb-4">
                           <button
                             type="button"
@@ -1134,16 +1134,16 @@ export const RequestList: React.FC = () => {
                             АСУ
                           </button>
                         </div>
-                        <p className="mb-3 text-sm text-gray-700">
+                        <p className={`mb-3 text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-900'}`}>
                           Проконсультируем по услугам и тарифам, решим вопросы оплаты, переоформления, доступа в личный кабинет.
                         </p>
-                        <p className="text-sm text-gray-700">
+                        <p className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-900'}`}>
                           График работы – Пн-Пт: 8:00 - 20:00<br />
                           Сб: 10:00 - 16:00, Вс: выходной
                         </p>
                       </div>
                       <div>
-                        <label htmlFor="service-type" className="block font-medium mb-3 text-gray-900">
+                        <label htmlFor="service-type" className={`block font-medium mb-3 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-900'}`}>
                           С какой услугой связан ваш запрос*
                         </label>
                         <select
@@ -1170,7 +1170,7 @@ export const RequestList: React.FC = () => {
                         </select>
                       </div>
                       <div>
-                        <h3 className="text-lg font-semibold mb-3 text-gray-900">Оставьте комментарий для описания проблемы:</h3>
+                        <h3 className={`text-lg font-semibold mb-3 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-900'}`}>Оставьте комментарий для описания проблемы:</h3>
                         <textarea
                           value={comment}
                           onChange={(e) => setComment(e.target.value)}
@@ -1260,7 +1260,7 @@ export const RequestList: React.FC = () => {
                     <div className="relative flex items-center justify-center h-[70vh]">
                       {imageData.images.length > 0 && (
                         <img
-                          src={`http://192.1.66.117:8000/static/images/${imageData.images[imageData.index]}`}
+                          src={`http://cloud.mhp.net/static/images/${imageData.images[imageData.index]}`}
                           alt="Увеличенное фото"
                           loading="lazy"
                           className="max-h-full max-w-full object-contain rounded-xl shadow-2xl"

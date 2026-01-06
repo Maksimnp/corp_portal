@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import tailwindcss from '@tailwindcss/vite'
 
-const API_BASE_URL = 'http://192.1.66.117:8000';
+const API_BASE_URL = 'https://cloud.mhp.net';
 
 export default defineConfig({
   plugins: [
@@ -42,6 +42,11 @@ export default defineConfig({
         secure: false,
       },
       '^/chat/.*': {
+        target: API_BASE_URL,
+        changeOrigin: true,
+        secure: false,
+      },
+      '^/faq/.*': {
         target: API_BASE_URL,
         changeOrigin: true,
         secure: false,

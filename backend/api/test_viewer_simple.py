@@ -12,7 +12,7 @@ async def test_create_session():
     """Тестовый viewer для создания сессии"""
     
     # 1. Получаем JWT токен
-    auth_url = "http://192.1.66.117:8000/auth/login"
+    auth_url = "http://cloud.mhp.net/auth/login"
     auth_data = {
         "username": "mnp",
         "password": "Season24"
@@ -33,7 +33,7 @@ async def test_create_session():
         
         # 2. Получаем список ПК
         headers = {"Authorization": f"Bearer {token}"}
-        pcs_response = requests.get("http://192.1.66.117:8000/api/remote/pcs", headers=headers)
+        pcs_response = requests.get("http://cloud.mhp.net/api/remote/pcs", headers=headers)
         pcs_data = pcs_response.json()
         
         logger.info(f"📊 PCs available: {pcs_data}")
@@ -47,7 +47,7 @@ async def test_create_session():
         logger.info(f"🎯 Target PC: {target_pc_id} (status: {target_pc['status']})")
         
         # 3. Подключаемся как viewer и создаем сессию
-        ws_url = f"ws://192.1.66.117:8000/api/remote/viewer?token={token}"
+        ws_url = f"ws://cloud.mhp.net/api/remote/viewer?token={token}"
         
         async with websockets.connect(ws_url) as websocket:
             logger.info("✅ Connected as viewer")

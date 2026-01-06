@@ -4,7 +4,7 @@ import { ArrowLeftIcon, ComputerDesktopIcon, ChartBarIcon, CloudArrowUpIcon } fr
 import { useTheme } from '../../hooks/ThemeContext';
 import { IoRefresh, IoDownload, IoStatsChart } from "react-icons/io5";
 import { toast, ToastContainer } from 'react-toastify';
-import { FiSearch, FiFilter, FiPlus, FiX } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiX } from 'react-icons/fi';
 import { MdOutlineFolderZip } from "react-icons/md";
 import { FaSpinner } from "react-icons/fa";
 interface SoftwareItem {
@@ -84,7 +84,7 @@ const Software: React.FC = () => {
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [currentPath, setCurrentPath] = useState<string>('');
 
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://192.1.66.117:8000';
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   useEffect(() => {
     fetchUserInfo();

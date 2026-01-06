@@ -1,6 +1,6 @@
 // app/api/auth/forgot-password/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { emailService } from '@/services/emailService';
+// import { emailService } from '@/services/emailService';
 import { v4 as uuidv4 } from 'uuid';
 
 // In-memory storage for reset tokens (в продакшене используйте базу данных)
@@ -30,14 +30,14 @@ export async function POST(request: NextRequest) {
     });
 
     // Отправка email
-    const emailSent = await emailService.sendPasswordResetEmail(email, resetToken);
+    // const emailSent = await emailService.sendPasswordResetEmail(email, resetToken);
 
-    if (!emailSent) {
-      return NextResponse.json(
-        { error: 'Ошибка при отправке письма. Попробуйте позже.' },
-        { status: 500 }
-      );
-    }
+    // if (!emailSent) {
+    //   return NextResponse.json(
+    //     { error: 'Ошибка при отправке письма. Попробуйте позже.' },
+    //     { status: 500 }
+    //   );
+    // }
 
     return NextResponse.json({
       message: 'Инструкции по восстановлению пароля отправлены на вашу почту',

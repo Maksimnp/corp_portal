@@ -61,7 +61,7 @@ interface StatusResponse {
   statistics: Statistics;
 }
 
-const API_BASE_URL = 'http://192.1.66.117:8000';
+const API_BASE_URL = 'http://cloud.mhp.net';
 
 const ServerMonitor: React.FC = () => {
   const { token } = useAuth();

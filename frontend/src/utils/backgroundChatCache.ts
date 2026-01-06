@@ -1,6 +1,6 @@
 // utils/backgroundChatCache.ts
 const BACKGROUND_CACHE_PREFIX = 'background:';
-const API_BASE: string = import.meta.env.VITE_API_BASE ?? 'http://192.1.66.117:8000';
+const API_BASE: string = import.meta.env.VITE_API_BASE ?? 'http://cloud.mhp.net';
 
 export const getBackgroundChatData = (bcgID: string): string | null => {
   const cached = localStorage.getItem(`${BACKGROUND_CACHE_PREFIX}${bcgID}`);

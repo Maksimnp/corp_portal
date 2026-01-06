@@ -3,12 +3,12 @@ import { Link } from 'react-router-dom';
 import { ArrowLeftIcon, ComputerDesktopIcon } from '@heroicons/react/24/outline';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css'; // Import Quill styles
-import { IoRefresh, IoDownload, IoStatsChart } from "react-icons/io5";
+import { IoRefresh } from "react-icons/io5";
 import { toast } from 'react-toastify';
 import { useAuth } from '../AuthContext';
-import { Modal, Tooltip, Popover, Button, List, Tag } from 'antd';
+import { Modal, Tooltip } from 'antd';
 import screenfull from 'screenfull';
-import { CloseOutlined, FileOutlined, FullscreenExitOutlined, FullscreenOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { FullscreenExitOutlined, FullscreenOutlined } from '@ant-design/icons';
 
 interface SoftwareItem {
   title: string;
@@ -80,6 +80,7 @@ const quillFormats = [
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const onlyOfficeServerUrl = import.meta.env.VITE_ONLYOFFICE_SERVER_URL;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 
 const FAQ: React.FC = () => {
@@ -113,7 +114,6 @@ const FAQ: React.FC = () => {
   });
   const [allSoftware, setAllSoftware] = useState<SoftwareItem[]>([]);
   const [currentPath, setCurrentPath] = useState<string>('');
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://192.1.66.117:8000';
   const editContainerRef = useRef<HTMLDivElement>(null);
   const [isOnlyOfficeModalOpen, setIsOnlyOfficeModalOpen] = useState(false);
   const [onlyOfficeConfig, setOnlyOfficeConfig] = useState<any>(null);
@@ -752,9 +752,11 @@ const FAQ: React.FC = () => {
   };
 
   const startEdit = (faq: FAQItem) => {
-    editContainerRef.current?.scrollIntoView({ behavior: 'auto' })
     setEditingFaq(faq);
     setShowEditForm(true);
+    setTimeout(() => {
+      editContainerRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 300)
   };
 
   const handleEditFAQ = async () => {
@@ -1402,7 +1404,7 @@ const FAQ: React.FC = () => {
             filteredFaqs.map(faq => (
               <div 
                 key={faq.id} 
-                className={`rounded-2xl overflow-hidden transition-all hover:scale-[1.02] ${
+                className={`rounded-2xl overflow-hidden transition-all ${
                   theme === 'dark' 
                     ? 'bg-black/20 backdrop-blur-lg border border-white/10 hover:border-white/20' 
                     : 'bg-white/70 backdrop-blur-lg border border-white/20 hover:border-gray-300/50'

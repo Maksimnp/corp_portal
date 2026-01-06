@@ -5,7 +5,6 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { DocumentStatus, DocumentPermission } from '../../models/documentModels';
 import { Modal, Tooltip, Popover, Button, List, Tag } from 'antd';
-import type { PopoverProps } from 'antd';
 import screenfull from 'screenfull';
 import { CloseOutlined, FileOutlined, FullscreenExitOutlined, FullscreenOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { ArrowLeft, Moon, Sun } from 'phosphor-react';

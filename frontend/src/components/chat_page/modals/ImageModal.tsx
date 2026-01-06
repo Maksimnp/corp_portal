@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { ArrowBendUpLeft, ArrowBendUpRight, Download, X, MagnifyingGlassPlus, MagnifyingGlassMinus, ArrowLeft, ArrowRight } from 'phosphor-react';
+import { ArrowBendUpLeft, Download, X, MagnifyingGlassPlus, MagnifyingGlassMinus, ArrowLeft, ArrowRight } from 'phosphor-react';
 import type { Chat, Message } from '../../../types/chat';
 import { useTheme } from '../../../hooks/ThemeContext';
-import { formatTimestamp, getChatDisplayIcon, getChatDisplayName, getTypingText, formatTimestampSidebar, resolveFileUrl } from '../../../utils/chat';
+import { getChatDisplayIcon, resolveFileUrl } from '../../../utils/chat';
 import { DeleteOutlined } from '@ant-design/icons';
 import './ImageModal.css';
 interface ImageModalProps {

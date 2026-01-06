@@ -1,6 +1,6 @@
 import type React from "react";
 import { X } from 'phosphor-react';
-import { IoArrowUndoOutline, IoArrowRedoOutline  } from "react-icons/io5";
+import { IoArrowRedoOutline  } from "react-icons/io5";
 import type { Message } from '../../types/chat';
 import { useTheme } from '../../hooks/ThemeContext';
 import {  getFileIcon, messageIsPhoto } from '../../utils/chat';

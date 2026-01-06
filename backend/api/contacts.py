@@ -382,7 +382,7 @@ def search_ad_users(search_term: str = "", limit: int = 250) -> List[Contact]:
                 base_filter = "(&(objectClass=user)(objectCategory=person)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))"
                 if search_term and search_term.strip() != "*":
                     escaped_term = escape_ldap_filter_chars(search_term)
-                    search_filter = f"(&{base_filter}(|(displayName=*{escaped_term}*)(sAMAccountName=*{escaped_term}*)(mail=*{escaped_term}*)(telephoneNumber=*{escaped_term}*)(otherTelephone=*{escaped_term}*)(mobile=*{escaped_term}*)))"
+                    search_filter = f"(&{base_filter}(|(displayName=*{escaped_term}*)(sAMAccountName=*{escaped_term}*)(mail=*{escaped_term}*)(telephoneNumber=*{escaped_term}*)(otherTelephone=*{escaped_term}*)(department=*{escaped_term}*)(mobile=*{escaped_term}*)))"
                 else:
                     search_filter = base_filter
                 

@@ -64,17 +64,17 @@ const UserAvatar: React.FC<{ userId: string; size?: number; mod?: string; theme?
     if (loading) return <div className={`${mod === 'square' ? 'rounded-1' : 'rounded-full'} bg-gray-300 animate-pulse`} style={{ width: size, height: size }} />;
     
     if (!avatarsData && contact) return <div
-        className={`rounded-full w-14 h-14 flex items-center justify-center text-xl font-bold shadow-lg ${
-          theme === 'dark' 
-            ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white' 
-            : 'bg-gradient-to-br from-blue-400 to-purple-400 text-white'
-        }`}
-      >
-        {getInitials(contact)}
-      </div>
+      className={`rounded-full w-14 h-14 flex items-center justify-center text-xl font-bold shadow-lg ${
+        theme === 'dark' 
+          ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white' 
+          : 'bg-gradient-to-br from-blue-400 to-purple-400 text-white'
+      }`}
+    >
+      {getInitials(contact)}
+    </div>
 
     return <img 
-      src={avatarsData} 
+      src={avatarsData || ''} 
       alt="avatar" 
       loading='lazy'
       className={`${mod === 'square' ? 'rounded-1' : 'rounded-full'} object-cover`}

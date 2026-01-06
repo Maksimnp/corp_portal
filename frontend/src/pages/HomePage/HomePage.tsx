@@ -120,7 +120,7 @@ const LoginModal: React.FC<{
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={onClose}
+          // onClick={onClose}
           onKeyDown={handleKeyDown}
           tabIndex={-1}
           role="dialog"
@@ -148,12 +148,12 @@ const LoginModal: React.FC<{
 
             <button
               onClick={onClose}
-              className="absolute top-5 right-5 text-gray-300 hover:text-cyan-400 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 rounded-full p-2 z-10 backdrop-blur-sm bg-white/5 border border-white/10"
+              className="absolute top-5 right-5 text-gray-300 hover:text-cyan-400 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500 rounded-full p-2 z-11 backdrop-blur-sm bg-white/5 border border-white/10"
               aria-label="Закрыть модальное окно"
               tabIndex={0}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
 

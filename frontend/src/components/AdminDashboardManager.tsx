@@ -3,11 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { 
   Cog6ToothIcon,
   UserGroupIcon,
-  EyeIcon,
-  EyeSlashIcon,
-  TrashIcon,
-  PlusIcon,
-  DocumentDuplicateIcon,
   ArrowPathIcon,
   MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';

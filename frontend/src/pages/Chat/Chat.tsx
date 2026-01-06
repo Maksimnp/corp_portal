@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAuth } from '../AuthContext';
-import { DotsThreeVertical, MagnifyingGlass, UserCircle, Users, Plus } from 'phosphor-react';
 import copy from 'copy-to-clipboard';
 import type { Chat, Message, Contact } from '../../types/chat';
 import RenderChatWindow  from '../../components/chat_page/ChatWindow';
 import RenderChatBotWindow from '../../components/chat_page/ChatBotWindow';
-import { getChatDisplayIcon, getChatDisplayName, normalizeMessages } from '../../utils/chat';
+import { normalizeMessages } from '../../utils/chat';
 import RenderSidebar from '../../components/chat_page/Sidebar';
 import RenderModals from '../../components/chat_page/Modals';
 import { useTheme } from '../../hooks/ThemeContext';
@@ -141,8 +140,8 @@ const ChatComponent: React.FC = () => {
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
-  const WS_BASE: string = import.meta.env.VITE_WS_BASE ?? (import.meta.env.VITE_ENV === 'production' ? 'wss://192.1.66.117:8000' : 'ws://192.1.66.117:8000');
-  const API_BASE: string = import.meta.env.VITE_API_BASE ?? 'http://192.1.66.117:8000';
+  const WS_BASE: string = import.meta.env.VITE_WS_BASE ?? (import.meta.env.VITE_ENV === 'production' ? 'wss://cloud.mhp.net' : 'ws://cloud.mhp.net');
+  const API_BASE: string = import.meta.env.VITE_API_BASE_URL ?? 'http://cloud.mhp.net';
 
   const authHeaders = useCallback(() => ({
     Authorization: `Bearer ${token}`,

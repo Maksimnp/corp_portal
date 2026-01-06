@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../hooks/ThemeContext';
 import { MoonIcon, SunIcon } from '@heroicons/react/24/outline';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://192.1.66.117:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://cloud.mhp.net';
 
 // Define interface for error response data
 interface ErrorResponse {

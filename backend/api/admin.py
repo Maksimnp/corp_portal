@@ -2,8 +2,6 @@
 from fastapi import APIRouter, HTTPException, Depends, Header, Query
 from services.admin_manager import admin_manager
 from services.jwt_utils import verify_token
-from sqlalchemy.orm import Session
-from db.database import get_db_connection
 import json
 import logging
 import os

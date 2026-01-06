@@ -197,7 +197,7 @@ const ResetPasswordPage: React.FC = () => {
 
             <button
               type="submit"
-              disabled={isLoading || tokenValid === false}
+              disabled={isLoading}
               className="w-full py-4 bg-gradient-to-r from-cyan-600 to-cyan-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isLoading ? (

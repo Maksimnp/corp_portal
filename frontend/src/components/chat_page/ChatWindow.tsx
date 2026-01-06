@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { PaperPlaneRight, Paperclip, Smiley, DotsThreeVertical, X, Microphone, Sticker, Plus, Heart, Trash, UserCircle, ArrowLeft, MagnifyingGlass, ArrowDown } from 'phosphor-react';
-import type { Chat, Message, Contact, MessageContextMenuState, UserContextMenuState } from '../../types/chat';
+import { PaperPlaneRight, Paperclip, Smiley, DotsThreeVertical, X, Sticker, Plus, Heart, Trash, UserCircle, ArrowLeft, MagnifyingGlass, ArrowDown } from 'phosphor-react';
+import type { Chat, Message, MessageContextMenuState, UserContextMenuState } from '../../types/chat';
 import TextareaAutosize from 'react-textarea-autosize';
 import { IoCheckmarkOutline } from "react-icons/io5";
 import EmojiPicker, { type EmojiClickData } from 'emoji-picker-react';
@@ -17,8 +17,7 @@ import FileDragModal from './modals/FileDragModal';
 import { getAvatarData } from "../../utils/avatarCache";
 import RenderForwardMessage from "./ForwardMessage";
 import { TbPhotoCog } from "react-icons/tb";
-import { fetchBackgroundChatData, getBackgroundChatData } from "../../utils/backgroundChatCache";
-import { previousDay } from "date-fns";
+import { getBackgroundChatData } from "../../utils/backgroundChatCache";
 
 interface RenderChatWindowProps {
     forwardMessage: Message | null;

@@ -61,7 +61,7 @@ interface AutoUpdateResponse {
     detail?: string;
 }
 
-const API_BASE_URL = 'http://192.1.66.117:8000';
+const API_BASE_URL = 'https://cloud.mhp.net';
 
 const EmployeeTrackerApp: React.FC = () => {
     // Component states

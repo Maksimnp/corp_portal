@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, type CSSProperties } from 'react';
+import React, { useState, useEffect, useMemo, useRef, type CSSProperties, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   BellIcon,
@@ -19,16 +19,15 @@ import {
   QuestionMarkCircleIcon,
   UsersIcon,
   ComputerDesktopIcon,
-  ClockIcon,
-  CalendarIcon,
   Cog6ToothIcon,
   ExclamationTriangleIcon,
   XMarkIcon,
-  PaperAirplaneIcon,
   CameraIcon,
   EnvelopeIcon,
   BuildingOfficeIcon,
   PhoneArrowUpRightIcon,
+  CloudIcon,
+  MapPinIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../../hooks/ThemeContext';
 import { SupportModal } from '../../components/SupportModal';
@@ -69,6 +68,19 @@ const services = [
 
 const JITSI_URL = import.meta.env.VITE_API_JITSI_URL;
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const WEATHER_API_KEY = import.meta.env.VITE_WEATHER_API_KEY || '';
+const DEFAULT_CITY = 'Minsk';
+
+interface WeatherData {
+  temp: number;
+  feels_like: number;
+  description: string;
+  icon: string;
+  city: string;
+  humidity: number;
+  wind_speed: number;
+  pressure: number;
+}
 
 interface UserProfile {
   id: string;
@@ -198,6 +210,205 @@ const Snowfall: React.FC<SnowfallProps> = ({
           data-testid="snowflake"
         />
       ))}
+    </div>
+  );
+};
+
+// ==================== WEATHER DATA HOOK ====================
+const useWeather = () => {
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchWeatherData = useCallback(async () => {
+    try {
+      if (navigator.geolocation && WEATHER_API_KEY) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const { latitude, longitude } = position.coords;
+            await fetchWeatherByCoords(latitude, longitude);
+          },
+          async () => {
+            await fetchWeatherByCity(DEFAULT_CITY);
+          }
+        );
+      } else if (WEATHER_API_KEY) {
+        await fetchWeatherByCity(DEFAULT_CITY);
+      } else {
+        // Mock data for development
+        setWeather({
+          temp: -5,
+          feels_like: -9,
+          description: 'Снег',
+          icon: '13d',
+          city: 'Минск',
+          humidity: 85,
+          wind_speed: 3.5,
+          pressure: 1015
+        });
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error('Weather fetch error:', err);
+      setError('Не удалось загрузить погоду');
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchWeatherByCoords = async (lat: number, lon: number) => {
+    try {
+      const response = await fetch(
+        `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&lang=ru&appid=${WEATHER_API_KEY}`
+      );
+      if (!response.ok) throw new Error('Weather API error');
+      const data = await response.json();
+      setWeather({
+        temp: Math.round(data.main.temp),
+        feels_like: Math.round(data.main.feels_like),
+        description: data.weather[0].description,
+        icon: data.weather[0].icon,
+        city: data.name,
+        humidity: data.main.humidity,
+        wind_speed: data.wind.speed,
+        pressure: data.main.pressure
+      });
+    } catch (err) {
+      setError('Ошибка загрузки погоды');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchWeatherByCity = async (city: string) => {
+    try {
+      const response = await fetch(
+        `https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&lang=ru&appid=${WEATHER_API_KEY}`
+      );
+      if (!response.ok) throw new Error('Weather API error');
+      const data = await response.json();
+      setWeather({
+        temp: Math.round(data.main.temp),
+        feels_like: Math.round(data.main.feels_like),
+        description: data.weather[0].description,
+        icon: data.weather[0].icon,
+        city: data.name,
+        humidity: data.main.humidity,
+        wind_speed: data.wind.speed,
+        pressure: data.main.pressure
+      });
+    } catch (err) {
+      setError('Ошибка загрузки погоды');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchWeatherData();
+    const interval = setInterval(fetchWeatherData, 30 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchWeatherData]);
+
+  const getWeatherEmoji = (icon: string): string => {
+    const iconMap: Record<string, string> = {
+      '01d': '☀️', '01n': '🌙',
+      '02d': '⛅', '02n': '☁️',
+      '03d': '☁️', '03n': '☁️',
+      '04d': '☁️', '04n': '☁️',
+      '09d': '🌧️', '09n': '🌧️',
+      '10d': '🌦️', '10n': '🌧️',
+      '11d': '⛈️', '11n': '⛈️',
+      '13d': '❄️', '13n': '❄️',
+      '50d': '🌫️', '50n': '🌫️',
+    };
+    return iconMap[icon] || '🌡️';
+  };
+
+  return { weather, loading, error, getWeatherEmoji };
+};
+
+// ==================== CLOCK & WEATHER WIDGET ====================
+const ClockWeatherWidget: React.FC<{ theme: string }> = ({ theme }) => {
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const { weather, loading, error, getWeatherEmoji } = useWeather();
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+  };
+
+  return (
+      <div className={`h-full flex flex-col justify-center p-4 rounded-2xl border-2 border-gray-700 hover:border-cyan-600
+        ${theme === 'dark'
+          ? 'bg-gradient-to-br from-gray-900/80 via-cyan-900/20 to-gray-800/80 hover:from-cyan-900/30 hover:via-gray-900/40 hover:to-blue-900/30'
+          : 'bg-gradient-to-br from-white/60 via-blue-50/50 to-white/40 hover:from-blue-100/60 hover:via-white/50 hover:to-cyan-100/50'}`}>
+      {/* Clock Section */}
+      <div className="mb-1 flex items-center justify-between">
+        <div>
+          <div className={`time-display text-4xl font-bold tracking-tight mb-1 ${
+            theme === 'dark'
+              ? 'bg-gradient-to-r from-white via-violet-200 to-cyan-200 bg-clip-text text-transparent'
+              : 'bg-gradient-to-r from-gray-900 via-violet-700 to-indigo-700 bg-clip-text text-transparent'
+          }`}>
+            {formatTime(currentTime)}
+          </div>
+          {weather && (<div className={`flex items-center gap-1 text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+            <MapPinIcon className="h-3 w-3" />
+            {weather.city}
+          </div>)}
+          <p className={`text-sm font-medium capitalize ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+            {formatDate(currentTime)}
+          </p>
+        </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-4">
+            <div className="animate-pulse w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-700" />
+          </div>
+        ) : error || !weather ? (
+          <div className="flex items-center justify-center gap-2 py-4">
+            <CloudIcon className={`h-6 w-6 ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`} />
+            <span className={`text-sm ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+              Погода недоступна
+            </span>
+          </div>
+        ) : (
+          <div className="">
+            <div className="flex items-center gap-3 justify-end">
+              <div className="weather-icon text-3xl">
+                {getWeatherEmoji(weather.icon)}
+              </div>
+              <div>
+                <div className={`text-2xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+                  {weather.temp}°C
+                </div>
+                <p className={`text-xs capitalize ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {weather.description}
+                </p>
+              </div>
+            </div>
+            
+            <div className="text-right flex gap-3">
+              {/* <div className={`flex items-center gap-1 text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                <MapPinIcon className="h-3 w-3" />
+                {weather.city}
+              </div> */}
+              <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
+                Ощущается: {weather.feels_like}°C
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -697,10 +908,10 @@ const DateTimeWidget: React.FC<{ theme: string; availableServices: number }> = R
         <div className="text-center h-full flex flex-col justify-center space-y-3 relative z-10">
           <div className="space-y-1">
             <div
-              className={`text-4xl font-bold font-bold tracking-tight leading-none drop-shadow-lg ${
+              className={`text-4xl font-bold tracking-tight leading-none drop-shadow-lg ${
                 theme === 'dark'
-                  ? 'text-white bg-gradient-to-r from-cyan-300 to-blue-300 bg-clip-text text-transparent'
-                  : 'text-gray-900 bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent'
+                  ? 'text-white bg-gradient-to-r from-cyan-300 to-blue-300 bg-clip-text'
+                  : 'text-gray-900 bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text'
               }`}
             >
               {formatTime(currentTime)}
@@ -1198,10 +1409,10 @@ export const Dashboard: React.FC = () => {
 
   const getWebSocketUrl = (): string => {
     if (BASE_URL) {
-      return BASE_URL.replace('http', 'ws') + '/chat/ws?token=' + encodeURIComponent(token);
+      return BASE_URL.replace('https', 'wss') + '/chat/ws?token=' + encodeURIComponent(token);
     }
 
-    return `ws://${window.location.hostname}:8000/chat/ws?token=${encodeURIComponent(token)}`;
+    return `wss://${window.location.hostname}:8000/chat/ws?token=${encodeURIComponent(token)}`;
   };
 
   useEffect(() => {
@@ -1530,9 +1741,8 @@ export const Dashboard: React.FC = () => {
                 </p>
               </div>
             </div>
-
-            <div className="lg:col-span-1">
-              <DateTimeWidget theme={theme} availableServices={filteredServices.length} />
+            <div className='lg:col-span-1'>
+              <ClockWeatherWidget theme={theme} />
             </div>
           </div>
 

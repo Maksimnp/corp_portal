@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import type { MessageContextMenuState } from '../../types/chat';
-import { CopyOutlined, DeleteOutlined, EditOutlined, SmileOutlined } from '@ant-design/icons';
+import { CopyOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { useTheme } from '../../hooks/ThemeContext';
 import { IoArrowUndoOutline, IoArrowRedoOutline  } from "react-icons/io5";
 import { MdOutlineKeyboardArrowDown } from "react-icons/md";

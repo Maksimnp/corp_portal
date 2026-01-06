@@ -1,9 +1,8 @@
 from fastapi import APIRouter, HTTPException, Request, Body, status, Depends, BackgroundTasks
-from pydantic import BaseModel, field_validator, EmailStr
+from pydantic import BaseModel, field_validator
 import logging
 from datetime import datetime, timedelta
 import uuid
-from typing import Optional
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -79,22 +78,22 @@ class EmailService:
             
             text_content = f"""ВОССТАНОВЛЕНИЕ ПАРОЛЯ
 
-Здравствуйте!
+            Здравствуйте!
 
-Мы получили запрос на восстановление пароля для вашей учетной записи в корпоративном портале Минскхлебпром.
+            Мы получили запрос на восстановление пароля для вашей учетной записи в корпоративном портале Минскхлебпром.
 
-Для восстановления пароля перейдите по ссылке:
-{reset_link}
+            Для восстановления пароля перейдите по ссылке:
+            {reset_link}
 
-Ссылка действительна в течение 1 часа.
+            Ссылка действительна в течение 1 часа.
 
-ВНИМАНИЕ: Если вы не запрашивали восстановление пароля, проигнорируйте это письмо.
+            ВНИМАНИЕ: Если вы не запрашивали восстановление пароля, проигнорируйте это письмо.
 
----
-С уважением,
-Команда корпоративного портала Минскхлебпром
-portal@minskhleb.by
-"""
+            ---
+            С уважением,
+            Команда корпоративного портала Минскхлебпром
+            portal@minskhleb.by
+            """
             message.attach(MIMEText(text_content, "plain"))
             
             logger.info(f"Attempting to send email to {email} from {self.smtp_user}")

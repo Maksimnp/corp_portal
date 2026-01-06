@@ -2,7 +2,6 @@
 import React from 'react';
 import { Trash, X } from 'phosphor-react';
 import type { Chat, Message } from '../../../types/chat';
-import { getChatDisplayName } from '../../../utils/chat';
 import { useTheme } from '../../../hooks/ThemeContext';
 
 interface DeleteMessageModalProps {

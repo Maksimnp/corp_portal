@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, Input, Card, Spin, Form, Modal, Table, Space, message, Select } from 'antd';
-import { ArrowLeftOutlined, SaveOutlined, CheckCircleOutlined, CloseCircleOutlined, EditOutlined, SearchOutlined, PlusOutlined, DeleteOutlined, PauseOutlined } from '@ant-design/icons';
+import { SaveOutlined, CheckCircleOutlined, CloseCircleOutlined, EditOutlined, SearchOutlined, PlusOutlined, DeleteOutlined, PauseOutlined } from '@ant-design/icons';
 import { useAuth } from '../pages/AuthContext';
 import { useTheme } from '../hooks/ThemeContext';
 
@@ -105,7 +105,7 @@ const EditADContacts: React.FC = () => {
   useEffect(() => {
     const filtered = contacts
       .filter((contact) =>
-        [contact.displayName, contact.email, contact.sam_account_name]
+        [contact.displayName, contact.email, contact.sam_account_name, contact.department, contact.phone_city]
           .filter(Boolean)
           .some((field) => field?.toLowerCase().includes(searchQuery.toLowerCase()))
       )

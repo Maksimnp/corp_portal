@@ -1,13 +1,12 @@
 import type React from "react";
 import type { Chat, Message } from '../../types/chat';
 import {  formatTimestamp, getFileIcon, messageIsPhoto, resolveFileUrl } from '../../utils/chat';
-import { FileOutlined } from '@ant-design/icons';
-import { IoArrowUndoOutline, IoArrowRedoOutline  } from "react-icons/io5";
+import { IoArrowUndoOutline } from "react-icons/io5";
 import { Check, Checks, Paperclip, User } from 'phosphor-react';
 import { useAuth } from "../../pages/AuthContext";
 import { marked } from 'marked';
 import { useTheme } from '../../hooks/ThemeContext';
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getAvatarData } from "../../utils/avatarCache";
 import './MessageItem.css';
 import hljs from 'highlight.js';

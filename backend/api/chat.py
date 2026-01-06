@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Body, Query, UploadFile, File, Path
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, UniqueConstraint, create_engine, desc, distinct, func
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, UniqueConstraint, create_engine, desc, func
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 from sqlalchemy.orm import declarative_base, sessionmaker, Session, relationship
 from sqlalchemy.sql import func
@@ -20,10 +20,8 @@ import anyio
 from sqlalchemy.orm.attributes import flag_modified
 from starlette.websockets import WebSocketState
 from fastapi.responses import FileResponse
-from pathlib import Path as FilePath
 import dashscope
 from dashscope import Generation
-from openai import OpenAI
 from openai import AsyncOpenAI
 # -----------------------------
 # Логирование

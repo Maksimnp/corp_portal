@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
-import type { Chat, Message, Contact, LastMessage } from '../../types/chat';
+import React from "react";
+import type { Chat, Message} from '../../types/chat';
 import { formatDate } from '../../utils/chat';
 import RenderMessageItem from "./MessageItem";
 

@@ -7,8 +7,7 @@ import {
   EyeIcon,
   EyeSlashIcon,
   BellIcon,
-  ArrowsPointingOutIcon,
-  ArrowsPointingInIcon
+  ArrowsPointingOutIcon
 } from '@heroicons/react/24/outline';
 import { useTheme } from '../hooks/ThemeContext';
 

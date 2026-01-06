@@ -1,8 +1,5 @@
-import { MagnifyingGlass, UserCircle, Users, Broadcast, X } from 'phosphor-react';
 import type { Chat, Message, Contact } from '../../types/chat';
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { getChatDisplayIcon, getChatDisplayName } from '../../utils/chat';
-import { useTheme } from '../../hooks/ThemeContext';
+import React from 'react'
 import ContactSearchModal from './modals/ContactSearchModal';
 import CreateGroupModal from './modals/CreateGroupModal';
 import CreateChannelModal from './modals/CreateChannelModal';
@@ -13,7 +10,6 @@ import DeleteChatModal from './modals/DeleteChatModal';
 import ImageModal from './modals/ImageModal';
 import DeleteMessageModal from './modals/DeleteMessageModal';
 import ForwardMessageModal from './modals/ForwardMessageModal';
-import FileDragModal from './modals/FileDragModal';
 
 export interface RenderModalsProps {
   handleContextMenuQuote: () => void;
